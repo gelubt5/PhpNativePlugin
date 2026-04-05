@@ -1,0 +1,13 @@
+# Build outputs
+build/
+out/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Binaries (large files)
+*.so
