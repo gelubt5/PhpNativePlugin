@@ -1271,35 +1271,36 @@ public class PhpNativePlugin {
                 m_overlayContainer.removeAllViews();
                 m_viewRegistry.clear();
 
-                // Create main layout
+                // Create ScrollView wrapper
                 ScrollView scrollView = new ScrollView(m_ctx);
                 scrollView.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 ));
-                scrollView.setBackgroundColor(Color.WHITE);
 
-                LinearLayout layout = new LinearLayout(m_ctx);
-                layout.setOrientation(LinearLayout.VERTICAL);
-                layout.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
-                layout.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
-
-                // Process children or single component
-                JSONArray children = root.optJSONArray("children");
-                if (children != null && children.length() > 0) {
-                    for (int i = 0; i < children.length(); i++) {
-                        processComponent(children.getJSONObject(i), layout);
+                // Process the root element - it should be a layout
+                View rootView = processComponentRecursive(root);
+                
+                if (rootView != null) {
+                    // Apply default background if not set
+                    if (rootView.getBackground() == null) {
+                        rootView.setBackgroundColor(Color.WHITE);
                     }
-                } else if (root.has("type")) {
-                    processComponent(root, layout);
+                    scrollView.addView(rootView);
+                } else {
+                    // Fallback: create default layout
+                    LinearLayout fallbackLayout = new LinearLayout(m_ctx);
+                    fallbackLayout.setOrientation(LinearLayout.VERTICAL);
+                    fallbackLayout.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
+                    fallbackLayout.setBackgroundColor(Color.WHITE);
+                    fallbackLayout.setLayoutParams(new ScrollView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ));
+                    scrollView.addView(fallbackLayout);
                 }
 
-                scrollView.addView(layout);
                 m_overlayContainer.addView(scrollView);
-
                 Log.d(TAG, "UI rendered with " + m_viewRegistry.size() + " views");
 
             } catch (Exception e) {
@@ -1309,33 +1310,63 @@ public class PhpNativePlugin {
         });
     }
 
-    private void processComponent(JSONObject item, LinearLayout parent) {
+    /**
+     * Recursively processes a JSON component and its children.
+     * Creates the view, applies attributes, sets up event listeners, 
+     * and if it's a ViewGroup, recursively processes all children.
+     *
+     * @param item The JSONObject describing the component.
+     * @return The created View (or ViewGroup with children).
+     */
+    private View processComponentRecursive(JSONObject item) {
         String type = item.optString("type", "");
-        if (type.isEmpty()) return;
+        if (type.isEmpty()) return null;
 
         View view = createComponent(type);
-        if (view != null) {
-            // Set layout params with margins
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-            params.setMargins(0, dpToPx(4), 0, dpToPx(4));
-            view.setLayoutParams(params);
+        if (view == null) return null;
 
-            // Register view by ID if present
-            String viewId = item.optString("id", null);
-            if (viewId != null && !viewId.isEmpty()) {
-                m_viewRegistry.put(viewId, view);
+        // Register view by ID if present
+        String viewId = item.optString("id", null);
+        if (viewId != null && !viewId.isEmpty()) {
+            m_viewRegistry.put(viewId, view);
+        }
+
+        // Setup event listeners
+        setupEventListeners(view, item, viewId);
+
+        // Apply attributes (including layout params, padding, etc.)
+        applyAttributes(view, item);
+
+        // If it's a ViewGroup (layout), process children recursively
+        if (view instanceof ViewGroup) {
+            ViewGroup viewGroup = (ViewGroup) view;
+            JSONArray children = item.optJSONArray("children");
+            
+            if (children != null && children.length() > 0) {
+                for (int i = 0; i < children.length(); i++) {
+                    try {
+                        JSONObject childItem = children.getJSONObject(i);
+                        View childView = processComponentRecursive(childItem);
+                        
+                        if (childView != null) {
+                            viewGroup.addView(childView);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing child at index " + i, e);
+                    }
+                }
             }
+        }
 
-            // Setup event listeners
-            setupEventListeners(view, item, viewId);
+        return view;
+    }
 
-            // Apply attributes
-            applyAttributes(view, item);
-
-            // Add to parent
+    /**
+     * @deprecated Use processComponentRecursive instead
+     */
+    private void processComponent(JSONObject item, ViewGroup parent) {
+        View view = processComponentRecursive(item);
+        if (view != null) {
             parent.addView(view);
         }
     }
@@ -1370,19 +1401,40 @@ public class PhpNativePlugin {
                 return new ImageView(m_ctx);
             case "ProgressBar":
                 return new ProgressBar(m_ctx, null, android.R.attr.progressBarStyleHorizontal);
+            case "SeekBar":
+                return new android.widget.SeekBar(m_ctx);
+            case "RatingBar":
+                return new android.widget.RatingBar(m_ctx);
+            case "Spinner":
+                return new android.widget.Spinner(m_ctx);
             case "VerticalLayout":
             case "LinearLayout":
                 LinearLayout ll = new LinearLayout(m_ctx);
                 ll.setOrientation(LinearLayout.VERTICAL);
                 return ll;
+            case "HorizontalLayout":
+                LinearLayout hl = new LinearLayout(m_ctx);
+                hl.setOrientation(LinearLayout.HORIZONTAL);
+                return hl;
+            case "FrameLayout":
+                return new FrameLayout(m_ctx);
+            case "RelativeLayout":
+                return new android.widget.RelativeLayout(m_ctx);
+            case "ScrollView":
+                return new ScrollView(m_ctx);
+            case "HorizontalScrollView":
+                return new android.widget.HorizontalScrollView(m_ctx);
             default:
                 // Try to find in common packages
                 String[] packages = {
                     "android.widget.",
+                    "android.view.",
                     "androidx.appcompat.widget.",
                     "com.google.android.material.button.",
                     "com.google.android.material.switchmaterial.",
-                    "com.google.android.material.checkbox."
+                    "com.google.android.material.checkbox.",
+                    "com.google.android.material.textfield.",
+                    "com.google.android.material.card."
                 };
                 for (String pkg : packages) {
                     try {
@@ -1688,14 +1740,42 @@ public class PhpNativePlugin {
             );
         }
 
-        // Width
+        // Width (use screen width as reference for percentages)
         if (json.has("width")) {
-            params.width = parseLayoutDimension(json.optString("width"));
+            Object widthVal = json.opt("width");
+            if (widthVal instanceof Number) {
+                double num = ((Number) widthVal).doubleValue();
+                if (num > 0 && num <= 1) {
+                    params.width = (int) (num * getScreenWidth());
+                } else if (num == -1) {
+                    params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                } else if (num == -2) {
+                    params.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+                } else {
+                    params.width = dpToPx((int) num);
+                }
+            } else {
+                params.width = parseLayoutDimension(json.optString("width"));
+            }
         }
 
-        // Height
+        // Height (use screen height as reference for percentages)
         if (json.has("height")) {
-            params.height = parseLayoutDimension(json.optString("height"));
+            Object heightVal = json.opt("height");
+            if (heightVal instanceof Number) {
+                double num = ((Number) heightVal).doubleValue();
+                if (num > 0 && num <= 1) {
+                    params.height = (int) (num * getScreenHeight());
+                } else if (num == -1) {
+                    params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+                } else if (num == -2) {
+                    params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                } else {
+                    params.height = dpToPx((int) num);
+                }
+            } else {
+                params.height = parseLayoutDimensionHeight(json.optString("height"));
+            }
         }
 
         // Weight (LinearLayout only)
@@ -1715,22 +1795,22 @@ public class PhpNativePlugin {
 
         // Margins - single value for all sides
         if (json.has("margin")) {
-            int margin = dpToPx(json.optInt("margin", 0));
+            int margin = parseDimensionValue(json.opt("margin"), getScreenWidth());
             params.setMargins(margin, margin, margin, margin);
         }
 
-        // Individual margins
-        int marginLeft = json.has("marginLeft") ? dpToPx(json.optInt("marginLeft")) : params.leftMargin;
-        int marginTop = json.has("marginTop") ? dpToPx(json.optInt("marginTop")) : params.topMargin;
-        int marginRight = json.has("marginRight") ? dpToPx(json.optInt("marginRight")) : params.rightMargin;
-        int marginBottom = json.has("marginBottom") ? dpToPx(json.optInt("marginBottom")) : params.bottomMargin;
+        // Individual margins (horizontal uses screen width, vertical uses screen height)
+        int marginLeft = json.has("marginLeft") ? parseDimensionValue(json.opt("marginLeft"), getScreenWidth()) : params.leftMargin;
+        int marginTop = json.has("marginTop") ? parseDimensionValue(json.opt("marginTop"), getScreenHeight()) : params.topMargin;
+        int marginRight = json.has("marginRight") ? parseDimensionValue(json.opt("marginRight"), getScreenWidth()) : params.rightMargin;
+        int marginBottom = json.has("marginBottom") ? parseDimensionValue(json.opt("marginBottom"), getScreenHeight()) : params.bottomMargin;
         
         // marginStart/marginEnd (API 17+)
         if (json.has("marginStart")) {
-            marginLeft = dpToPx(json.optInt("marginStart"));
+            marginLeft = parseDimensionValue(json.opt("marginStart"), getScreenWidth());
         }
         if (json.has("marginEnd")) {
-            marginRight = dpToPx(json.optInt("marginEnd"));
+            marginRight = parseDimensionValue(json.opt("marginEnd"), getScreenWidth());
         }
         
         params.setMargins(marginLeft, marginTop, marginRight, marginBottom);
@@ -1753,11 +1833,15 @@ public class PhpNativePlugin {
      * Applies padding to a View from JSON attributes.
      * Supports: padding (all sides), paddingLeft/Right/Top/Bottom, paddingStart/End,
      * paddingHorizontal, paddingVertical.
+     * Values can be integers (dp), decimals 0-1 (percentage), or strings with suffixes.
      *
      * @param view The View to apply padding to.
      * @param json The JSONObject containing padding values.
      */
     private void applyPadding(View view, JSONObject json) {
+        int screenW = getScreenWidth();
+        int screenH = getScreenHeight();
+        
         // Get existing padding as defaults
         int paddingLeft = view.getPaddingLeft();
         int paddingTop = view.getPaddingTop();
@@ -1766,48 +1850,122 @@ public class PhpNativePlugin {
 
         // Single value for all sides
         if (json.has("padding")) {
-            int padding = dpToPx(json.optInt("padding", 0));
+            int padding = parseDimensionValue(json.opt("padding"), screenW);
             paddingLeft = paddingTop = paddingRight = paddingBottom = padding;
         }
 
         // Horizontal/Vertical shortcuts
         if (json.has("paddingHorizontal")) {
-            int h = dpToPx(json.optInt("paddingHorizontal"));
+            int h = parseDimensionValue(json.opt("paddingHorizontal"), screenW);
             paddingLeft = paddingRight = h;
         }
         if (json.has("paddingVertical")) {
-            int v = dpToPx(json.optInt("paddingVertical"));
+            int v = parseDimensionValue(json.opt("paddingVertical"), screenH);
             paddingTop = paddingBottom = v;
         }
 
-        // Individual paddings
+        // Individual paddings (horizontal uses width, vertical uses height as reference)
         if (json.has("paddingLeft")) {
-            paddingLeft = dpToPx(json.optInt("paddingLeft"));
+            paddingLeft = parseDimensionValue(json.opt("paddingLeft"), screenW);
         }
         if (json.has("paddingTop")) {
-            paddingTop = dpToPx(json.optInt("paddingTop"));
+            paddingTop = parseDimensionValue(json.opt("paddingTop"), screenH);
         }
         if (json.has("paddingRight")) {
-            paddingRight = dpToPx(json.optInt("paddingRight"));
+            paddingRight = parseDimensionValue(json.opt("paddingRight"), screenW);
         }
         if (json.has("paddingBottom")) {
-            paddingBottom = dpToPx(json.optInt("paddingBottom"));
+            paddingBottom = parseDimensionValue(json.opt("paddingBottom"), screenH);
         }
 
         // Start/End (RTL support, API 17+)
         if (json.has("paddingStart")) {
-            paddingLeft = dpToPx(json.optInt("paddingStart"));
+            paddingLeft = parseDimensionValue(json.opt("paddingStart"), screenW);
         }
         if (json.has("paddingEnd")) {
-            paddingRight = dpToPx(json.optInt("paddingEnd"));
+            paddingRight = parseDimensionValue(json.opt("paddingEnd"), screenW);
         }
 
         view.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
     }
 
     /**
+     * Gets the screen width in pixels.
+     */
+    private int getScreenWidth() {
+        android.util.DisplayMetrics metrics = m_ctx.getResources().getDisplayMetrics();
+        return metrics.widthPixels;
+    }
+
+    /**
+     * Gets the screen height in pixels.
+     */
+    private int getScreenHeight() {
+        android.util.DisplayMetrics metrics = m_ctx.getResources().getDisplayMetrics();
+        return metrics.heightPixels;
+    }
+
+    /**
+     * Parses a dimension value that can be:
+     * - Integer (treated as dp)
+     * - Fractional 0-1 (treated as percentage of reference size)
+     * - String with suffix: "dp", "px", "%"
+     *
+     * @param value The value from JSON (can be int, double, or String).
+     * @param referenceSize The reference size for percentage calculations (e.g., screen width).
+     * @return The dimension in pixels.
+     */
+    private int parseDimensionValue(Object value, int referenceSize) {
+        if (value == null) return 0;
+        
+        // Handle numeric types directly
+        if (value instanceof Number) {
+            double num = ((Number) value).doubleValue();
+            // Fractional value 0-1 = percentage
+            if (num > 0 && num <= 1) {
+                return (int) (num * referenceSize);
+            }
+            // Otherwise treat as dp
+            return dpToPx((int) num);
+        }
+        
+        // Handle string values
+        String strVal = value.toString().toLowerCase().trim();
+        if (strVal.isEmpty()) return 0;
+        
+        try {
+            // Check for percentage suffix
+            if (strVal.endsWith("%")) {
+                float pct = Float.parseFloat(strVal.replace("%", "").trim());
+                return (int) ((pct / 100f) * referenceSize);
+            }
+            
+            // Check for px suffix (raw pixels)
+            if (strVal.endsWith("px")) {
+                return Integer.parseInt(strVal.replace("px", "").trim());
+            }
+            
+            // Remove dp suffix if present
+            String numStr = strVal.replace("dp", "").trim();
+            double num = Double.parseDouble(numStr);
+            
+            // Fractional value 0-1 = percentage
+            if (num > 0 && num <= 1) {
+                return (int) (num * referenceSize);
+            }
+            
+            // Otherwise treat as dp
+            return dpToPx((int) num);
+            
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
      * Parses a layout dimension value.
-     * Supports: "match_parent", "wrap_content", "fill_parent", or numeric dp values.
+     * Supports: "match_parent", "wrap_content", "fill_parent", numeric dp values,
+     * or fractional values 0-1 (percentage of screen).
      *
      * @param value The dimension value as string.
      * @return The parsed dimension in pixels or LayoutParams constant.
@@ -1827,12 +1985,79 @@ public class PhpNativePlugin {
             case "-2":
                 return ViewGroup.LayoutParams.WRAP_CONTENT;
             default:
-                // Try to parse as dp value
+                // Check for percentage suffix
+                if (lower.endsWith("%")) {
+                    try {
+                        float pct = Float.parseFloat(lower.replace("%", "").trim());
+                        // Use screen width as reference for width-like dimensions
+                        return (int) ((pct / 100f) * getScreenWidth());
+                    } catch (NumberFormatException e) {
+                        return ViewGroup.LayoutParams.WRAP_CONTENT;
+                    }
+                }
+                
+                // Try to parse as numeric value
                 try {
-                    // Remove "dp" suffix if present
+                    // Remove dp/px suffix if present
                     String numStr = lower.replace("dp", "").replace("px", "").trim();
-                    int dp = Integer.parseInt(numStr);
-                    return dpToPx(dp);
+                    double num = Double.parseDouble(numStr);
+                    
+                    // Fractional value 0-1 = percentage of screen
+                    if (num > 0 && num <= 1) {
+                        return (int) (num * getScreenWidth());
+                    }
+                    
+                    // Otherwise treat as dp
+                    return dpToPx((int) num);
+                } catch (NumberFormatException e) {
+                    return ViewGroup.LayoutParams.WRAP_CONTENT;
+                }
+        }
+    }
+
+    /**
+     * Parses a layout dimension value for height specifically.
+     * Uses screen height as reference for percentage calculations.
+     *
+     * @param value The dimension value as string.
+     * @return The parsed dimension in pixels or LayoutParams constant.
+     */
+    private int parseLayoutDimensionHeight(String value) {
+        if (value == null || value.isEmpty()) {
+            return ViewGroup.LayoutParams.WRAP_CONTENT;
+        }
+        
+        String lower = value.toLowerCase().trim();
+        switch (lower) {
+            case "match_parent":
+            case "fill_parent":
+            case "-1":
+                return ViewGroup.LayoutParams.MATCH_PARENT;
+            case "wrap_content":
+            case "-2":
+                return ViewGroup.LayoutParams.WRAP_CONTENT;
+            default:
+                // Check for percentage suffix
+                if (lower.endsWith("%")) {
+                    try {
+                        float pct = Float.parseFloat(lower.replace("%", "").trim());
+                        return (int) ((pct / 100f) * getScreenHeight());
+                    } catch (NumberFormatException e) {
+                        return ViewGroup.LayoutParams.WRAP_CONTENT;
+                    }
+                }
+                
+                // Try to parse as numeric value
+                try {
+                    String numStr = lower.replace("dp", "").replace("px", "").trim();
+                    double num = Double.parseDouble(numStr);
+                    
+                    // Fractional value 0-1 = percentage of screen height
+                    if (num > 0 && num <= 1) {
+                        return (int) (num * getScreenHeight());
+                    }
+                    
+                    return dpToPx((int) num);
                 } catch (NumberFormatException e) {
                     return ViewGroup.LayoutParams.WRAP_CONTENT;
                 }
@@ -1923,18 +2148,80 @@ public class PhpNativePlugin {
 
     /**
      * Converts a value to the target type required by a setter method.
-     * Handles common types including colors, primitives, and strings.
+     * Handles common types including colors, primitives, strings,
+     * orientation, gravity, and other Android-specific values.
      *
      * @param value      The value to convert.
      * @param targetType The target parameter type.
-     * @param methodName The method name (used to detect color setters).
+     * @param methodName The method name (used to detect special setters).
      * @return The converted value, or null if conversion failed.
      */
     private Object convertValue(Object value, Class<?> targetType, String methodName) {
         try {
+            String strValue = value.toString().toLowerCase().trim();
+            
+            // Handle color methods
             if (methodName.toLowerCase().contains("color") && value instanceof String) {
                 return Color.parseColor((String) value);
             }
+            
+            // Handle orientation (for LinearLayout)
+            if (methodName.equals("setOrientation")) {
+                if (strValue.equals("vertical") || strValue.equals("1")) {
+                    return LinearLayout.VERTICAL;
+                } else if (strValue.equals("horizontal") || strValue.equals("0")) {
+                    return LinearLayout.HORIZONTAL;
+                }
+            }
+            
+            // Handle gravity methods
+            if (methodName.toLowerCase().contains("gravity")) {
+                return parseGravity(value.toString());
+            }
+            
+            // Handle visibility
+            if (methodName.equals("setVisibility")) {
+                switch (strValue) {
+                    case "visible":
+                    case "0":
+                        return View.VISIBLE;
+                    case "invisible":
+                    case "4":
+                        return View.INVISIBLE;
+                    case "gone":
+                    case "8":
+                        return View.GONE;
+                }
+            }
+            
+            // Handle scaleType for ImageView
+            if (methodName.equals("setScaleType") && value instanceof String) {
+                switch (strValue) {
+                    case "center": return ImageView.ScaleType.CENTER;
+                    case "centercrop": return ImageView.ScaleType.CENTER_CROP;
+                    case "centerinside": return ImageView.ScaleType.CENTER_INSIDE;
+                    case "fitcenter": return ImageView.ScaleType.FIT_CENTER;
+                    case "fitend": return ImageView.ScaleType.FIT_END;
+                    case "fitstart": return ImageView.ScaleType.FIT_START;
+                    case "fitxy": return ImageView.ScaleType.FIT_XY;
+                    case "matrix": return ImageView.ScaleType.MATRIX;
+                }
+            }
+            
+            // Handle inputType for EditText
+            if (methodName.equals("setInputType")) {
+                int inputType = 0;
+                if (strValue.contains("text")) inputType |= android.text.InputType.TYPE_CLASS_TEXT;
+                if (strValue.contains("number")) inputType |= android.text.InputType.TYPE_CLASS_NUMBER;
+                if (strValue.contains("phone")) inputType |= android.text.InputType.TYPE_CLASS_PHONE;
+                if (strValue.contains("email")) inputType |= android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
+                if (strValue.contains("password")) inputType |= android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
+                if (strValue.contains("multiline")) inputType |= android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+                if (inputType == 0) inputType = android.text.InputType.TYPE_CLASS_TEXT;
+                return inputType;
+            }
+            
+            // Standard type conversions
             if (targetType == float.class || targetType == Float.class) {
                 return Float.parseFloat(value.toString());
             }
