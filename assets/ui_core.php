@@ -59,4 +59,67 @@ class VerticalLayout extends Component {
         return $data;
     }
 }
+
+// =========================================================================
+// View Property Helpers
+// =========================================================================
+
+/**
+ * Request a view property value from Java.
+ * Returns an action that Java will process and call back with the result.
+ *
+ * @param string $viewId The view ID to get property from
+ * @param string $property The property name (e.g., "text", "url", "checked", "progress")
+ * @param string $callback The PHP method to call with the result
+ * @return array Action array for Java to process
+ *
+ * Example usage:
+ *   return getViewProperty("my_webview", "url", "handleUrl");
+ *
+ * The callback will receive: ["viewId" => "my_webview", "property" => "url", "value" => "https://..."]
+ */
+function getViewProperty(string $viewId, string $property, string $callback): array {
+    return [
+        "action" => "GET_VIEW_PROPERTY",
+        "viewId" => $viewId,
+        "property" => $property,
+        "callback" => $callback
+    ];
+}
+
+/**
+ * Request multiple view properties at once.
+ *
+ * @param array $requests Array of ["viewId" => ..., "property" => ...]
+ * @param string $callback The PHP method to call with all results
+ * @return array Action array for Java to process
+ *
+ * Example usage:
+ *   return getViewProperties([
+ *       ["viewId" => "txt_name", "property" => "text"],
+ *       ["viewId" => "chk_agree", "property" => "checked"],
+ *   ], "handleFormData");
+ */
+function getViewProperties(array $requests, string $callback): array {
+    return [
+        "action" => "GET_VIEW_PROPERTIES",
+        "requests" => $requests,
+        "callback" => $callback
+    ];
+}
+
+/**
+ * Update a view's attributes.
+ *
+ * @param string $viewId The view ID to update
+ * @param array $attributes Key-value pairs of attributes
+ * @return array Update action array
+ */
+function updateView(string $viewId, array $attributes): array {
+    return [
+        "action" => "update",
+        "target" => $viewId,
+        "attributes" => $attributes
+    ];
+}
 ?>

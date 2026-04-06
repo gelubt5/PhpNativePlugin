@@ -85,6 +85,13 @@ class MyApp {
                 ->textAllCaps(false)
                 ->backgroundColor("#607D8B"),
 
+            (new Button())
+                ->text("📋 Get Status Text")
+                ->id("btn_get_prop")
+                ->action("getStatusText")
+                ->textAllCaps(false)
+                ->backgroundColor("#795548"),
+
         ]))->padding(30)->gravity("center");
     }
 
@@ -135,6 +142,60 @@ class MyApp {
             "sensor" => "compass",
             "callback" => "handle_compass"
         ];
+    }
+
+    // =========================================================================
+    // View Property Examples
+    // =========================================================================
+
+    /**
+     * Request the current text of the status label.
+     * This demonstrates getting a single property from a view.
+     */
+    public function getStatusText($params) {
+        return getViewProperty("status_label", "text", "handleStatusText");
+    }
+
+    /**
+     * Callback that receives the status label text.
+     */
+    public function handleStatusText($params) {
+        $currentText = $params['value'] ?? 'N/A';
+        
+        // You can do business logic here with the retrieved value
+        $length = strlen($currentText);
+        
+        return updateView("status_label", [
+            "text" => "📋 Current text ({$length} chars):\n\"{$currentText}\"",
+            "textColor" => "#795548"
+        ]);
+    }
+
+    /**
+     * Example: Get multiple properties at once
+     */
+    public function getFormData($params) {
+        return getViewProperties([
+            ["viewId" => "status_label", "property" => "text"],
+            ["viewId" => "chk_auto", "property" => "checked"],
+        ], "handleFormData");
+    }
+
+    /**
+     * Callback that receives multiple property values
+     */
+    public function handleFormData($params) {
+        $results = $params['results'] ?? [];
+        $info = [];
+        
+        foreach ($results as $r) {
+            $info[] = "{$r['viewId']}.{$r['property']} = " . json_encode($r['value']);
+        }
+        
+        return updateView("status_label", [
+            "text" => "Form data:\n" . implode("\n", $info),
+            "textColor" => "#3F51B5"
+        ]);
     }
 
     // =========================================================================

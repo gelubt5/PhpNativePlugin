@@ -583,6 +583,9 @@ public class PhpNativePlugin {
             case "GetViewText":
                 return getViewText(b.getString("p1"));
             
+            case "GetViewProperty":
+                return getViewProperty(b.getString("p1"), b.getString("p2"));
+            
             case "SetViewText":
                 setViewText(b.getString("p1"), b.getString("p2"));
                 break;
@@ -906,6 +909,19 @@ public class PhpNativePlugin {
                 // Inject sensor call into DroidScript
                 injectSensorCallForType(sensor, response);
             }
+            // Get single view property
+            else if ("GET_VIEW_PROPERTY".equals(action)) {
+                String viewId = response.optString("viewId");
+                String property = response.optString("property");
+                String callback = response.optString("callback");
+                handleGetViewProperty(viewId, property, callback);
+            }
+            // Get multiple view properties
+            else if ("GET_VIEW_PROPERTIES".equals(action)) {
+                JSONArray requests = response.optJSONArray("requests");
+                String callback = response.optString("callback");
+                handleGetViewProperties(requests, callback);
+            }
             // Check for UI render action
             else if ("render".equals(action) || response.has("type") || response.has("children")) {
                 m_mainHandler.post(() -> renderUI(jsonResponse));
@@ -922,6 +938,159 @@ public class PhpNativePlugin {
         } catch (Exception e) {
             Log.w(TAG, "Could not parse PHP response: " + e.getMessage());
         }
+    }
+
+    /**
+     * Handle GET_VIEW_PROPERTY action - get a single property and call PHP callback.
+     */
+    private void handleGetViewProperty(String viewId, String property, String callback) {
+        // Check for null OR empty strings (optString returns "" for missing keys, not null)
+        if (viewId == null || viewId.isEmpty() || 
+            property == null || property.isEmpty() || 
+            callback == null || callback.isEmpty()) {
+            Log.w(TAG, "Invalid GET_VIEW_PROPERTY parameters: viewId=" + viewId + ", property=" + property + ", callback=" + callback);
+            return;
+        }
+        
+        m_mainHandler.post(() -> {
+            View view = m_viewRegistry.get(viewId);
+            Object value = null;
+            String error = null;
+            
+            if (view == null) {
+                error = "View not found: " + viewId;
+                Log.w(TAG, error);
+            } else {
+                value = getPropertyValue(view, property);
+                if (value == null) {
+                    // Could be property not found or property value is actually null
+                    Log.d(TAG, "Property " + property + " returned null for view " + viewId);
+                }
+            }
+            
+            // Build params JSON
+            final JSONObject params = new JSONObject();
+            try {
+                params.put("viewId", viewId);
+                params.put("property", property);
+                params.put("value", value);
+                if (error != null) {
+                    params.put("error", error);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error building property params", e);
+            }
+            
+            // Call PHP callback (check executor isn't shutdown)
+            if (!m_executor.isShutdown()) {
+                m_executor.execute(() -> {
+                    String response = callPhp(callback, params.toString());
+                    m_mainHandler.post(() -> processPhpResponse(response));
+                });
+            } else {
+                Log.e(TAG, "Executor shutdown, cannot call PHP callback: " + callback);
+            }
+        });
+    }
+
+    /**
+     * Handle GET_VIEW_PROPERTIES action - get multiple properties and call PHP callback.
+     */
+    private void handleGetViewProperties(JSONArray requests, String callback) {
+        // Check for null OR empty strings
+        if (requests == null || callback == null || callback.isEmpty()) {
+            Log.w(TAG, "Invalid GET_VIEW_PROPERTIES parameters: requests=" + (requests != null ? requests.length() : "null") + ", callback=" + callback);
+            return;
+        }
+        
+        m_mainHandler.post(() -> {
+            JSONArray results = new JSONArray();
+            
+            for (int i = 0; i < requests.length(); i++) {
+                try {
+                    JSONObject req = requests.getJSONObject(i);
+                    String viewId = req.optString("viewId");
+                    String property = req.optString("property");
+                    
+                    JSONObject result = new JSONObject();
+                    result.put("viewId", viewId);
+                    result.put("property", property);
+                    
+                    if (viewId.isEmpty() || property.isEmpty()) {
+                        result.put("value", JSONObject.NULL);
+                        result.put("error", "Missing viewId or property");
+                    } else {
+                        View view = m_viewRegistry.get(viewId);
+                        if (view == null) {
+                            result.put("value", JSONObject.NULL);
+                            result.put("error", "View not found: " + viewId);
+                        } else {
+                            Object value = getPropertyValue(view, property);
+                            result.put("value", value != null ? value : JSONObject.NULL);
+                        }
+                    }
+                    results.put(result);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error getting property at index " + i, e);
+                    try {
+                        JSONObject errorResult = new JSONObject();
+                        errorResult.put("error", e.getMessage());
+                        results.put(errorResult);
+                    } catch (Exception ignored) {}
+                }
+            }
+            
+            // Build params JSON
+            final JSONObject params = new JSONObject();
+            try {
+                params.put("results", results);
+            } catch (Exception e) {
+                Log.e(TAG, "Error building properties params", e);
+            }
+            
+            // Call PHP callback (check executor isn't shutdown)
+            if (!m_executor.isShutdown()) {
+                m_executor.execute(() -> {
+                    String response = callPhp(callback, params.toString());
+                    m_mainHandler.post(() -> processPhpResponse(response));
+                });
+            } else {
+                Log.e(TAG, "Executor shutdown, cannot call PHP callback: " + callback);
+            }
+        });
+    }
+
+    /**
+     * Get a property value from a view using reflection.
+     * Tries getter patterns: getProperty(), property(), isProperty()
+     */
+    private Object getPropertyValue(View view, String property) {
+        if (view == null || property == null) return null;
+        
+        String capProperty = property.substring(0, 1).toUpperCase() + property.substring(1);
+        String[] methodNames = {
+            "get" + capProperty,  // getUrl(), getText()
+            property,              // url(), text()
+            "is" + capProperty    // isChecked(), isEnabled()
+        };
+        
+        for (String methodName : methodNames) {
+            try {
+                Method method = view.getClass().getMethod(methodName);
+                Object result = method.invoke(view);
+                // Convert CharSequence to String for JSON
+                if (result instanceof CharSequence) {
+                    return result.toString();
+                }
+                return result;
+            } catch (NoSuchMethodException ignored) {
+                // Try next pattern
+            } catch (Exception e) {
+                Log.w(TAG, "Error getting property " + property + ": " + e.getMessage());
+            }
+        }
+        
+        return null;
     }
 
     // -------------------------------------------------------------------------
@@ -1686,6 +1855,11 @@ public class PhpNativePlugin {
             applyBorder(view, json);
         }
         
+        // Handle WebView settings
+        if (json.has("settings") && view instanceof android.webkit.WebView) {
+            applyWebViewSettings((android.webkit.WebView) view, json.optJSONObject("settings"));
+        }
+        
         // Then handle regular view attributes
         Iterator<String> keys = json.keys();
         while (keys.hasNext()) {
@@ -1693,16 +1867,82 @@ public class PhpNativePlugin {
             // Skip reserved keys and layout params (handled separately)
             if (key.equals("type") || key.equals("children") || key.equals("action") ||
                 key.equals("id") || key.equals("target") || key.equals("attributes") ||
-                key.equals("border") || key.startsWith("on") || isLayoutParam(key)) continue;
+                key.equals("border") || key.equals("settings") || key.startsWith("on") || isLayoutParam(key)) continue;
 
             try {
                 Object value = json.get(key);
-                String methodName = "set" + key.substring(0, 1).toUpperCase() + key.substring(1);
-                invokeMethod(view, methodName, value);
+                // Try setter first (e.g., setText), then direct method (e.g., loadUrl)
+                String setterName = "set" + key.substring(0, 1).toUpperCase() + key.substring(1);
+                if (!invokeMethod(view, setterName, value)) {
+                    // Setter didn't exist, try direct method name (e.g., loadUrl for WebView)
+                    invokeMethod(view, key, value);
+                }
             } catch (Exception e) {
                 Log.w(TAG, "Could not apply attribute: " + key);
             }
         }
+    }
+
+    /**
+     * Applies settings to a WebView's WebSettings object.
+     * Supports settings like: javaScriptEnabled, domStorageEnabled, allowFileAccess, etc.
+     *
+     * @param webView The WebView to configure.
+     * @param settings JSONObject containing setting key-value pairs.
+     */
+    private void applyWebViewSettings(android.webkit.WebView webView, JSONObject settings) {
+        if (settings == null) return;
+        
+        android.webkit.WebSettings webSettings = webView.getSettings();
+        Iterator<String> keys = settings.keys();
+        
+        while (keys.hasNext()) {
+            String key = keys.next();
+            try {
+                Object value = settings.get(key);
+                String setterName = "set" + key.substring(0, 1).toUpperCase() + key.substring(1);
+                
+                // Find and invoke the setter method on WebSettings
+                for (Method method : webSettings.getClass().getMethods()) {
+                    if (method.getName().equals(setterName) && method.getParameterTypes().length == 1) {
+                        Class<?> paramType = method.getParameterTypes()[0];
+                        Object convertedValue = convertSettingsValue(value, paramType);
+                        if (convertedValue != null) {
+                            method.invoke(webSettings, convertedValue);
+                            Log.d(TAG, "Applied WebView setting: " + key + " = " + value);
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Could not apply WebView setting: " + key + " - " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Converts a value to the target type for WebSettings.
+     */
+    private Object convertSettingsValue(Object value, Class<?> targetType) {
+        try {
+            if (targetType == boolean.class || targetType == Boolean.class) {
+                if (value instanceof Boolean) return value;
+                return Boolean.parseBoolean(value.toString());
+            }
+            if (targetType == int.class || targetType == Integer.class) {
+                if (value instanceof Number) return ((Number) value).intValue();
+                return Integer.parseInt(value.toString());
+            }
+            if (targetType == String.class) {
+                return value.toString();
+            }
+            if (targetType.isInstance(value)) {
+                return value;
+            }
+        } catch (Exception e) {
+            return null;
+        }
+        return null;
     }
 
     /**
@@ -2221,15 +2461,16 @@ public class PhpNativePlugin {
     }
 
     /**
-     * Attempts to invoke a specific setter method on a View using reflection.
+     * Attempts to invoke a specific method on a View using reflection.
      * It scans the view's available methods to find a match by name that accepts a single parameter,
      * then attempts to convert the provided value to the required parameter type before execution.
      *
      * @param view       The target View object on which the method will be called.
-     * @param methodName The name of the method to invoke (e.g., "setText" or "setBackgroundColor").
+     * @param methodName The name of the method to invoke (e.g., "setText", "setBackgroundColor", or "loadUrl").
      * @param value      The raw value to be passed to the method, which will be converted to the appropriate type.
+     * @return true if the method was found and invoked successfully, false otherwise.
      */
-    private void invokeMethod(View view, String methodName, Object value) {
+    private boolean invokeMethod(View view, String methodName, Object value) {
         for (Method method : view.getClass().getMethods()) {
             if (method.getName().equals(methodName) && method.getParameterTypes().length == 1) {
                 try {
@@ -2237,11 +2478,12 @@ public class PhpNativePlugin {
                     Object convertedValue = convertValue(value, paramType, methodName);
                     if (convertedValue != null) {
                         method.invoke(view, convertedValue);
-                        return;
+                        return true;
                     }
                 } catch (Exception ignored) {}
             }
         }
+        return false;
     }
 
     /**
@@ -2257,6 +2499,13 @@ public class PhpNativePlugin {
     private Object convertValue(Object value, Class<?> targetType, String methodName) {
         try {
             String strValue = value.toString().toLowerCase().trim();
+            String originalValue = value.toString().trim();
+            
+            // Handle "new ClassName()" pattern - instantiate objects dynamically
+            if (originalValue.startsWith("new ") && originalValue.endsWith("()")) {
+                String className = originalValue.substring(4, originalValue.length() - 2).trim();
+                return instantiateClass(className, targetType);
+            }
             
             // Handle color methods
             if (methodName.toLowerCase().contains("color") && value instanceof String) {
@@ -2341,6 +2590,63 @@ public class PhpNativePlugin {
         return null;
     }
 
+    /**
+     * Instantiates a class by name using reflection.
+     * Searches common Android packages if the class name is not fully qualified.
+     *
+     * @param className The class name (simple or fully qualified).
+     * @param targetType The expected target type (used for validation).
+     * @return A new instance of the class, or null if instantiation failed.
+     */
+    private Object instantiateClass(String className, Class<?> targetType) {
+        // Packages to search for simple class names
+        String[] packages = {
+            "",  // Fully qualified name
+            "android.webkit.",
+            "android.widget.",
+            "android.view.",
+            "android.graphics.",
+            "android.graphics.drawable.",
+            "android.text.",
+            "android.text.method.",
+            "android.content.",
+            "android.os.",
+            "androidx.appcompat.widget.",
+            "com.google.android.material."
+        };
+
+        for (String pkg : packages) {
+            try {
+                String fullClassName = pkg.isEmpty() && className.contains(".") ? className : pkg + className;
+                Class<?> cls = Class.forName(fullClassName);
+                
+                // Check if the class is assignable to the target type
+                if (targetType.isAssignableFrom(cls)) {
+                    // Try no-arg constructor first
+                    try {
+                        Constructor<?> ctor = cls.getConstructor();
+                        return ctor.newInstance();
+                    } catch (NoSuchMethodException e) {
+                        // Try constructor with Context
+                        try {
+                            Constructor<?> ctorCtx = cls.getConstructor(Context.class);
+                            return ctorCtx.newInstance(m_ctx);
+                        } catch (NoSuchMethodException e2) {
+                            // No suitable constructor found
+                        }
+                    }
+                }
+            } catch (ClassNotFoundException ignored) {
+                // Try next package
+            } catch (Exception e) {
+                Log.w(TAG, "Could not instantiate " + className + ": " + e.getMessage());
+            }
+        }
+        
+        Log.w(TAG, "Could not find or instantiate class: " + className);
+        return null;
+    }
+
     private void updateView(String viewId, String attrsJson) {
         m_mainHandler.post(() -> {
             try {
@@ -2367,6 +2673,68 @@ public class PhpNativePlugin {
             return ((TextView) view).getText().toString();
         }
         return "";
+    }
+
+    /**
+     * Gets a property value from a view using reflection.
+     * Tries getter methods: getProperty(), property(), isProperty()
+     *
+     * @param viewId The view ID to get property from.
+     * @param property The property name (e.g., "url", "text", "checked").
+     * @return JSON with the property value or error.
+     */
+    private String getViewProperty(String viewId, String property) {
+        View view = m_viewRegistry.get(viewId);
+        if (view == null) {
+            return "{\"error\": \"View not found: " + viewId + "\"}";
+        }
+        
+        if (property == null || property.isEmpty()) {
+            return "{\"error\": \"Property name required\"}";
+        }
+        
+        // Try different getter patterns
+        String capProperty = property.substring(0, 1).toUpperCase() + property.substring(1);
+        String[] methodNames = {
+            "get" + capProperty,  // getUrl(), getText()
+            property,              // url(), text()
+            "is" + capProperty    // isChecked(), isEnabled()
+        };
+        
+        for (String methodName : methodNames) {
+            try {
+                Method method = view.getClass().getMethod(methodName);
+                Object result = method.invoke(view);
+                return formatPropertyResult(property, result);
+            } catch (NoSuchMethodException ignored) {
+                // Try next pattern
+            } catch (Exception e) {
+                return "{\"error\": \"Failed to get " + property + ": " + e.getMessage() + "\"}";
+            }
+        }
+        
+        return "{\"error\": \"Property not found: " + property + " on " + view.getClass().getSimpleName() + "\"}";
+    }
+    
+    /**
+     * Formats a property result as JSON.
+     */
+    private String formatPropertyResult(String property, Object value) {
+        if (value == null) {
+            return "{\"" + property + "\": null}";
+        }
+        
+        if (value instanceof Boolean || value instanceof Number) {
+            return "{\"" + property + "\": " + value + "}";
+        }
+        
+        // String or other - escape for JSON
+        String strVal = value.toString()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r");
+        return "{\"" + property + "\": \"" + strVal + "\"}";
     }
 
     private void setViewText(String viewId, String text) {
