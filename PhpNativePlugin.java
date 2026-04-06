@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -1201,6 +1202,7 @@ public class PhpNativePlugin {
                     rootView.addView(m_overlayContainer);
                 }
                 m_overlayContainer.setVisibility(View.VISIBLE);
+                m_overlayContainer.setBackgroundColor(Color.parseColor("#FFFFFF")); // Semi-transparent white
             } catch (Exception e) {
                 Log.e(TAG, "Failed to show overlay", e);
             }
@@ -1272,11 +1274,12 @@ public class PhpNativePlugin {
                 m_viewRegistry.clear();
 
                 // Create ScrollView wrapper
-                ScrollView scrollView = new ScrollView(m_ctx);
-                scrollView.setLayoutParams(new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                ));
+                // ScrollView scrollView = new ScrollView(m_ctx);
+                // scrollView.setFillViewport(true);
+                // scrollView.setLayoutParams(new FrameLayout.LayoutParams(
+                //     ViewGroup.LayoutParams.MATCH_PARENT,
+                //     ViewGroup.LayoutParams.MATCH_PARENT
+                // ));
 
                 // Process the root element - it should be a layout
                 View rootView = processComponentRecursive(root);
@@ -1286,7 +1289,8 @@ public class PhpNativePlugin {
                     if (rootView.getBackground() == null) {
                         rootView.setBackgroundColor(Color.WHITE);
                     }
-                    scrollView.addView(rootView);
+                      m_overlayContainer.addView(rootView);
+                
                 } else {
                     // Fallback: create default layout
                     LinearLayout fallbackLayout = new LinearLayout(m_ctx);
@@ -1297,10 +1301,9 @@ public class PhpNativePlugin {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ));
-                    scrollView.addView(fallbackLayout);
+                     m_overlayContainer.addView(fallbackLayout);
                 }
 
-                m_overlayContainer.addView(scrollView);
                 Log.d(TAG, "UI rendered with " + m_viewRegistry.size() + " views");
 
             } catch (Exception e) {
@@ -1678,6 +1681,11 @@ public class PhpNativePlugin {
         // First, handle layout params
         applyLayoutParams(view, json);
         
+        // Handle border property (creates GradientDrawable background)
+        if (json.has("border")) {
+            applyBorder(view, json);
+        }
+        
         // Then handle regular view attributes
         Iterator<String> keys = json.keys();
         while (keys.hasNext()) {
@@ -1685,7 +1693,7 @@ public class PhpNativePlugin {
             // Skip reserved keys and layout params (handled separately)
             if (key.equals("type") || key.equals("children") || key.equals("action") ||
                 key.equals("id") || key.equals("target") || key.equals("attributes") ||
-                key.startsWith("on") || isLayoutParam(key)) continue;
+                key.equals("border") || key.startsWith("on") || isLayoutParam(key)) continue;
 
             try {
                 Object value = json.get(key);
@@ -1694,6 +1702,96 @@ public class PhpNativePlugin {
             } catch (Exception e) {
                 Log.w(TAG, "Could not apply attribute: " + key);
             }
+        }
+    }
+
+    /**
+     * Applies border styling to a View using GradientDrawable.
+     * Border property can be:
+     * - Object: { width: 2, color: "#000", radius: 10, background: "#FFF" }
+     * - String: "2 #000000" (width and color)
+     * - Number: border width in dp (uses default black color)
+     *
+     * @param view The View to apply the border to.
+     * @param json The JSONObject containing the border property.
+     */
+    private void applyBorder(View view, JSONObject json) {
+        try {
+            Object borderVal = json.get("border");
+            
+            GradientDrawable drawable = new GradientDrawable();
+            drawable.setShape(GradientDrawable.RECTANGLE);
+            
+            // Default values
+            int borderWidth = dpToPx(1);
+            int borderColor = Color.BLACK;
+            float cornerRadius = 0f;
+            int backgroundColor = Color.TRANSPARENT;
+            
+            if (borderVal instanceof JSONObject) {
+                JSONObject border = (JSONObject) borderVal;
+                
+                // Border width
+                if (border.has("width")) {
+                    borderWidth = dpToPx(border.optInt("width", 1));
+                }
+                
+                // Border color
+                if (border.has("color")) {
+                    try {
+                        borderColor = Color.parseColor(border.optString("color", "#000000"));
+                    } catch (Exception e) {
+                        borderColor = Color.BLACK;
+                    }
+                }
+                
+                // Corner radius
+                if (border.has("radius")) {
+                    cornerRadius = dpToPx(border.optInt("radius", 0));
+                }
+                
+                // Background color
+                if (border.has("background")) {
+                    try {
+                        backgroundColor = Color.parseColor(border.optString("background", "#FFFFFF"));
+                    } catch (Exception e) {
+                        backgroundColor = Color.WHITE;
+                    }
+                }
+            } else if (borderVal instanceof String) {
+                // Parse string format: "width color" e.g., "2 #000000"
+                String[] parts = ((String) borderVal).trim().split("\\s+");
+                if (parts.length >= 1) {
+                    try {
+                        borderWidth = dpToPx(Integer.parseInt(parts[0]));
+                    } catch (NumberFormatException e) {
+                        // If first part is color, use default width
+                        try {
+                            borderColor = Color.parseColor(parts[0]);
+                        } catch (Exception ignored) {}
+                    }
+                }
+                if (parts.length >= 2) {
+                    try {
+                        borderColor = Color.parseColor(parts[1]);
+                    } catch (Exception ignored) {}
+                }
+            } else if (borderVal instanceof Number) {
+                // Just border width
+                borderWidth = dpToPx(((Number) borderVal).intValue());
+            }
+            
+            // Apply the drawable properties
+            drawable.setColor(backgroundColor);
+            drawable.setStroke(borderWidth, borderColor);
+            if (cornerRadius > 0) {
+                drawable.setCornerRadius(cornerRadius);
+            }
+            
+            view.setBackground(drawable);
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Could not apply border: " + e.getMessage());
         }
     }
 
