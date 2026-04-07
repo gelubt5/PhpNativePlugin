@@ -16,13 +16,17 @@ class Router {
             $paramsJson = $options['params'] ?? '{}';
             $params = json_decode($paramsJson, true) ?? [];
 
-            if (!method_id_exists($app, $methodName)) {
+            // Try app method first, then global function
+            if (method_id_exists($app, $methodName)) {
+                // Call method on app object
+                $result = $app->$methodName($params);
+            } elseif (function_exists($methodName)) {
+                // Fall back to global function (for callbacks like onViewPropertyResult)
+                $result = $methodName($params);
+            } else {
                 echo json_encode(["error" => "Method '$methodName' not found"]);
                 return;
             }
-
-            // Executăm metoda
-            $result = $app->$methodName($params);
 
             // Returnăm JSON curat
             if (is_object($result) && method_exists($result, 'toArray')) {

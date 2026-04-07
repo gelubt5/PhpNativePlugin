@@ -57,9 +57,12 @@ import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -409,7 +412,7 @@ public class PhpNativePlugin {
     private String copyPhpFilesToFolder(String targetDir) {
         StringBuilder copied = new StringBuilder("[");
         StringBuilder errors = new StringBuilder();
-        String[] phpFiles = {"logic.php", "router.php", "ui_core.php", "app.php"};
+        String[] phpFiles = {"logic.php", "router.php", "ui_core.php", "app.php", "simple.php"};
         boolean first = true;
         
         // Try multiple source locations
@@ -624,6 +627,9 @@ public class PhpNativePlugin {
         if (m_phpPath == null) {
             return "{\"error\": \"PHP binary not found. Use DebugPhp() to check paths.\"}";
         }
+        
+        // Sync view state to file before calling PHP (so PHP can read it)
+        syncViewStateToFile();
 
         try {
             // Use app directory if set, otherwise default
@@ -909,19 +915,6 @@ public class PhpNativePlugin {
                 // Inject sensor call into DroidScript
                 injectSensorCallForType(sensor, response);
             }
-            // Get single view property
-            else if ("GET_VIEW_PROPERTY".equals(action)) {
-                String viewId = response.optString("viewId");
-                String property = response.optString("property");
-                String callback = response.optString("callback");
-                handleGetViewProperty(viewId, property, callback);
-            }
-            // Get multiple view properties
-            else if ("GET_VIEW_PROPERTIES".equals(action)) {
-                JSONArray requests = response.optJSONArray("requests");
-                String callback = response.optString("callback");
-                handleGetViewProperties(requests, callback);
-            }
             // Check for UI render action
             else if ("render".equals(action) || response.has("type") || response.has("children")) {
                 m_mainHandler.post(() -> renderUI(jsonResponse));
@@ -934,134 +927,237 @@ public class PhpNativePlugin {
                     m_mainHandler.post(() -> updateViewInternal(target, attrs));
                 }
             }
+            // Check for multiple view updates action
+            else if ("update_many".equals(action)) {
+                JSONObject updates = response.optJSONObject("updates");
+                if (updates != null) {
+                    m_mainHandler.post(() -> {
+                        Iterator<String> keys = updates.keys();
+                        while (keys.hasNext()) {
+                            String viewId = keys.next();
+                            JSONObject attrs = updates.optJSONObject(viewId);
+                            if (attrs != null) {
+                                updateViewInternal(viewId, attrs);
+                            }
+                        }
+                    });
+                }
+            }
+
+            else if("ALERT".equals(action)) {
+                String message = response.optString("message", "No message");
+                m_mainHandler.post(() -> {
+                    try {
+                        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(m_ctx);
+                        builder.setTitle(response.optString("title", "PHP Alert"));
+                        builder.setMessage(message);
+                        builder.setPositiveButton("OK", null);
+                        builder.show();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error showing alert dialog", e);
+                    }
+                });
+            }
+
+            else if ("TOAST".equals(action)) {
+                String message = response.optString("message", "No message");
+                m_mainHandler.post(() -> {
+                    try {
+                        android.widget.Toast.makeText(m_ctx, message, android.widget.Toast.LENGTH_LONG).show();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error showing toast", e);
+                    }
+                });
+            }
+
+            else if("NAVIGATE".equals(action)) {
+                String destination = response.optString("screen");
+                JSONObject data = response.optJSONObject("data");
+                String dataJson = data != null ? data.toString() : "{}";
+                
+                Log.d(TAG, "Navigate to: " + destination + " with data: " + dataJson);
+                
+                // Call the PHP method (screen) with the data and render the result
+                if (!m_executor.isShutdown()) {
+                    m_executor.execute(() -> {
+                        String phpResponse = callPhp(destination, dataJson);
+                        // Process the response (will render new UI if it returns a layout)
+                        m_mainHandler.post(() -> processPhpResponse(phpResponse));
+                    });
+                }
+            }
 
         } catch (Exception e) {
             Log.w(TAG, "Could not parse PHP response: " + e.getMessage());
         }
     }
-
+    
+    // Shared state file path
+    private static final String VIEW_STATE_FILE = "view_state.json";
+    
+    // Properties to skip when syncing (internal Android properties, not useful for PHP)
+    private static final Set<String> SKIP_PROPERTIES = new HashSet<>(Arrays.asList(
+        "class", "context", "handler", "parent", "rootView", "viewTreeObserver",
+        "layoutParams", "background", "foreground", "animation", "touchDelegate",
+        "keyDispatcherState", "drawingCache", "applicationWindowToken", "windowToken",
+        "windowVisibleDisplayFrame", "locationOnScreen", "locationInWindow",
+        "globalVisibleRect", "localVisibleRect", "hitRect", "focusedRect",
+        "drawableState", "solidColor", "matrix", "clipBounds", "outlineProvider",
+        "stateListAnimator", "accessibilityDelegate", "accessibilityNodeProvider",
+        "importantForAccessibility", "accessibilityLiveRegion", "contentDescription",
+        "labelFor", "nextFocusDownId", "nextFocusForwardId", "nextFocusLeftId",
+        "nextFocusRightId", "nextFocusUpId", "scrollBarStyle", "scrollBarSize",
+        "scrollBarDefaultDelayBeforeFade", "scrollBarFadeDuration", "verticalFadingEdgeLength",
+        "horizontalFadingEdgeLength", "verticalScrollbarPosition", "verticalScrollbarWidth",
+        "horizontalScrollbarHeight", "systemUiVisibility", "windowSystemUiVisibility",
+        "fitsSystemWindows", "filterTouchesWhenObscured", "hasOverlappingRendering",
+        "layerType", "display", "baseline", "rawLayoutDirection", "layoutDirection",
+        "textDirection", "textAlignment", "foregroundGravity", "accessibilityTraversalBefore",
+        "accessibilityTraversalAfter", "pointerIcon", "clipToOutline", "transitionName",
+        "nestedScrollingEnabled", "hasTransientState", "willNotCacheDrawing", "willNotDraw",
+        "hasWindowFocus", "hasFocus", "isFocused", "isInTouchMode", "focusable",
+        "focusableInTouchMode", "focusables", "touchables", "drawingCacheEnabled",
+        "drawingCacheQuality", "drawingCacheBackgroundColor", "duplicateParentStateEnabled",
+        "hapticFeedbackEnabled", "horizontalFadingEdgeEnabled", "verticalFadingEdgeEnabled",
+        "horizontalScrollBarEnabled", "verticalScrollBarEnabled", "scrollBarFadingEnabled",
+        "scrollContainer", "overScrollMode", "keepScreenOn", "longClickable", "soundEffectsEnabled",
+        "saveEnabled", "saveFromParentEnabled", "accessibilityPaneTitle", "screenReaderFocusable",
+        "accessibilityHeading", "importantForAutofill", "autofillHints", "autofillId",
+        "autofillType", "autofillValue", "pivotX", "pivotY", "cameraDistance",
+        "backgroundTintList", "backgroundTintMode", "foregroundTintList", "foregroundTintMode"
+    ));
+    
     /**
-     * Handle GET_VIEW_PROPERTY action - get a single property and call PHP callback.
+     * Sync ALL registered view properties to a shared JSON file.
+     * PHP can read this file to get view values synchronously.
+     * Uses reflection to discover and sync all readable properties.
      */
-    private void handleGetViewProperty(String viewId, String property, String callback) {
-        // Check for null OR empty strings (optString returns "" for missing keys, not null)
-        if (viewId == null || viewId.isEmpty() || 
-            property == null || property.isEmpty() || 
-            callback == null || callback.isEmpty()) {
-            Log.w(TAG, "Invalid GET_VIEW_PROPERTY parameters: viewId=" + viewId + ", property=" + property + ", callback=" + callback);
-            return;
+    private void syncViewStateToFile() {
+        try {
+            String scriptDir = getPhpScriptDir();
+            File stateFile = new File(scriptDir, VIEW_STATE_FILE);
+            
+            JSONObject state = new JSONObject();
+            
+            for (Map.Entry<String, View> entry : m_viewRegistry.entrySet()) {
+                String viewId = entry.getKey();
+                View view = entry.getValue();
+                
+                JSONObject viewState = extractAllProperties(view);
+                state.put(viewId, viewState);
+            }
+            
+            // Write to file
+            try (FileOutputStream fos = new FileOutputStream(stateFile)) {
+                fos.write(state.toString().getBytes("UTF-8"));
+            }
+            
+            Log.d(TAG, "Synced view state to: " + stateFile.getAbsolutePath() + " (" + m_viewRegistry.size() + " views)");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to sync view state", e);
+        }
+    }
+    
+    /**
+     * Extract ALL readable properties from a view using reflection.
+     * Scans for getter methods (get*, is*) and extracts their values.
+     */
+    private JSONObject extractAllProperties(View view) {
+        JSONObject props = new JSONObject();
+        if (view == null) return props;
+        
+        Set<String> processedProps = new HashSet<>();
+        
+        // Scan all methods in the view's class hierarchy
+        for (Method method : view.getClass().getMethods()) {
+            try {
+                String methodName = method.getName();
+                
+                // Skip methods with parameters (not getters)
+                if (method.getParameterCount() > 0) continue;
+                
+                // Skip void return type
+                if (method.getReturnType() == void.class) continue;
+                
+                // Extract property name from getter method
+                String propName = null;
+                if (methodName.startsWith("get") && methodName.length() > 3) {
+                    propName = methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
+                } else if (methodName.startsWith("is") && methodName.length() > 2) {
+                    propName = methodName.substring(2, 3).toLowerCase() + methodName.substring(3);
+                }
+                
+                if (propName == null) continue;
+                
+                // Skip already processed and blacklisted properties
+                if (processedProps.contains(propName)) continue;
+                if (SKIP_PROPERTIES.contains(propName)) continue;
+                
+                processedProps.add(propName);
+                
+                // Get the value
+                Object value = method.invoke(view);
+                if (value == null) continue;
+                
+                // Convert to JSON-compatible type
+                Object jsonValue = convertToJsonValue(value);
+                if (jsonValue != null) {
+                    props.put(propName, jsonValue);
+                }
+                
+            } catch (Exception ignored) {
+                // Skip methods that throw exceptions
+            }
         }
         
-        m_mainHandler.post(() -> {
-            View view = m_viewRegistry.get(viewId);
-            Object value = null;
-            String error = null;
-            
-            if (view == null) {
-                error = "View not found: " + viewId;
-                Log.w(TAG, error);
-            } else {
-                value = getPropertyValue(view, property);
-                if (value == null) {
-                    // Could be property not found or property value is actually null
-                    Log.d(TAG, "Property " + property + " returned null for view " + viewId);
-                }
+        return props;
+    }
+    
+    /**
+     * Convert a value to a JSON-compatible type.
+     * Returns null if the value cannot be represented in JSON.
+     */
+    private Object convertToJsonValue(Object value) {
+        if (value == null) return null;
+        
+        // Primitives and wrappers
+        if (value instanceof Boolean || value instanceof Integer || 
+            value instanceof Long || value instanceof Float || 
+            value instanceof Double || value instanceof String) {
+            return value;
+        }
+        
+        // CharSequence (includes SpannableString, etc.)
+        if (value instanceof CharSequence) {
+            return value.toString();
+        }
+        
+        // Arrays of primitives
+        if (value instanceof int[]) {
+            JSONArray arr = new JSONArray();
+            for (int v : (int[]) value) arr.put(v);
+            return arr;
+        }
+        if (value instanceof float[]) {
+            JSONArray arr = new JSONArray();
+            for (float v : (float[]) value) {
+                try { arr.put((double) v); } catch (Exception ignored) {}
             }
-            
-            // Build params JSON
-            final JSONObject params = new JSONObject();
-            try {
-                params.put("viewId", viewId);
-                params.put("property", property);
-                params.put("value", value);
-                if (error != null) {
-                    params.put("error", error);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error building property params", e);
-            }
-            
-            // Call PHP callback (check executor isn't shutdown)
-            if (!m_executor.isShutdown()) {
-                m_executor.execute(() -> {
-                    String response = callPhp(callback, params.toString());
-                    m_mainHandler.post(() -> processPhpResponse(response));
-                });
-            } else {
-                Log.e(TAG, "Executor shutdown, cannot call PHP callback: " + callback);
-            }
-        });
+            return arr;
+        }
+        
+        // Enums - return name
+        if (value instanceof Enum) {
+            return ((Enum<?>) value).name();
+        }
+        
+        // Skip complex objects (Views, Drawables, etc.)
+        return null;
     }
 
     /**
-     * Handle GET_VIEW_PROPERTIES action - get multiple properties and call PHP callback.
-     */
-    private void handleGetViewProperties(JSONArray requests, String callback) {
-        // Check for null OR empty strings
-        if (requests == null || callback == null || callback.isEmpty()) {
-            Log.w(TAG, "Invalid GET_VIEW_PROPERTIES parameters: requests=" + (requests != null ? requests.length() : "null") + ", callback=" + callback);
-            return;
-        }
-        
-        m_mainHandler.post(() -> {
-            JSONArray results = new JSONArray();
-            
-            for (int i = 0; i < requests.length(); i++) {
-                try {
-                    JSONObject req = requests.getJSONObject(i);
-                    String viewId = req.optString("viewId");
-                    String property = req.optString("property");
-                    
-                    JSONObject result = new JSONObject();
-                    result.put("viewId", viewId);
-                    result.put("property", property);
-                    
-                    if (viewId.isEmpty() || property.isEmpty()) {
-                        result.put("value", JSONObject.NULL);
-                        result.put("error", "Missing viewId or property");
-                    } else {
-                        View view = m_viewRegistry.get(viewId);
-                        if (view == null) {
-                            result.put("value", JSONObject.NULL);
-                            result.put("error", "View not found: " + viewId);
-                        } else {
-                            Object value = getPropertyValue(view, property);
-                            result.put("value", value != null ? value : JSONObject.NULL);
-                        }
-                    }
-                    results.put(result);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error getting property at index " + i, e);
-                    try {
-                        JSONObject errorResult = new JSONObject();
-                        errorResult.put("error", e.getMessage());
-                        results.put(errorResult);
-                    } catch (Exception ignored) {}
-                }
-            }
-            
-            // Build params JSON
-            final JSONObject params = new JSONObject();
-            try {
-                params.put("results", results);
-            } catch (Exception e) {
-                Log.e(TAG, "Error building properties params", e);
-            }
-            
-            // Call PHP callback (check executor isn't shutdown)
-            if (!m_executor.isShutdown()) {
-                m_executor.execute(() -> {
-                    String response = callPhp(callback, params.toString());
-                    m_mainHandler.post(() -> processPhpResponse(response));
-                });
-            } else {
-                Log.e(TAG, "Executor shutdown, cannot call PHP callback: " + callback);
-            }
-        });
-    }
-
-    /**
-     * Get a property value from a view using reflection.
+     * Get a specific property value from a view using reflection.
      * Tries getter patterns: getProperty(), property(), isProperty()
      */
     private Object getPropertyValue(View view, String property) {
@@ -1078,11 +1174,7 @@ public class PhpNativePlugin {
             try {
                 Method method = view.getClass().getMethod(methodName);
                 Object result = method.invoke(view);
-                // Convert CharSequence to String for JSON
-                if (result instanceof CharSequence) {
-                    return result.toString();
-                }
-                return result;
+                return convertToJsonValue(result);
             } catch (NoSuchMethodException ignored) {
                 // Try next pattern
             } catch (Exception e) {
@@ -1606,7 +1698,8 @@ public class PhpNativePlugin {
                     "com.google.android.material.switchmaterial.",
                     "com.google.android.material.checkbox.",
                     "com.google.android.material.textfield.",
-                    "com.google.android.material.card."
+                    "com.google.android.material.card.",
+                    "android.webkit."
                 };
                 for (String pkg : packages) {
                     try {
@@ -1779,8 +1872,43 @@ public class PhpNativePlugin {
             else if (arg instanceof View) {
                 View v = (View) arg;
                 params.put("viewId", v.getId());
+                params.put("visibility", v.getVisibility());
+                params.put("enabled", v.isEnabled());
+                params.put("clickable", v.isClickable());
+                params.put("focusable", v.isFocusable());
+                params.put("focused", v.isFocused());
+                params.put("selected", v.isSelected());
+                params.put("alpha", v.getAlpha());
+                params.put("x", v.getX());
+                params.put("y", v.getY());
+                params.put("width", v.getWidth());
+                params.put("height", v.getHeight());
+                params.put("translationX", v.getTranslationX());
+                params.put("translationY", v.getTranslationY());
+                params.put("scaleX", v.getScaleX());
+                params.put("scaleY", v.getScaleY());
+                params.put("rotation", v.getRotation());
+                if (v.getTag() != null) {
+                    params.put("tag", v.getTag().toString());
+                }
                 if (v instanceof TextView) {
-                    params.put("text", ((TextView) v).getText().toString());
+                    TextView tv = (TextView) v;
+                    params.put("text", tv.getText().toString());
+                    params.put("hint", tv.getHint() != null ? tv.getHint().toString() : "");
+                    params.put("textSize", tv.getTextSize());
+                    params.put("currentTextColor", tv.getCurrentTextColor());
+                }
+                if (v instanceof android.widget.ImageView) {
+                    // ImageView doesn't expose drawable URL, but we can get content description
+                    android.widget.ImageView iv = (android.widget.ImageView) v;
+                    if (iv.getContentDescription() != null) {
+                        params.put("contentDescription", iv.getContentDescription().toString());
+                    }
+                }
+                if (v instanceof android.widget.ProgressBar) {
+                    android.widget.ProgressBar pb = (android.widget.ProgressBar) v;
+                    params.put("progress", pb.getProgress());
+                    params.put("max", pb.getMax());
                 }
             }
             // Handle MotionEvent
