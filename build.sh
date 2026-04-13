@@ -94,9 +94,21 @@ if [ -d "../assets" ]; then
     mkdir -p assets
     # Copy PHP files only
     cp ../assets/*.php assets/ 2>/dev/null || true
+    # Copy DocRunner.js and PhpDocs.js
+    cp ../assets/DocRunner.js assets/ 2>/dev/null || true
+    cp ../PhpDocs.js assets/ 2>/dev/null || true
+    # Copy documentation folders
+    if [ -d "../assets/docs" ]; then
+        cp -r ../assets/docs assets/
+        echo "   Included docs/"
+    fi
+    if [ -d "../assets/docs_examples" ]; then
+        cp -r ../assets/docs_examples assets/
+        echo "   Included docs_examples/"
+    fi
     # Keep empty arch folders for structure (optional)
     mkdir -p assets/arm64-v8a assets/armeabi-v7a
-    echo "   Included assets/ (PHP files only, libphp.so excluded)"
+    echo "   Included assets/ (PHP files, docs, examples)"
 fi
 
 # Build zip with all components

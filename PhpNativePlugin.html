@@ -99,6 +99,24 @@
 </div>
 
 <div class="method">
+    <div class="method-name">ExtractDocs(appName)</div>
+    <div class="params">Parameters:
+        <br>• <code>appName</code> - Name of the target DroidScript app</div>
+    <div class="returns">Returns: Object - {success, path, files: [...]} or {error}</div>
+    <div class="description">Extracts documentation files to a DroidScript app folder. Copies:
+        <br>• <code>docs/</code> - HTML documentation files
+        <br>• <code>docs_examples/</code> - Runnable PHP example files
+        <br>• <code>DocRunner.js</code> → <code>{appName}.js</code> - Example runner app</div>
+    <div class="example">
+<pre>// Extract docs to "MyDocsApp" folder
+var result = plg.ExtractDocs("MyDocsApp");
+// Creates: MyDocsApp.js, docs/, docs_examples/
+
+// Now you can run the app in DroidScript to browse examples</pre>
+    </div>
+</div>
+
+<div class="method">
     <div class="method-name">GetPathInfo()</div>
     <div class="returns">Returns: String - JSON with path information</div>
     <div class="description">Returns diagnostic information about plugin and app paths.</div>

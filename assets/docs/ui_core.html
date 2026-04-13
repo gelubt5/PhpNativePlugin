@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ui_core.php API Reference - PhpNativePlugin</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand">PhpNativePlugin</a>
+            <div class="nav-links">
+                <a href="index.html">Overview</a>
+                <a href="simple.html">simple.php</a>
+                <a href="ui_core.html" class="active">ui_core.php</a>
+                <a href="reference.html">Reference</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-layout">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-search">
+                <input type="text" id="sidebarSearch" placeholder="Filter classes..." oninput="filterSidebar(this.value)">
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Base</div>
+                <ul class="sidebar-items">
+                    <li><a href="#component">Component</a></li>
+                    <li><a href="#class-hierarchy">Class Hierarchy</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">View Components</div>
+                <ul class="sidebar-items">
+                    <li><a href="#TextView">TextView</a></li>
+                    <li><a href="#Button">Button</a></li>
+                    <li><a href="#EditText">EditText</a></li>
+                    <li><a href="#CheckBox">CheckBox</a></li>
+                    <li><a href="#SwitchView">SwitchView</a></li>
+                    <li><a href="#Spinner">Spinner</a></li>
+                    <li><a href="#SeekBar">SeekBar</a></li>
+                    <li><a href="#RatingBar">RatingBar</a></li>
+                    <li><a href="#ImageView">ImageView</a></li>
+                    <li><a href="#ProgressBar">ProgressBar</a></li>
+                    <li><a href="#WebView">WebView</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Material</div>
+                <ul class="sidebar-items">
+                    <li><a href="#FloatingActionButton">FAB</a></li>
+                    <li><a href="#Chip">Chip / ChipGroup</a></li>
+                    <li><a href="#TextInputLayout">TextInputLayout</a></li>
+                    <li><a href="#TabLayout">TabLayout</a></li>
+                    <li><a href="#SwipeRefreshLayout">SwipeRefresh</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Input Extras</div>
+                <ul class="sidebar-items">
+                    <li><a href="#RadioGroup">RadioGroup</a></li>
+                    <li><a href="#NumberPicker">NumberPicker</a></li>
+                    <li><a href="#SearchView">SearchView</a></li>
+                    <li><a href="#AutoComplete">AutoComplete</a></li>
+                    <li><a href="#DateTimePicker">Date/Time Pickers</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Layouts</div>
+                <ul class="sidebar-items">
+                    <li><a href="#VerticalLayout">VerticalLayout</a></li>
+                    <li><a href="#HorizontalLayout">HorizontalLayout</a></li>
+                    <li><a href="#ScrollView">ScrollView</a></li>
+                    <li><a href="#CardView">CardView</a></li>
+                    <li><a href="#FrameLayout">FrameLayout</a></li>
+                    <li><a href="#GridLayout">GridLayout</a></li>
+                    <li><a href="#TableLayout">TableLayout</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Lists</div>
+                <ul class="sidebar-items">
+                    <li><a href="#ListView">ListView</a></li>
+                    <li><a href="#RecyclerList">RecyclerList</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Navigation</div>
+                <ul class="sidebar-items">
+                    <li><a href="#DrawerLayout">DrawerLayout</a></li>
+                    <li><a href="#NavigationDrawer">NavigationDrawer</a></li>
+                    <li><a href="#TopAppBar">TopAppBar</a></li>
+                    <li><a href="#BottomNavBar">BottomNavBar</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Functions</div>
+                <ul class="sidebar-items">
+                    <li><a href="#view-state">View State</a></li>
+                    <li><a href="#dialogs-fn">Dialogs</a></li>
+                    <li><a href="#animation-fn">Animation</a></li>
+                    <li><a href="#native-fn">Native/Sensors</a></li>
+                    <li><a href="#appWithDrawer">appWithDrawer()</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="container">
+                <h1>ui_core.php</h1>
+                <p class="subtitle">Full-featured component library with fluent API for Android apps.</p>
+                <p><code class="inline-code">require_once 'ui_core.php';</code> — OOP components with chained setters, action helpers, and 40+ native view types.</p>
+
+                <!-- ==================== COMPONENT BASE ==================== -->
+                <section id="component">
+                    <h2>Component (Base Class)</h2>
+                    <p>All UI components extend <code class="inline-code">Component</code>. It provides the fluent builder pattern (chained setters) and action helpers for runtime property manipulation.</p>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Fluent API Pattern</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="comment">// All setters return $this for chaining</span>
+<span class="variable">$text</span> = (<span class="keyword">new</span> <span class="class">TextView</span>(<span class="string">"Hello!"</span>))
+    -><span class="function">setId</span>(<span class="string">"greeting"</span>)
+    -><span class="function">setTextColor</span>(<span class="string">"#4ec9b0"</span>)
+    -><span class="function">setTextSize</span>(<span class="number">24</span>)
+    -><span class="function">setBold</span>(<span class="keyword">true</span>)
+    -><span class="function">setPadding</span>([<span class="number">16</span>, <span class="number">8</span>, <span class="number">16</span>, <span class="number">8</span>])
+    -><span class="function">setBackground</span>(<span class="string">"#2d2d30"</span>)
+    -><span class="function">setCornerRadius</span>(<span class="number">8</span>)
+    -><span class="function">setOnClick</span>(<span class="string">"onGreetingClick"</span>);</code></pre>
+                    </div>
+
+                    <h3>Common Setters (all components)</h3>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>setId($id)</code></td><td>Unique identifier for later reference</td></tr>
+                        <tr><td><code>setBackground($color)</code></td><td>Background color (hex)</td></tr>
+                        <tr><td><code>setCornerRadius($dp)</code></td><td>Rounded corners</td></tr>
+                        <tr><td><code>setElevation($dp)</code></td><td>Material elevation shadow</td></tr>
+                        <tr><td><code>setAlpha($float)</code></td><td>Opacity (0.0 - 1.0)</td></tr>
+                        <tr><td><code>setMargin($px)</code></td><td>Outer margin</td></tr>
+                        <tr><td><code>setPadding($arr)</code></td><td>Inner padding [left, top, right, bottom]</td></tr>
+                        <tr><td><code>setWeight($w)</code></td><td>Layout weight for proportional sizing</td></tr>
+                        <tr><td><code>setWidth($w) / setHeight($h)</code></td><td>Dimensions ("match_parent", "wrap_content", or dp)</td></tr>
+                        <tr><td><code>setGone() / setInvisible()</code></td><td>Visibility control</td></tr>
+                        <tr><td><code>setOnClick($method)</code></td><td>Click handler (PHP method name)</td></tr>
+                        <tr><td><code>setOnLongClick($method)</code></td><td>Long-click handler</td></tr>
+                    </table>
+
+                    <div class="tip">
+                        <strong>Magic setters:</strong> Any <code class="inline-code">set*()</code> call is handled by <code class="inline-code">__call()</code> magic method. You can set any attribute, e.g. <code class="inline-code">->setCustomAttr("value")</code>.
+                    </div>
+
+                    <h3>Action Helpers (runtime manipulation)</h3>
+                    <p>After initial render, use action helpers prefixed with <code class="inline-code">_</code> to read/modify views. These require a view ID and return action arrays.</p>
+
+                    <h4>Text Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getText()</code></td><td>Get text content (sync via view state file)</td></tr>
+                        <tr><td><code>_setText($text, $color?)</code></td><td>Set text and optional color</td></tr>
+                        <tr><td><code>_getTextColor() / _setTextColor($c)</code></td><td>Text color</td></tr>
+                        <tr><td><code>_getTextSize() / _setTextSize($sp)</code></td><td>Font size</td></tr>
+                        <tr><td><code>_setTextStyle($s)</code></td><td>"bold", "italic", "bold|italic"</td></tr>
+                        <tr><td><code>_setGravity($g)</code></td><td>"center", "left", "right"</td></tr>
+                        <tr><td><code>_setHtml($html)</code></td><td>Set HTML formatted text</td></tr>
+                        <tr><td><code>_setMaxLines($n)</code></td><td>Limit visible lines</td></tr>
+                        <tr><td><code>_setHint($hint) / _getHint()</code></td><td>Placeholder text</td></tr>
+                        <tr><td><code>_clear()</code></td><td>Clear text content</td></tr>
+                    </table>
+
+                    <h4>Appearance Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getBackground() / _setBackground($c)</code></td><td>Background color</td></tr>
+                        <tr><td><code>_setCornerRadius($r)</code></td><td>Corner radius</td></tr>
+                        <tr><td><code>_setElevation($dp)</code></td><td>Elevation</td></tr>
+                        <tr><td><code>_setBorder($color, $width)</code></td><td>Border</td></tr>
+                        <tr><td><code>_getAlpha() / _setAlpha($a)</code></td><td>Opacity</td></tr>
+                        <tr><td><code>_fadeIn() / _fadeOut()</code></td><td>Fade animation shortcuts</td></tr>
+                    </table>
+
+                    <h4>Visibility &amp; State Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_show() / _hide() / _invisible()</code></td><td>Set visibility</td></tr>
+                        <tr><td><code>_enable() / _disable()</code></td><td>Toggle clickability</td></tr>
+                        <tr><td><code>_focus() / _clearFocus()</code></td><td>Focus management</td></tr>
+                        <tr><td><code>_setClickable($b) / _setFocusable($b)</code></td><td>Fine-grained control</td></tr>
+                    </table>
+
+                    <h4>Dimension &amp; Transform Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_setWidth($w) / _setHeight($h)</code></td><td>Update dimensions</td></tr>
+                        <tr><td><code>_setDimensions($w, $h)</code></td><td>Both at once</td></tr>
+                        <tr><td><code>_setPadding($p) / _setPaddingAll(l,t,r,b)</code></td><td>Padding</td></tr>
+                        <tr><td><code>_setMargin($m) / _setMarginAll(l,t,r,b)</code></td><td>Margin</td></tr>
+                        <tr><td><code>_setRotation($deg)</code></td><td>Rotate view</td></tr>
+                        <tr><td><code>_setScale($s) / _setScaleX / _setScaleY</code></td><td>Scale transform</td></tr>
+                        <tr><td><code>_setTranslationX($x) / _setTranslationY($y)</code></td><td>Translation</td></tr>
+                        <tr><td><code>_setPosition($x, $y)</code></td><td>Set translation X+Y</td></tr>
+                        <tr><td><code>_transform($arr)</code></td><td>Multiple transforms at once</td></tr>
+                        <tr><td><code>_resetTransform()</code></td><td>Reset all transforms</td></tr>
+                    </table>
+
+                    <h4>Checkbox / Toggle Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getChecked() / _setChecked($b)</code></td><td>Check state</td></tr>
+                        <tr><td><code>_check() / _uncheck() / _toggle()</code></td><td>Shortcuts</td></tr>
+                    </table>
+
+                    <h4>Progress Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getProgress() / _setProgress($v)</code></td><td>Progress value</td></tr>
+                        <tr><td><code>_getMax() / _setMax($m)</code></td><td>Maximum value</td></tr>
+                        <tr><td><code>_setProgressWithMax($p, $m)</code></td><td>Both at once</td></tr>
+                    </table>
+
+                    <h4>Image Actions</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getImage() / _setImage($src)</code></td><td>Image source URL/path</td></tr>
+                        <tr><td><code>_setScaleType($type)</code></td><td>"centerCrop", "fitCenter", etc.</td></tr>
+                    </table>
+
+                    <h4>Compound Style Helpers</h4>
+                    <div class="method-sig">
+                        <span class="param">$view</span>-><span class="method-name">_styleText</span>([<span class="string">'text'</span> => ..., <span class="string">'color'</span> => ..., <span class="string">'size'</span> => ..., <span class="string">'bold'</span> => ...])
+                    </div>
+                    <div class="method-sig">
+                        <span class="param">$view</span>-><span class="method-name">_styleView</span>([<span class="string">'background'</span> => ..., <span class="string">'corners'</span> => ..., <span class="string">'elevation'</span> => ..., <span class="string">'alpha'</span> => ...])
+                    </div>
+                    <p>Apply multiple related properties in one call.</p>
+                </section>
+
+                <!-- ==================== CLASS HIERARCHY ==================== -->
+                <section id="class-hierarchy">
+                    <h2>Class Hierarchy</h2>
+                    <div class="class-tree">
+<span class="t-cls">Component</span> <span class="t-dim">(abstract base)</span>
+<span class="t-dim">├──</span> <span class="t-cls">TextView</span>
+<span class="t-dim">├──</span> <span class="t-cls">Button</span>
+<span class="t-dim">├──</span> <span class="t-cls">EditText</span>
+<span class="t-dim">├──</span> <span class="t-cls">CheckBox</span>
+<span class="t-dim">├──</span> <span class="t-cls">ImageView</span>
+<span class="t-dim">├──</span> <span class="t-cls">ProgressBar</span>
+<span class="t-dim">├──</span> <span class="t-cls">SeekBar</span>
+<span class="t-dim">├──</span> <span class="t-cls">Spinner</span>
+<span class="t-dim">├──</span> <span class="t-cls">WebView</span>
+<span class="t-dim">├──</span> <span class="t-cls">RatingBar</span>
+<span class="t-dim">├──</span> <span class="t-cls">NumberPicker</span>
+<span class="t-dim">├──</span> <span class="t-cls">SearchView</span>
+<span class="t-dim">├──</span> <span class="t-cls">AutoCompleteTextView</span>
+<span class="t-dim">├──</span> <span class="t-cls">CalendarView</span> / <span class="t-cls">DatePicker</span> / <span class="t-cls">TimePicker</span>
+<span class="t-dim">├──</span> <span class="t-cls">VideoView</span>
+<span class="t-dim">├──</span> <span class="t-cls">SwitchView</span> / <span class="t-cls">SwitchMaterial</span> / <span class="t-cls">ToggleButton</span>
+<span class="t-dim">├──</span> <span class="t-cls">FloatingActionButton</span> / <span class="t-cls">Chip</span> / <span class="t-cls">TextInputLayout</span> / <span class="t-cls">Toolbar</span>
+<span class="t-dim">├──</span> <span class="t-cls">Space</span> / <span class="t-cls">Chronometer</span> / <span class="t-cls">TextClock</span> / <span class="t-cls">AnalogClock</span>
+<span class="t-dim">├──</span> <span class="t-cls">ChipGroup</span> <span class="t-dim">(has children)</span>
+<span class="t-dim">├──</span> <span class="t-cls">RadioGroup</span> <span class="t-dim">(has children + extra methods)</span>
+<span class="t-dim">├──</span> <span class="t-cls">TabLayout</span> <span class="t-dim">(has tabs + extra methods)</span>
+<span class="t-dim">├──</span> <span class="t-cls">SwipeRefreshLayout</span> <span class="t-dim">(has children)</span>
+<span class="t-dim">├──</span> <span class="t-cls">RecyclerList</span> <span class="t-dim">(items + template)</span>
+<span class="t-dim">├──</span> <span class="t-cls">ListView</span> <span class="t-dim">(items + layout)</span>
+<span class="t-dim">├──</span> <span class="t-cls">DrawerLayout</span> / <span class="t-cls">NavigationDrawer</span> / <span class="t-cls">TopAppBar</span> / <span class="t-cls">BottomNavBar</span>
+<span class="t-dim">├──</span> <span class="t-cls">VerticalLayout</span> <span class="t-dim">(has children)</span>
+<span class="t-dim">│   ├──</span> <span class="t-cls">HorizontalLayout</span>
+<span class="t-dim">│   ├──</span> <span class="t-cls">ScrollView</span> / <span class="t-cls">HorizontalScrollView</span>
+<span class="t-dim">│   ├──</span> <span class="t-cls">FrameLayout</span> / <span class="t-cls">RelativeLayout</span> / <span class="t-cls">StackLayout</span>
+<span class="t-dim">│   ├──</span> <span class="t-cls">CardView</span>
+<span class="t-dim">│   ├──</span> <span class="t-cls">GridLayout</span> / <span class="t-cls">TableLayout</span> / <span class="t-cls">TableRow</span>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW COMPONENTS ==================== -->
+                <section id="view-components">
+                    <h2>View Components</h2>
+
+                    <h3 id="TextView">TextView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">TextView</span>(<span class="keyword">string</span> <span class="param">$text</span>)</div>
+                    <p>Display text with full styling control.</p>
+                    <table>
+                        <tr><th>Setter</th><th>Getter</th><th>Description</th></tr>
+                        <tr><td><code>setText($text)</code></td><td><code>_getText</code></td><td>Text content</td></tr>
+                        <tr><td><code>setTextColor($c)</code></td><td><code>_getTextColor</code></td><td>Text color</td></tr>
+                        <tr><td><code>setTextSize($sp)</code></td><td><code>_getTextSize</code></td><td>Font size</td></tr>
+                        <tr><td><code>setBold($b)</code></td><td>—</td><td>Bold text</td></tr>
+                        <tr><td><code>setItalic($b)</code></td><td>—</td><td>Italic text</td></tr>
+                        <tr><td><code>setGravity($g)</code></td><td>—</td><td>"center", "left", "right"</td></tr>
+                        <tr><td><code>setHtml($html)</code></td><td>—</td><td>HTML formatted text</td></tr>
+                        <tr><td><code>setMaxLines($n)</code></td><td>—</td><td>Limit visible lines</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$title</span> = (<span class="keyword">new</span> <span class="class">TextView</span>(<span class="string">"Welcome"</span>))
+    -><span class="function">setTextSize</span>(<span class="number">32</span>)
+    -><span class="function">setBold</span>(<span class="keyword">true</span>)
+    -><span class="function">setTextColor</span>(<span class="string">"#4ec9b0"</span>)
+    -><span class="function">setGravity</span>(<span class="string">"center"</span>);</code></pre>
+                    </div>
+
+                    <h3 id="Button">Button</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">Button</span>(<span class="keyword">string</span> <span class="param">$text</span>)</div>
+                    <p>Clickable button. Inherits all TextView setters plus:</p>
+                    <table>
+                        <tr><th>Setter</th><th>Description</th></tr>
+                        <tr><td><code>setIcon($icon)</code></td><td>Material icon name</td></tr>
+                        <tr><td><code>setOnClick($method)</code></td><td>Click handler</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$btn</span> = (<span class="keyword">new</span> <span class="class">Button</span>(<span class="string">"Save"</span>))
+    -><span class="function">setOnClick</span>(<span class="string">"onSave"</span>)
+    -><span class="function">setBackground</span>(<span class="string">"#4CAF50"</span>)
+    -><span class="function">setTextColor</span>(<span class="string">"#fff"</span>)
+    -><span class="function">setCornerRadius</span>(<span class="number">25</span>)
+    -><span class="function">setIcon</span>(<span class="string">"save"</span>);</code></pre>
+                    </div>
+
+                    <h3 id="EditText">EditText</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">EditText</span>()</div>
+                    <p>Text input field.</p>
+                    <table>
+                        <tr><th>Setter</th><th>Getter</th><th>Description</th></tr>
+                        <tr><td><code>setHint($text)</code></td><td><code>_getHint</code></td><td>Placeholder text</td></tr>
+                        <tr><td><code>setText($text)</code></td><td><code>_getText</code></td><td>Current value</td></tr>
+                        <tr><td><code>setInputType($type)</code></td><td>—</td><td>"text", "password", "number", "email"</td></tr>
+                        <tr><td><code>setMultiLine($b)</code></td><td>—</td><td>Enable multi-line</td></tr>
+                        <tr><td><code>setOnTextChanged($cb)</code></td><td>—</td><td>Real-time text change handler</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$email</span> = (<span class="keyword">new</span> <span class="class">EditText</span>())-><span class="function">setId</span>(<span class="string">"email"</span>)-><span class="function">setHint</span>(<span class="string">"Email"</span>)-><span class="function">setInputType</span>(<span class="string">"email"</span>);
+<span class="variable">$pass</span> = (<span class="keyword">new</span> <span class="class">EditText</span>())-><span class="function">setId</span>(<span class="string">"pass"</span>)-><span class="function">setHint</span>(<span class="string">"Password"</span>)-><span class="function">setInputType</span>(<span class="string">"password"</span>);
+<span class="variable">$bio</span> = (<span class="keyword">new</span> <span class="class">EditText</span>())-><span class="function">setId</span>(<span class="string">"bio"</span>)-><span class="function">setHint</span>(<span class="string">"About you"</span>)-><span class="function">setMultiLine</span>(<span class="keyword">true</span>);</code></pre>
+                    </div>
+
+                    <h3 id="CheckBox">CheckBox</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">CheckBox</span>(<span class="keyword">string</span> <span class="param">$text</span>)</div>
+                    <table>
+                        <tr><th>Setter</th><th>Getter</th><th>Description</th></tr>
+                        <tr><td><code>setChecked($b)</code></td><td><code>_getChecked</code></td><td>Checked state</td></tr>
+                        <tr><td><code>setOnCheckedChange($cb)</code></td><td>—</td><td>State change handler</td></tr>
+                    </table>
+
+                    <h3 id="SwitchView">SwitchView / SwitchMaterial / ToggleButton</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">SwitchView</span>(<span class="keyword">string</span> <span class="param">$text</span>)</div>
+                    <p>Toggle switches. Same API as CheckBox. <code class="inline-code">SwitchMaterial</code> uses Material Design styling.</p>
+
+                    <h3 id="Spinner">Spinner</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">Spinner</span>()</div>
+                    <table>
+                        <tr><th>Setter</th><th>Description</th></tr>
+                        <tr><td><code>setItems($arr)</code></td><td>Array of dropdown options</td></tr>
+                        <tr><td><code>setSelectedIndex($i)</code></td><td>Pre-selected index</td></tr>
+                        <tr><td><code>setOnItemSelected($cb)</code></td><td>Selection handler (receives <code>item</code>, <code>position</code>)</td></tr>
+                    </table>
+
+                    <h3 id="SeekBar">SeekBar</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">SeekBar</span>()</div>
+                    <table>
+                        <tr><th>Setter</th><th>Getter</th><th>Description</th></tr>
+                        <tr><td><code>setMax($n)</code></td><td><code>_getMax</code></td><td>Maximum value</td></tr>
+                        <tr><td><code>setProgress($n)</code></td><td><code>_getProgress</code></td><td>Current value</td></tr>
+                        <tr><td><code>setOnSeekBarChange($cb)</code></td><td>—</td><td>Change handler (receives <code>progress</code>)</td></tr>
+                    </table>
+
+                    <h3 id="RatingBar">RatingBar</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">RatingBar</span>()</div>
+                    <p>Star rating. Use <code class="inline-code">setNumStars($n)</code>, <code class="inline-code">setRating($r)</code>, <code class="inline-code">setOnRatingChanged($cb)</code>.</p>
+
+                    <h3 id="ImageView">ImageView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">ImageView</span>()</div>
+                    <p>Use <code class="inline-code">setSrc($url)</code> for image source. <code class="inline-code">setScaleType($type)</code> for fitting: "centerCrop", "fitCenter", "fitXY".</p>
+
+                    <h3 id="ProgressBar">ProgressBar</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">ProgressBar</span>()</div>
+                    <p>Use <code class="inline-code">setMax($n)</code> and <code class="inline-code">setProgress($v)</code>. Indeterminate by default if no progress set.</p>
+
+                    <h3 id="WebView">WebView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">WebView</span>()</div>
+                    <p>Embed web content. Use <code class="inline-code">setUrl($url)</code> or <code class="inline-code">setHtml($html)</code>.</p>
+                </section>
+
+                <!-- ==================== MATERIAL COMPONENTS ==================== -->
+                <section id="material-components">
+                    <h2>Material Components</h2>
+
+                    <h3 id="FloatingActionButton">FloatingActionButton</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">FloatingActionButton</span>()</div>
+                    <p>Material FAB. Use <code class="inline-code">setIcon($name)</code>, <code class="inline-code">setBackground($color)</code>, <code class="inline-code">setOnClick($handler)</code>.</p>
+
+                    <h3 id="Chip">Chip / ChipGroup</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">Chip</span>()</div>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">ChipGroup</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Material chips for tags and filters. ChipGroup supports <code class="inline-code">addChild($chip)</code>.</p>
+
+                    <h3 id="TextInputLayout">TextInputLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">TextInputLayout</span>()</div>
+                    <p>Material text input with floating hint label and outlined/filled style.</p>
+
+                    <h3 id="TabLayout">TabLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">TabLayout</span>()</div>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>tabs($tabArray)</code></td><td>Set tab items: [{text, icon?}]</td></tr>
+                        <tr><td><code>_selectTab($index)</code></td><td>Programmatically select tab</td></tr>
+                        <tr><td><code>_getSelectedTab()</code></td><td>Get selected index</td></tr>
+                        <tr><td><code>_setBadge($tabIndex, $text)</code></td><td>Set badge on tab</td></tr>
+                        <tr><td><code>_setTabs($tabs)</code></td><td>Replace all tabs</td></tr>
+                    </table>
+
+                    <h3 id="SwipeRefreshLayout">SwipeRefreshLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">SwipeRefreshLayout</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Pull-to-refresh container. Actions: <code class="inline-code">_setRefreshing($bool)</code>, <code class="inline-code">_stopRefreshing()</code>.</p>
+                </section>
+
+                <!-- ==================== INPUT EXTRAS ==================== -->
+                <section id="input-extras">
+                    <h2>Input Extras</h2>
+
+                    <h3 id="RadioGroup">RadioGroup</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">RadioGroup</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Container for RadioButton children. Use <code class="inline-code">addChild(new RadioButton("Option"))</code>.</p>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getCheckedId()</code></td><td>Get ID of checked radio button</td></tr>
+                        <tr><td><code>_checkButton($radioId)</code></td><td>Check a specific button</td></tr>
+                        <tr><td><code>_clearCheck()</code></td><td>Clear selection</td></tr>
+                    </table>
+
+                    <h3 id="NumberPicker">NumberPicker</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">NumberPicker</span>()</div>
+                    <p>Scrollable number picker. Use <code class="inline-code">setMinValue($n)</code>, <code class="inline-code">setMaxValue($n)</code>, <code class="inline-code">setValue($n)</code>.</p>
+
+                    <h3 id="SearchView">SearchView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">SearchView</span>()</div>
+                    <p>Search input with submit action. Use <code class="inline-code">setQueryHint($hint)</code>, <code class="inline-code">setOnQueryTextSubmit($cb)</code>.</p>
+
+                    <h3 id="AutoComplete">AutoCompleteTextView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">AutoCompleteTextView</span>()</div>
+                    <p>Text input with suggestion dropdown. Use <code class="inline-code">setSuggestions($arr)</code>.</p>
+
+                    <h3 id="DateTimePicker">DatePicker / TimePicker / CalendarView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">DatePicker</span>() &nbsp;|&nbsp; <span class="keyword">new</span> <span class="class">TimePicker</span>() &nbsp;|&nbsp; <span class="keyword">new</span> <span class="class">CalendarView</span>()</div>
+                    <p>Inline date/time selection widgets.</p>
+                </section>
+
+                <!-- ==================== LAYOUTS ==================== -->
+                <section id="layouts">
+                    <h2>Layout Components</h2>
+
+                    <h3 id="VerticalLayout">VerticalLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">VerticalLayout</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Stack children vertically. The most common layout container.</p>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>addChild($component)</code></td><td>Add single child, returns <code>$this</code></td></tr>
+                        <tr><td><code>addChildren($array)</code></td><td>Add multiple children</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$layout</span> = (<span class="keyword">new</span> <span class="class">VerticalLayout</span>())
+    -><span class="function">setBackground</span>(<span class="string">"#1e1e1e"</span>)
+    -><span class="function">setPadding</span>([<span class="number">20</span>, <span class="number">20</span>, <span class="number">20</span>, <span class="number">20</span>])
+    -><span class="function">addChild</span>(<span class="keyword">new</span> <span class="class">TextView</span>(<span class="string">"Header"</span>))
+    -><span class="function">addChild</span>(<span class="keyword">new</span> <span class="class">EditText</span>())
+    -><span class="function">addChild</span>(<span class="keyword">new</span> <span class="class">Button</span>(<span class="string">"Submit"</span>));</code></pre>
+                    </div>
+
+                    <h3 id="HorizontalLayout">HorizontalLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">HorizontalLayout</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Stack children horizontally. Use <code class="inline-code">setWeight($n)</code> on children for proportional sizing.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example: Equal-width buttons</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$row</span> = (<span class="keyword">new</span> <span class="class">HorizontalLayout</span>())
+    -><span class="function">addChild</span>((<span class="keyword">new</span> <span class="class">Button</span>(<span class="string">"Cancel"</span>))-><span class="function">setWeight</span>(<span class="number">1</span>))
+    -><span class="function">addChild</span>((<span class="keyword">new</span> <span class="class">Button</span>(<span class="string">"OK"</span>))-><span class="function">setWeight</span>(<span class="number">1</span>));</code></pre>
+                    </div>
+
+                    <h3 id="ScrollView">ScrollView / HorizontalScrollView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">ScrollView</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Scrollable container. Extends VerticalLayout.</p>
+
+                    <h3 id="CardView">CardView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">CardView</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Material card with elevation and rounded corners. Extends VerticalLayout.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$card</span> = (<span class="keyword">new</span> <span class="class">CardView</span>())
+    -><span class="function">setCornerRadius</span>(<span class="number">16</span>)-><span class="function">setElevation</span>(<span class="number">8</span>)
+    -><span class="function">setBackground</span>(<span class="string">"#2d2d30"</span>)-><span class="function">setPadding</span>([<span class="number">16</span>,<span class="number">16</span>,<span class="number">16</span>,<span class="number">16</span>])
+    -><span class="function">addChild</span>(<span class="keyword">new</span> <span class="class">TextView</span>(<span class="string">"Card Title"</span>))
+    -><span class="function">addChild</span>(<span class="keyword">new</span> <span class="class">TextView</span>(<span class="string">"Card content"</span>));</code></pre>
+                    </div>
+
+                    <h3 id="FrameLayout">FrameLayout / RelativeLayout / StackLayout</h3>
+                    <p>Overlapping containers. <code class="inline-code">StackLayout</code> is an alias for FrameLayout. All extend VerticalLayout.</p>
+
+                    <h3 id="GridLayout">GridLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">GridLayout</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Grid with column count. Use <code class="inline-code">setColumnCount($n)</code>.</p>
+
+                    <h3 id="TableLayout">TableLayout / TableRow</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">TableLayout</span>(<span class="keyword">array</span> <span class="param">$children</span> = [])</div>
+                    <p>Table structure. Add <code class="inline-code">TableRow</code> children, each containing cell components.</p>
+                </section>
+
+                <!-- ==================== LISTS ==================== -->
+                <section id="lists">
+                    <h2>List Components</h2>
+
+                    <h3 id="ListView">ListView</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">ListView</span>()</div>
+                    <p>Efficient scrolling list with item recycling.</p>
+
+                    <h4>Builder Methods</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>items($array)</code></td><td>Set initial items</td></tr>
+                        <tr><td><code>itemLayout($layout)</code></td><td>Item layout type</td></tr>
+                        <tr><td><code>showDividers($bool)</code></td><td>Show dividers between items</td></tr>
+                        <tr><td><code>onItemClick($handler)</code></td><td>Item click callback</td></tr>
+                        <tr><td><code>onItemLongClick($handler)</code></td><td>Item long-click callback</td></tr>
+                    </table>
+
+                    <h4>Action Helpers (runtime)</h4>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>_getItems() / _setItems($arr)</code></td><td>Replace all items</td></tr>
+                        <tr><td><code>_addItem($item)</code></td><td>Append item</td></tr>
+                        <tr><td><code>_addItems($arr)</code></td><td>Append multiple items</td></tr>
+                        <tr><td><code>_insertItem($pos, $item)</code></td><td>Insert at position</td></tr>
+                        <tr><td><code>_removeItem($pos)</code></td><td>Remove at position</td></tr>
+                        <tr><td><code>_updateItem($pos, $item)</code></td><td>Update at position</td></tr>
+                        <tr><td><code>_clear()</code></td><td>Remove all items</td></tr>
+                        <tr><td><code>_getCount()</code></td><td>Item count</td></tr>
+                        <tr><td><code>_scrollToPosition($pos)</code></td><td>Scroll to item</td></tr>
+                        <tr><td><code>_setSelection($pos)</code></td><td>Select item</td></tr>
+                    </table>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Complete ListView Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">class</span> <span class="class">App</span> {
+    <span class="keyword">function</span> <span class="function">index</span>() {
+        <span class="variable">$list</span> = (<span class="keyword">new</span> <span class="class">ListView</span>())
+            -><span class="function">setId</span>(<span class="string">"todo_list"</span>)
+            -><span class="function">items</span>([
+                [<span class="string">'title'</span> => <span class="string">'Buy groceries'</span>, <span class="string">'done'</span> => <span class="keyword">false</span>],
+                [<span class="string">'title'</span> => <span class="string">'Walk the dog'</span>, <span class="string">'done'</span> => <span class="keyword">true</span>],
+            ])
+            -><span class="function">onItemClick</span>(<span class="string">"onTodoClick"</span>);
+
+        <span class="keyword">return</span> (<span class="keyword">new</span> <span class="class">VerticalLayout</span>())-><span class="function">addChild</span>(<span class="variable">$list</span>);
+    }
+
+    <span class="keyword">function</span> <span class="function">onTodoClick</span>(<span class="variable">$p</span>) {
+        <span class="keyword">return</span> <span class="function">toast</span>(<span class="string">"Clicked: "</span> . <span class="variable">$p</span>[<span class="string">'item'</span>][<span class="string">'title'</span>]);
+    }
+}</code></pre>
+                    </div>
+
+                    <h3 id="RecyclerList">RecyclerList</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">RecyclerList</span>()</div>
+                    <p>Template-based list. Define how each item renders with a callback.</p>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>items($arr)</code></td><td>Set data array</td></tr>
+                        <tr><td><code>itemTemplate($callback)</code></td><td>Define render function: <code>function($item, $index) → Component</code></td></tr>
+                        <tr><td><code>_setItems($arr)</code></td><td>Replace all items at runtime</td></tr>
+                        <tr><td><code>_addItem($item)</code></td><td>Append item</td></tr>
+                        <tr><td><code>_removeItem($pos)</code></td><td>Remove at position</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">RecyclerList with Template</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$list</span> = (<span class="keyword">new</span> <span class="class">RecyclerList</span>())
+    -><span class="function">items</span>(<span class="variable">$users</span>)
+    -><span class="function">itemTemplate</span>(<span class="keyword">function</span>(<span class="variable">$user</span>, <span class="variable">$i</span>) {
+        <span class="keyword">return</span> (<span class="keyword">new</span> <span class="class">HorizontalLayout</span>())
+            -><span class="function">setPadding</span>([<span class="number">16</span>,<span class="number">12</span>,<span class="number">16</span>,<span class="number">12</span>])
+            -><span class="function">addChild</span>((<span class="keyword">new</span> <span class="class">TextView</span>(<span class="variable">$user</span>[<span class="string">'name'</span>]))-><span class="function">setWeight</span>(<span class="number">1</span>))
+            -><span class="function">addChild</span>((<span class="keyword">new</span> <span class="class">Button</span>(<span class="string">"View"</span>))-><span class="function">setOnClick</span>(<span class="string">"viewUser"</span>));
+    });</code></pre>
+                    </div>
+                </section>
+
+                <!-- ==================== NAVIGATION ==================== -->
+                <section id="navigation">
+                    <h2>Navigation Components</h2>
+
+                    <h3 id="DrawerLayout">DrawerLayout</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">DrawerLayout</span>()</div>
+                    <p>App scaffold with slide-out navigation drawer.</p>
+                    <table>
+                        <tr><th>Builder Method</th><th>Description</th></tr>
+                        <tr><td><code>drawer($content)</code></td><td>Set drawer content (NavigationDrawer)</td></tr>
+                        <tr><td><code>content($content)</code></td><td>Set main content</td></tr>
+                        <tr><td><code>drawerWidth($dp)</code></td><td>Drawer width</td></tr>
+                        <tr><td><code>drawerGravity($g)</code></td><td>"start" or "end"</td></tr>
+                    </table>
+                    <table>
+                        <tr><th>Action</th><th>Description</th></tr>
+                        <tr><td><code>_open() / _close() / _toggle()</code></td><td>Control drawer state</td></tr>
+                        <tr><td><code>_isOpen()</code></td><td>Check if drawer is open</td></tr>
+                    </table>
+
+                    <h3 id="NavigationDrawer">NavigationDrawer</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">NavigationDrawer</span>()</div>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>header($content)</code></td><td>Custom header content</td></tr>
+                        <tr><td><code>items($arr)</code></td><td>Nav items: [{id, text, icon?, handler}]</td></tr>
+                        <tr><td><code>onItemSelected($handler)</code></td><td>Selection callback</td></tr>
+                        <tr><td><code>selectedItem($id)</code></td><td>Pre-select an item</td></tr>
+                        <tr><td><code>_setSelectedItem($id)</code></td><td>Change selection at runtime</td></tr>
+                        <tr><td><code>_setItems($arr)</code></td><td>Replace items at runtime</td></tr>
+                    </table>
+
+                    <h3 id="TopAppBar">TopAppBar</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">TopAppBar</span>(<span class="keyword">string</span> <span class="param">$title</span>)</div>
+                    <p>Material app bar with title, navigation icon, and action buttons.</p>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>title($text) / subtitle($text)</code></td><td>Title and subtitle</td></tr>
+                        <tr><td><code>navigationIcon($icon)</code></td><td>"menu", "arrow_back", etc.</td></tr>
+                        <tr><td><code>onNavigationClick($handler)</code></td><td>Nav icon click handler</td></tr>
+                        <tr><td><code>actions($arr)</code></td><td>Action items: [{icon, handler}]</td></tr>
+                        <tr><td><code>backgroundColor($c) / titleColor($c)</code></td><td>Styling</td></tr>
+                        <tr><td><code>_setTitle($t) / _setSubtitle($t)</code></td><td>Runtime updates</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$bar</span> = (<span class="keyword">new</span> <span class="class">TopAppBar</span>(<span class="string">"Messages"</span>))
+    -><span class="function">setBackground</span>(<span class="string">"#1976D2"</span>)
+    -><span class="function">navigationIcon</span>(<span class="string">"arrow_back"</span>)
+    -><span class="function">onNavigationClick</span>(<span class="string">"goBack"</span>)
+    -><span class="function">actions</span>([[<span class="string">'icon'</span> => <span class="string">'search'</span>, <span class="string">'handler'</span> => <span class="string">'onSearch'</span>]]);</code></pre>
+                    </div>
+
+                    <h3 id="BottomNavBar">BottomNavBar</h3>
+                    <div class="method-sig"><span class="keyword">new</span> <span class="class">BottomNavBar</span>()</div>
+                    <table>
+                        <tr><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>items($arr)</code></td><td>Nav items: [{id, text, icon, handler}]</td></tr>
+                        <tr><td><code>selectedItem($id)</code></td><td>Pre-selected item</td></tr>
+                        <tr><td><code>onItemSelected($handler)</code></td><td>Selection callback</td></tr>
+                        <tr><td><code>backgroundColor($c)</code></td><td>Bar color</td></tr>
+                        <tr><td><code>selectedColor($c) / unselectedColor($c)</code></td><td>Icon colors</td></tr>
+                        <tr><td><code>showLabels($bool)</code></td><td>Show/hide text labels</td></tr>
+                        <tr><td><code>_setSelectedItem($id)</code></td><td>Change selection at runtime</td></tr>
+                        <tr><td><code>_setBadge($itemId, $count)</code></td><td>Show badge on item</td></tr>
+                        <tr><td><code>_clearBadge($itemId)</code></td><td>Remove badge</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="variable">$nav</span> = (<span class="keyword">new</span> <span class="class">BottomNavBar</span>())
+    -><span class="function">items</span>([
+        [<span class="string">'id'</span>=><span class="string">'home'</span>, <span class="string">'text'</span>=><span class="string">'Home'</span>, <span class="string">'icon'</span>=><span class="string">'home'</span>, <span class="string">'handler'</span>=><span class="string">'showHome'</span>],
+        [<span class="string">'id'</span>=><span class="string">'search'</span>, <span class="string">'text'</span>=><span class="string">'Search'</span>, <span class="string">'icon'</span>=><span class="string">'search'</span>, <span class="string">'handler'</span>=><span class="string">'showSearch'</span>],
+        [<span class="string">'id'</span>=><span class="string">'profile'</span>, <span class="string">'text'</span>=><span class="string">'Profile'</span>, <span class="string">'icon'</span>=><span class="string">'person'</span>, <span class="string">'handler'</span>=><span class="string">'showProfile'</span>],
+    ])
+    -><span class="function">selectedItem</span>(<span class="string">"home"</span>);</code></pre>
+                    </div>
+
+                    <h3 id="appWithDrawer">appWithDrawer() Helper</h3>
+                    <div class="method-sig">
+                        <span class="return-type">DrawerLayout</span> <span class="method-name">appWithDrawer</span>(<span class="keyword">array</span> <span class="param">$config</span>)
+                    </div>
+                    <p>Convenience function to create a complete app scaffold with drawer, top bar, and content in one call.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example: Complete App Scaffold</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">index</span>() {
+    <span class="keyword">return</span> <span class="function">appWithDrawer</span>([
+        <span class="string">'title'</span> => <span class="string">'My App'</span>,
+        <span class="string">'drawerHeader'</span> => <span class="string">'Navigation'</span>,
+        <span class="string">'drawerItems'</span> => [
+            [<span class="string">'id'</span>=><span class="string">'home'</span>, <span class="string">'text'</span>=><span class="string">'Home'</span>, <span class="string">'icon'</span>=><span class="string">'home'</span>],
+            [<span class="string">'id'</span>=><span class="string">'settings'</span>, <span class="string">'text'</span>=><span class="string">'Settings'</span>, <span class="string">'icon'</span>=><span class="string">'settings'</span>],
+        ],
+        <span class="string">'content'</span> => (<span class="keyword">new</span> <span class="class">VerticalLayout</span>())
+            -><span class="function">addChild</span>(<span class="keyword">new</span> <span class="class">TextView</span>(<span class="string">"Welcome!"</span>)),
+    ]);
+}</code></pre>
+                    </div>
+                </section>
+
+                <!-- ==================== STANDALONE FUNCTIONS ==================== -->
+                <section id="standalone-functions">
+                    <h2>Standalone Functions</h2>
+
+                    <h3 id="view-state">View State</h3>
+                    <p class="section-desc">Synchronous view property access via the view state file.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">mixed</span> <span class="method-name">getViewProperty</span>(<span class="keyword">string</span> <span class="param">$viewId</span>, <span class="keyword">string</span> <span class="param">$property</span>, <span class="param">$default</span> = null)
+                    </div>
+                    <p>Read a property synchronously. Property names use underscore prefix: <code class="inline-code">_getText</code>, <code class="inline-code">_getChecked</code>, etc.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">getViewState</span>(<span class="keyword">string</span> <span class="param">$viewId</span>)
+                    </div>
+                    <p>Get all properties of a view as an associative array.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">updateView</span>(<span class="keyword">string</span> <span class="param">$viewId</span>, <span class="keyword">array</span> <span class="param">$attributes</span>)
+                    </div>
+                    <p>Update multiple properties of a view. Keys map to setter names (without "set" prefix).</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">updateMany</span>(<span class="keyword">array</span> <span class="param">$updates</span>)
+                    </div>
+                    <p>Update multiple views. Each entry: <code class="inline-code">['id' => $id, 'props' => [...]]</code>.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">batch</span>(<span class="keyword">...$actions</span>)
+                    </div>
+                    <p>Execute multiple actions in one response.</p>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example: View State</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">onSubmit</span>(<span class="variable">$p</span>) {
+    <span class="variable">$email</span> = <span class="function">getViewProperty</span>(<span class="string">"email"</span>, <span class="string">"_getText"</span>);
+    <span class="variable">$agree</span> = <span class="function">getViewProperty</span>(<span class="string">"terms"</span>, <span class="string">"_getChecked"</span>);
+
+    <span class="keyword">if</span> (!<span class="variable">$agree</span>) <span class="keyword">return</span> <span class="function">toast</span>(<span class="string">"Accept terms first"</span>);
+
+    <span class="keyword">return</span> <span class="function">batch</span>(
+        <span class="function">toast</span>(<span class="string">"Submitted!"</span>),
+        <span class="function">updateView</span>(<span class="string">"status"</span>, [<span class="string">"text"</span> => <span class="string">"Done"</span>, <span class="string">"textColor"</span> => <span class="string">"#4CAF50"</span>])
+    );
+}</code></pre>
+                    </div>
+
+                    <h3 id="dialogs-fn">Dialogs &amp; Popups</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">snackbar($msg, $actionText?, $cb?, $dur)</span><span class="fn-item-desc">Material snackbar at bottom</span></div>
+                        <div class="fn-item"><span class="fn-item-name">dialog($title, $msg, $onYes, $onNo?)</span><span class="fn-item-desc">Confirmation dialog</span></div>
+                        <div class="fn-item"><span class="fn-item-name">listDialog($title, $items, $onSelect)</span><span class="fn-item-desc">List selection dialog</span></div>
+                        <div class="fn-item"><span class="fn-item-name">datePickerDialog($cb, $initial?)</span><span class="fn-item-desc">Date picker dialog</span></div>
+                        <div class="fn-item"><span class="fn-item-name">timePickerDialog($cb, $is24Hour)</span><span class="fn-item-desc">Time picker dialog</span></div>
+                        <div class="fn-item"><span class="fn-item-name">inputDialog($title, $hint, $cb, $initial)</span><span class="fn-item-desc">Input prompt dialog</span></div>
+                        <div class="fn-item"><span class="fn-item-name">bottomSheet($component)</span><span class="fn-item-desc">Bottom sheet with custom content</span></div>
+                        <div class="fn-item"><span class="fn-item-name">dismissDialog()</span><span class="fn-item-desc">Close any active dialog</span></div>
+                    </div>
+
+                    <h3 id="animation-fn">Animation</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">animate</span>(<span class="keyword">string</span> <span class="param">$viewId</span>, <span class="keyword">array</span> <span class="param">$properties</span>, <span class="keyword">int</span> <span class="param">$duration</span> = 300, <span class="keyword">string</span> <span class="param">$interpolator</span> = "decelerate")
+                    </div>
+                    <p>Animate multiple properties at once: <code class="inline-code">alpha</code>, <code class="inline-code">translationX</code>, <code class="inline-code">translationY</code>, <code class="inline-code">rotation</code>, <code class="inline-code">scaleX</code>, <code class="inline-code">scaleY</code>.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">animateSet</span>(<span class="keyword">array</span> <span class="param">$animations</span>, <span class="keyword">bool</span> <span class="param">$sequential</span> = false)
+                    </div>
+                    <p>Run multiple animations together (parallel) or in sequence.</p>
+
+                    <h3>Clipboard &amp; Sharing</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">copyToClipboard($text, $label)</span><span class="fn-item-desc">Copy to clipboard</span></div>
+                        <div class="fn-item"><span class="fn-item-name">share($text, $title)</span><span class="fn-item-desc">Open share sheet</span></div>
+                        <div class="fn-item"><span class="fn-item-name">openUrl($url)</span><span class="fn-item-desc">Open in browser</span></div>
+                    </div>
+
+                    <h3>View Manipulation</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">removeView($viewId)</span><span class="fn-item-desc">Remove view from layout</span></div>
+                        <div class="fn-item"><span class="fn-item-name">addView($parentId, $child, $index)</span><span class="fn-item-desc">Add component to parent</span></div>
+                        <div class="fn-item"><span class="fn-item-name">replaceChildren($parentId, $arr)</span><span class="fn-item-desc">Replace all children</span></div>
+                        <div class="fn-item"><span class="fn-item-name">scrollTo($scrollId, $target, $smooth)</span><span class="fn-item-desc">Scroll to position/view</span></div>
+                    </div>
+                </section>
+
+                <!-- ==================== NATIVE / SENSORS ==================== -->
+                <section id="native-sensors">
+                    <h2 id="native-fn">Native / Sensor API</h2>
+                    <p class="section-desc">All native functions are asynchronous via DroidScript bridge. Each takes a callback method name.</p>
+
+                    <h3>Motion Sensors</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Callback Data</th></tr>
+                        <tr><td>readAccelerometer($cb)</td><td>x, y, z (m/s²)</td></tr>
+                        <tr><td>readGyroscope($cb)</td><td>x, y, z (rad/s)</td></tr>
+                        <tr><td>readGravity($cb)</td><td>x, y, z</td></tr>
+                        <tr><td>readOrientation($cb)</td><td>azimuth, pitch, roll</td></tr>
+                        <tr><td>readMagneticField($cb)</td><td>x, y, z (μT)</td></tr>
+                    </table>
+
+                    <h3>Environment Sensors</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Callback Data</th></tr>
+                        <tr><td>readLight($cb)</td><td>lux</td></tr>
+                        <tr><td>readProximity($cb)</td><td>distance (cm)</td></tr>
+                        <tr><td>readPressure($cb)</td><td>hPa</td></tr>
+                        <tr><td>readHumidity($cb)</td><td>percent</td></tr>
+                        <tr><td>readTemperature($cb)</td><td>celsius</td></tr>
+                        <tr><td>readStepCounter($cb)</td><td>steps</td></tr>
+                    </table>
+
+                    <h3>Device Info</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>readLocation($cb)</td><td>GPS coordinates</td></tr>
+                        <tr><td>checkLocationEnabled($cb)</td><td>Check GPS enabled</td></tr>
+                        <tr><td>readBattery($cb)</td><td>Battery level/charging</td></tr>
+                        <tr><td>readDeviceInfo($cb)</td><td>Model, manufacturer, SDK</td></tr>
+                        <tr><td>readScreenInfo($cb)</td><td>Width, height, density</td></tr>
+                    </table>
+
+                    <h3>Network</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>readWifiInfo($cb) / scanWifi($cb)</td><td>WiFi info/scan</td></tr>
+                        <tr><td>readBluetoothInfo($cb) / discoverBluetooth($cb)</td><td>Bluetooth info/discover</td></tr>
+                        <tr><td>readNetworkInfo($cb)</td><td>Network connectivity</td></tr>
+                    </table>
+
+                    <h3>HTTP</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">httpRequest($url, $cb, $method, $body?, $headers?)</span><span class="fn-item-desc">Full HTTP request</span></div>
+                        <div class="fn-item"><span class="fn-item-name">httpGet($url, $cb)</span><span class="fn-item-desc">GET shortcut</span></div>
+                        <div class="fn-item"><span class="fn-item-name">httpPost($url, $cb, $body?)</span><span class="fn-item-desc">POST shortcut</span></div>
+                        <div class="fn-item"><span class="fn-item-name">downloadFile($url, $dest, $cb)</span><span class="fn-item-desc">Download file</span></div>
+                    </div>
+
+                    <h3>Media</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">takePhoto($cb, $quality = 80)</span><span class="fn-item-desc">Camera capture</span></div>
+                        <div class="fn-item"><span class="fn-item-name">playAudio($file, $cb) / stopAudio($cb)</span><span class="fn-item-desc">Audio playback</span></div>
+                        <div class="fn-item"><span class="fn-item-name">recordAudio($file, $cb) / stopRecording($cb)</span><span class="fn-item-desc">Audio recording</span></div>
+                        <div class="fn-item"><span class="fn-item-name">textToSpeech($text, $cb, $pitch, $rate)</span><span class="fn-item-desc">Text-to-speech</span></div>
+                        <div class="fn-item"><span class="fn-item-name">speechRecognition($cb)</span><span class="fn-item-desc">Voice recognition</span></div>
+                    </div>
+
+                    <h3>Hardware</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">vibrate($pattern = "100,50,100")</span><span class="fn-item-desc">Vibration pattern</span></div>
+                        <div class="fn-item"><span class="fn-item-name">getVolume($cb, $stream) / setVolume($level, $stream)</span><span class="fn-item-desc">Volume control</span></div>
+                        <div class="fn-item"><span class="fn-item-name">setRingerMode($mode)</span><span class="fn-item-desc">normal/silent/vibrate</span></div>
+                        <div class="fn-item"><span class="fn-item-name">setScreenBrightness($level)</span><span class="fn-item-desc">Brightness (0.0-1.0)</span></div>
+                        <div class="fn-item"><span class="fn-item-name">preventScreenLock($prevent)</span><span class="fn-item-desc">Keep screen on</span></div>
+                        <div class="fn-item"><span class="fn-item-name">flashlight($on)</span><span class="fn-item-desc">Toggle flashlight</span></div>
+                    </div>
+
+                    <h3>Communication</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">sendSms($phone, $msg, $cb)</span><span class="fn-item-desc">Send SMS</span></div>
+                        <div class="fn-item"><span class="fn-item-name">phoneCall($number)</span><span class="fn-item-desc">Make phone call</span></div>
+                        <div class="fn-item"><span class="fn-item-name">showNotification($title, $body, $cb)</span><span class="fn-item-desc">System notification</span></div>
+                        <div class="fn-item"><span class="fn-item-name">sendEmail($to, $subject, $body, $cb, $attach?)</span><span class="fn-item-desc">Compose email</span></div>
+                        <div class="fn-item"><span class="fn-item-name">scanQrCode($cb)</span><span class="fn-item-desc">QR code scanner</span></div>
+                    </div>
+
+                    <h3>Encryption &amp; Files</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">encryptText($text, $pw, $cb) / decryptText(...)</span><span class="fn-item-desc">AES encryption</span></div>
+                        <div class="fn-item"><span class="fn-item-name">hashText($text, $algo, $cb)</span><span class="fn-item-desc">Hash with any algorithm</span></div>
+                        <div class="fn-item"><span class="fn-item-name">readNativeFile($path, $cb)</span><span class="fn-item-desc">Read file content</span></div>
+                        <div class="fn-item"><span class="fn-item-name">writeNativeFile($path, $content, $cb)</span><span class="fn-item-desc">Write file</span></div>
+                        <div class="fn-item"><span class="fn-item-name">listNativeFolder($path, $cb)</span><span class="fn-item-desc">List directory</span></div>
+                        <div class="fn-item"><span class="fn-item-name">nativeFileExists($path, $cb)</span><span class="fn-item-desc">Check file exists</span></div>
+                    </div>
+
+                    <h3>Apps &amp; Intents</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">openApp($package, $cb)</span><span class="fn-item-desc">Launch app by package name</span></div>
+                        <div class="fn-item"><span class="fn-item-name">sendIntent($action, $cb, $type?, $uri?, $extras?)</span><span class="fn-item-desc">Send Android Intent</span></div>
+                        <div class="fn-item"><span class="fn-item-name">setClipboard($text) / getClipboard($cb)</span><span class="fn-item-desc">Clipboard access</span></div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Preview</span>
+                <button class="modal-close" onclick="closePreview()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="phone-preview">
+                    <div class="phone-screen" id="previewScreen"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="previews.js"></script>
+    <script>
+    function filterSidebar(query) {
+        query = query.toLowerCase();
+        document.querySelectorAll('.sidebar-items a').forEach(function(a) {
+            a.style.display = a.textContent.toLowerCase().includes(query) ? '' : 'none';
+        });
+    }
+    function copyCode(btn) {
+        var code = btn.closest('.code-block').querySelector('pre').textContent;
+        navigator.clipboard.writeText(code).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+        });
+    }
+    </script>
+</body>
+</html>

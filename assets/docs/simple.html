@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>simple.php API Reference - PhpNativePlugin</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand">PhpNativePlugin</a>
+            <div class="nav-links">
+                <a href="index.html">Overview</a>
+                <a href="simple.html" class="active">simple.php</a>
+                <a href="ui_core.html">ui_core.php</a>
+                <a href="reference.html">Reference</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-layout">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-search">
+                <input type="text" id="sidebarSearch" placeholder="Filter functions..." oninput="filterSidebar(this.value)">
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Page Builders</div>
+                <ul class="sidebar-items">
+                    <li><a href="#page">page()</a></li>
+                    <li><a href="#card">card()</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">UI Elements</div>
+                <ul class="sidebar-items">
+                    <li><a href="#label">label()</a></li>
+                    <li><a href="#button">button()</a></li>
+                    <li><a href="#input">input()</a></li>
+                    <li><a href="#checkbox">checkbox()</a></li>
+                    <li><a href="#toggle">toggle()</a></li>
+                    <li><a href="#radioGroup">radioGroup()</a></li>
+                    <li><a href="#spinner">spinner()</a></li>
+                    <li><a href="#seekbar">seekbar()</a></li>
+                    <li><a href="#rating">rating()</a></li>
+                    <li><a href="#progress">progress()</a></li>
+                    <li><a href="#numberPicker">numberPicker()</a></li>
+                    <li><a href="#searchBar">searchBar()</a></li>
+                    <li><a href="#autoComplete">autoComplete()</a></li>
+                    <li><a href="#textField">textField()</a></li>
+                    <li><a href="#fab">fab()</a></li>
+                    <li><a href="#chip">chip()</a></li>
+                    <li><a href="#tabs">tabs()</a></li>
+                    <li><a href="#image">image()</a></li>
+                    <li><a href="#video">video()</a></li>
+                    <li><a href="#webView">webView()</a></li>
+                    <li><a href="#calendar">calendar()</a></li>
+                    <li><a href="#spacer">spacer()</a></li>
+                    <li><a href="#divider">divider()</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Layout</div>
+                <ul class="sidebar-items">
+                    <li><a href="#row">row()</a></li>
+                    <li><a href="#grid">grid()</a></li>
+                    <li><a href="#table-fn">table()</a></li>
+                    <li><a href="#materialCard">materialCard()</a></li>
+                    <li><a href="#scrollView">scrollView()</a></li>
+                    <li><a href="#stack">stack()</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Actions</div>
+                <ul class="sidebar-items">
+                    <li><a href="#toast">toast()</a></li>
+                    <li><a href="#alert">alert()</a></li>
+                    <li><a href="#setText-fn">setText()</a></li>
+                    <li><a href="#goToScreen">goToScreen()</a></li>
+                    <li><a href="#goBack">goBack()</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Dialogs</div>
+                <ul class="sidebar-items">
+                    <li><a href="#confirm">confirm()</a></li>
+                    <li><a href="#prompt">prompt()</a></li>
+                    <li><a href="#selectDialog">selectDialog()</a></li>
+                    <li><a href="#pickDate">pickDate()</a></li>
+                    <li><a href="#pickTime">pickTime()</a></li>
+                    <li><a href="#showBottomSheet">showBottomSheet()</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Animation</div>
+                <ul class="sidebar-items">
+                    <li><a href="#animateView">animateView()</a></li>
+                    <li><a href="#fadeIn">fadeIn() / fadeOut()</a></li>
+                    <li><a href="#bounce">bounce() / shake()</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Sensors</div>
+                <ul class="sidebar-items">
+                    <li><a href="#gps">gps()</a></li>
+                    <li><a href="#battery">battery()</a></li>
+                    <li><a href="#compass">compass()</a></li>
+                    <li><a href="#motion-sensors">Motion Sensors</a></li>
+                    <li><a href="#env-sensors">Environment</a></li>
+                    <li><a href="#device-info">Device Info</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Network &amp; HTTP</div>
+                <ul class="sidebar-items">
+                    <li><a href="#httpGet">httpGet()</a></li>
+                    <li><a href="#httpPost">httpPost()</a></li>
+                    <li><a href="#network-fns">Network Info</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Media</div>
+                <ul class="sidebar-items">
+                    <li><a href="#media-fns">Audio / Photo</a></li>
+                    <li><a href="#speak">speak() / listen</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Hardware</div>
+                <ul class="sidebar-items">
+                    <li><a href="#hardware-fns">Hardware Control</a></li>
+                    <li><a href="#comm-fns">Communication</a></li>
+                    <li><a href="#crypto-fns">Encryption</a></li>
+                    <li><a href="#file-fns">File System</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">View Props</div>
+                <ul class="sidebar-items">
+                    <li><a href="#get-set">get() / set() / update()</a></li>
+                    <li><a href="#shortcut-setters">Shortcut Setters</a></li>
+                    <li><a href="#shortcut-getters">Property Getters</a></li>
+                    <li><a href="#style-helpers">Style Helpers</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Templates</div>
+                <ul class="sidebar-items">
+                    <li><a href="#loginForm">loginForm()</a></li>
+                    <li><a href="#simpleList">simpleList()</a></li>
+                    <li><a href="#tabbedPage">tabbedPage()</a></li>
+                    <li><a href="#formPage">formPage()</a></li>
+                    <li><a href="#more-templates">More Templates</a></li>
+                    <li><a href="#colors-class">Colors Class</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="container">
+                <h1>simple.php</h1>
+                <p class="subtitle">Beginner-friendly helper functions for quick Android app development.</p>
+                <p><code class="inline-code">require_once 'simple.php';</code> — 225+ functions covering UI, sensors, HTTP, media, hardware, and more.</p>
+
+                <!-- ==================== PAGE BUILDERS ==================== -->
+                <section id="page-builders">
+                    <h2>Page Builders</h2>
+
+                    <h3 id="page">page()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VerticalLayout</span> <span class="method-name">page</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">array</span> <span class="param">$content</span>, <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Creates a scrollable page with a title and vertically stacked content.</p>
+                    <table>
+                        <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                        <tr><td><code>padding</code></td><td>int</td><td>30</td><td>Page padding in dp</td></tr>
+                        <tr><td><code>titleColor</code></td><td>string</td><td>#4ec9b0</td><td>Title text color</td></tr>
+                        <tr><td><code>titleSize</code></td><td>int</td><td>24</td><td>Title font size in sp</td></tr>
+                        <tr><td><code>background</code></td><td>string</td><td>#1e1e1e</td><td>Background color</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">return</span> <span class="function">page</span>(<span class="string">"Settings"</span>, [
+    <span class="function">label</span>(<span class="string">"Adjust your preferences"</span>),
+    <span class="function">checkbox</span>(<span class="string">"notifications"</span>, <span class="string">"Enable notifications"</span>),
+    <span class="function">button</span>(<span class="string">"Save"</span>, <span class="string">"onSave"</span>),
+], [<span class="string">'padding'</span> => <span class="number">20</span>]);</code></pre>
+                    </div>
+
+                    <h3 id="card">card()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VerticalLayout</span> <span class="method-name">card</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">array</span> <span class="param">$content</span>)
+                    </div>
+                    <p>Groups content in a card-style container with rounded corners and dark background.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">return</span> <span class="function">page</span>(<span class="string">"Dashboard"</span>, [
+    <span class="function">card</span>(<span class="string">"User Info"</span>, [
+        <span class="function">label</span>(<span class="string">"John Doe"</span>, [<span class="string">'bold'</span> => <span class="keyword">true</span>]),
+        <span class="function">label</span>(<span class="string">"john@email.com"</span>, [<span class="string">'color'</span> => <span class="string">'#888'</span>]),
+    ]),
+    <span class="function">card</span>(<span class="string">"Stats"</span>, [
+        <span class="function">label</span>(<span class="string">"Posts: 42"</span>),
+    ]),
+]);</code></pre>
+                    </div>
+                </section>
+
+                <!-- ==================== UI ELEMENTS ==================== -->
+                <section id="ui-elements">
+                    <h2>UI Elements</h2>
+
+                    <h3 id="label">label()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">TextView</span> <span class="method-name">label</span>(<span class="keyword">string</span> <span class="param">$text</span>, <span class="keyword">array</span> <span class="param">$style</span> = [])
+                    </div>
+                    <p>Creates a text label.</p>
+                    <table>
+                        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>size</code></td><td>int</td><td>Font size in sp</td></tr>
+                        <tr><td><code>color</code></td><td>string</td><td>Text color (hex)</td></tr>
+                        <tr><td><code>bold</code></td><td>bool</td><td>Bold text</td></tr>
+                        <tr><td><code>center</code></td><td>bool</td><td>Center align</td></tr>
+                        <tr><td><code>id</code></td><td>string</td><td>View ID for later reference</td></tr>
+                        <tr><td><code>padding</code></td><td>int</td><td>Padding in dp</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">label</span>(<span class="string">"Big Title"</span>, [<span class="string">'size'</span> => <span class="number">32</span>, <span class="string">'bold'</span> => <span class="keyword">true</span>]),
+<span class="function">label</span>(<span class="string">"Colored"</span>, [<span class="string">'color'</span> => <span class="string">'#4CAF50'</span>]),
+<span class="function">label</span>(<span class="string">"Centered"</span>, [<span class="string">'center'</span> => <span class="keyword">true</span>]),</code></pre>
+                    </div>
+
+                    <h3 id="button">button()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">Button</span> <span class="method-name">button</span>(<span class="keyword">string</span> <span class="param">$text</span>, <span class="keyword">string</span> <span class="param">$action</span>, <span class="keyword">array</span> <span class="param">$style</span> = [])
+                    </div>
+                    <p>Creates a button. <code class="inline-code">$action</code> is the PHP method name called on click.</p>
+                    <table>
+                        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>color</code></td><td>string</td><td>Background color</td></tr>
+                        <tr><td><code>textColor</code></td><td>string</td><td>Text color</td></tr>
+                        <tr><td><code>id</code></td><td>string</td><td>View ID</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">button</span>(<span class="string">"Save"</span>, <span class="string">"onSave"</span>, [<span class="string">'color'</span> => <span class="string">'#4CAF50'</span>]),
+<span class="function">button</span>(<span class="string">"Delete"</span>, <span class="string">"onDelete"</span>, [<span class="string">'color'</span> => <span class="string">'#f44336'</span>]),</code></pre>
+                    </div>
+
+                    <h3 id="input">input()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">EditText</span> <span class="method-name">input</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$hint</span> = "", <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Creates a text input field.</p>
+                    <table>
+                        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>password</code></td><td>bool</td><td>Masked input</td></tr>
+                        <tr><td><code>number</code></td><td>bool</td><td>Numeric keyboard</td></tr>
+                        <tr><td><code>multiline</code></td><td>bool</td><td>Multi-line text area</td></tr>
+                        <tr><td><code>text</code></td><td>string</td><td>Default value</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">input</span>(<span class="string">"email"</span>, <span class="string">"Enter your email"</span>),
+<span class="function">input</span>(<span class="string">"password"</span>, <span class="string">"Password"</span>, [<span class="string">'password'</span> => <span class="keyword">true</span>]),
+<span class="function">input</span>(<span class="string">"age"</span>, <span class="string">"Your age"</span>, [<span class="string">'number'</span> => <span class="keyword">true</span>]),
+<span class="function">input</span>(<span class="string">"bio"</span>, <span class="string">"About you"</span>, [<span class="string">'multiline'</span> => <span class="keyword">true</span>]),</code></pre>
+                    </div>
+
+                    <h3 id="checkbox">checkbox()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">CheckBox</span> <span class="method-name">checkbox</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$text</span>, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Creates a checkbox. Callback receives <code class="inline-code">$params['checked']</code> (bool).</p>
+
+                    <h3 id="toggle">toggle() / toggleButton()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">SwitchView</span> <span class="method-name">toggle</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$text</span>, <span class="keyword">bool</span> <span class="param">$checked</span> = false, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">ToggleButton</span> <span class="method-name">toggleButton</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$textOn</span> = "ON", <span class="keyword">string</span> <span class="param">$textOff</span> = "OFF", <span class="keyword">bool</span> <span class="param">$checked</span> = false, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Material switch or classic toggle button.</p>
+
+                    <h3 id="radioGroup">radioGroup()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">RadioGroup</span> <span class="method-name">radioGroup</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$options</span>, <span class="keyword">?string</span> <span class="param">$onChange</span> = null, <span class="keyword">?string</span> <span class="param">$selected</span> = null)
+                    </div>
+                    <p>Creates a group of radio buttons. <code class="inline-code">$options</code> is an array of strings. Callback receives <code class="inline-code">$params['selected']</code>.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">radioGroup</span>(<span class="string">"size"</span>, [<span class="string">"Small"</span>, <span class="string">"Medium"</span>, <span class="string">"Large"</span>], <span class="string">"onSizeChange"</span>, <span class="string">"Medium"</span>),</code></pre>
+                    </div>
+
+                    <h3 id="spinner">spinner()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">Spinner</span> <span class="method-name">spinner</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$items</span>, <span class="keyword">?string</span> <span class="param">$onChange</span> = null, <span class="keyword">int</span> <span class="param">$selectedIndex</span> = 0)
+                    </div>
+                    <p>Dropdown menu. Callback receives <code class="inline-code">$params['item']</code> and <code class="inline-code">$params['position']</code>.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">spinner</span>(<span class="string">"country"</span>, [<span class="string">"USA"</span>, <span class="string">"Canada"</span>, <span class="string">"UK"</span>], <span class="string">"onCountryChange"</span>),</code></pre>
+                    </div>
+
+                    <h3 id="seekbar">seekbar()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">SeekBar</span> <span class="method-name">seekbar</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">int</span> <span class="param">$progress</span> = 0, <span class="keyword">int</span> <span class="param">$max</span> = 100, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Slider control. Callback receives <code class="inline-code">$params['progress']</code>.</p>
+
+                    <h3 id="rating">rating()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">RatingBar</span> <span class="method-name">rating</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">float</span> <span class="param">$rating</span> = 0, <span class="keyword">int</span> <span class="param">$numStars</span> = 5, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Star rating widget. Callback receives <code class="inline-code">$params['rating']</code>.</p>
+
+                    <h3 id="progress">progress()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">ProgressBar</span> <span class="method-name">progress</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">int</span> <span class="param">$progress</span> = 0, <span class="keyword">int</span> <span class="param">$max</span> = 100)
+                    </div>
+                    <p>Horizontal progress bar.</p>
+
+                    <h3 id="numberPicker">numberPicker()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">NumberPicker</span> <span class="method-name">numberPicker</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">int</span> <span class="param">$min</span> = 0, <span class="keyword">int</span> <span class="param">$max</span> = 100, <span class="keyword">int</span> <span class="param">$value</span> = 0, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Scrollable number picker with min/max bounds.</p>
+
+                    <h3 id="searchBar">searchBar()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">SearchView</span> <span class="method-name">searchBar</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$hint</span> = "Search...", <span class="keyword">?string</span> <span class="param">$onSearch</span> = null, <span class="keyword">?string</span> <span class="param">$onTextChange</span> = null)
+                    </div>
+                    <p>Search bar with submit and real-time text change callbacks.</p>
+
+                    <h3 id="autoComplete">autoComplete()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">AutoCompleteTextView</span> <span class="method-name">autoComplete</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$hint</span>, <span class="keyword">array</span> <span class="param">$suggestions</span>, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Text input with auto-complete dropdown suggestions.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">autoComplete</span>(<span class="string">"city"</span>, <span class="string">"Enter city"</span>, [<span class="string">"New York"</span>, <span class="string">"London"</span>, <span class="string">"Tokyo"</span>, <span class="string">"Paris"</span>]),</code></pre>
+                    </div>
+
+                    <h3 id="textField">textField()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">TextInputLayout</span> <span class="method-name">textField</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$hint</span>, <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Material Design text input with floating label. Same options as <code class="inline-code">input()</code>.</p>
+
+                    <h3 id="fab">fab()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">FloatingActionButton</span> <span class="method-name">fab</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$icon</span>, <span class="keyword">string</span> <span class="param">$action</span>, <span class="keyword">array</span> <span class="param">$style</span> = [])
+                    </div>
+                    <p>Floating action button with a Material icon.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">fab</span>(<span class="string">"add_btn"</span>, <span class="string">"add"</span>, <span class="string">"onAdd"</span>, [<span class="string">'color'</span> => <span class="string">'#FF5722'</span>]),</code></pre>
+                    </div>
+
+                    <h3 id="chip">chip() / chipGroup()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">Chip</span> <span class="method-name">chip</span>(<span class="keyword">string</span> <span class="param">$text</span>, <span class="keyword">?string</span> <span class="param">$action</span> = null, <span class="keyword">array</span> <span class="param">$style</span> = [])
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">ChipGroup</span> <span class="method-name">chipGroup</span>(<span class="keyword">array</span> <span class="param">$chips</span>, <span class="keyword">?string</span> <span class="param">$onSelect</span> = null)
+                    </div>
+                    <p>Material chips for tags, filters, or selections.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">chipGroup</span>([
+    <span class="function">chip</span>(<span class="string">"PHP"</span>), <span class="function">chip</span>(<span class="string">"Java"</span>), <span class="function">chip</span>(<span class="string">"Python"</span>)
+], <span class="string">"onTagSelect"</span>),</code></pre>
+                    </div>
+
+                    <h3 id="tabs">tabs()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">TabLayout</span> <span class="method-name">tabs</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$tabs</span>, <span class="keyword">?string</span> <span class="param">$onSelect</span> = null, <span class="keyword">int</span> <span class="param">$selected</span> = 0)
+                    </div>
+                    <p>Tab bar. <code class="inline-code">$tabs</code> is an array of tab labels. Callback receives <code class="inline-code">$params['position']</code> and <code class="inline-code">$params['text']</code>.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">tabs</span>(<span class="string">"main_tabs"</span>, [<span class="string">"Home"</span>, <span class="string">"Profile"</span>, <span class="string">"Settings"</span>], <span class="string">"onTabChange"</span>),</code></pre>
+                    </div>
+
+                    <h3 id="image">image()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">ImageView</span> <span class="method-name">image</span>(<span class="keyword">string</span> <span class="param">$src</span>, <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Display an image from URL or file path. Options: <code class="inline-code">width</code>, <code class="inline-code">height</code>, <code class="inline-code">scaleType</code>, <code class="inline-code">id</code>.</p>
+
+                    <h3 id="video">video()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VideoView</span> <span class="method-name">video</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$uri</span>, <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Embed a video player. Options: <code class="inline-code">autoPlay</code>, <code class="inline-code">controls</code>.</p>
+
+                    <h3 id="webView">webView()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">WebView</span> <span class="method-name">webView</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$url</span>, <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Embed a web view. Options: <code class="inline-code">height</code>, <code class="inline-code">javascript</code> (bool).</p>
+
+                    <h3 id="calendar">calendar()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">CalendarView</span> <span class="method-name">calendar</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">?string</span> <span class="param">$onChange</span> = null)
+                    </div>
+                    <p>Full calendar date picker widget.</p>
+
+                    <h3 id="spacer">spacer() / divider()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">TextView</span> <span class="method-name">spacer</span>(<span class="keyword">int</span> <span class="param">$height</span> = 20)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">TextView</span> <span class="method-name">divider</span>(<span class="keyword">string</span> <span class="param">$color</span> = '#333333')
+                    </div>
+                    <p>Vertical spacing or horizontal line separator.</p>
+                </section>
+
+                <!-- ==================== LAYOUT HELPERS ==================== -->
+                <section id="layout-helpers">
+                    <h2>Layout Helpers</h2>
+
+                    <h3 id="row">row()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">HorizontalLayout</span> <span class="method-name">row</span>(<span class="keyword">array</span> <span class="param">$elements</span>)
+                    </div>
+                    <p>Horizontal layout — places children side by side.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="function">row</span>([
+    <span class="function">button</span>(<span class="string">"Cancel"</span>, <span class="string">"onCancel"</span>),
+    <span class="function">button</span>(<span class="string">"OK"</span>, <span class="string">"onOk"</span>, [<span class="string">'color'</span> => <span class="string">'#4CAF50'</span>]),
+]),</code></pre>
+                    </div>
+
+                    <h3 id="grid">grid()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">GridLayout</span> <span class="method-name">grid</span>(<span class="keyword">array</span> <span class="param">$children</span>, <span class="keyword">int</span> <span class="param">$columns</span> = 2)
+                    </div>
+                    <p>Grid layout with a specified number of columns.</p>
+
+                    <h3 id="table-fn">table()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">TableLayout</span> <span class="method-name">table</span>(<span class="keyword">array</span> <span class="param">$rows</span>, <span class="keyword">array</span> <span class="param">$style</span> = [])
+                    </div>
+                    <p>Table layout. Each <code class="inline-code">$rows</code> entry is an array of cells.</p>
+
+                    <h3 id="materialCard">materialCard()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">CardView</span> <span class="method-name">materialCard</span>(<span class="keyword">array</span> <span class="param">$content</span>, <span class="keyword">array</span> <span class="param">$style</span> = [])
+                    </div>
+                    <p>Material Design card container. Options: <code class="inline-code">elevation</code>, <code class="inline-code">cornerRadius</code>, <code class="inline-code">background</code>.</p>
+
+                    <h3 id="scrollView">scrollView() / horizontalScroll()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">ScrollView</span> <span class="method-name">scrollView</span>(<span class="keyword">array</span> <span class="param">$content</span>)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">HorizontalScrollView</span> <span class="method-name">horizontalScroll</span>(<span class="keyword">array</span> <span class="param">$content</span>)
+                    </div>
+                    <p>Vertically or horizontally scrollable container.</p>
+
+                    <h3 id="stack">stack()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">StackLayout</span> <span class="method-name">stack</span>(<span class="keyword">array</span> <span class="param">$content</span>)
+                    </div>
+                    <p>Overlapping stack layout (FrameLayout). Children are layered on top of each other.</p>
+                </section>
+
+                <!-- ==================== ACTIONS ==================== -->
+                <section id="actions">
+                    <h2>Actions</h2>
+                    <p class="section-desc">Return these from your handler methods to trigger UI changes.</p>
+
+                    <h3 id="toast">toast()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">toast</span>(<span class="keyword">string</span> <span class="param">$message</span>)
+                    </div>
+                    <p>Shows a brief toast message.</p>
+
+                    <h3 id="alert">alert()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">alert</span>(<span class="keyword">string</span> <span class="param">$message</span>, <span class="keyword">string</span> <span class="param">$title</span> = "Alert")
+                    </div>
+                    <p>Shows a modal alert dialog with OK button.</p>
+
+                    <h3 id="setText-fn">setText()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">setText</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$text</span>, <span class="keyword">?string</span> <span class="param">$color</span> = null)
+                    </div>
+                    <p>Change the text (and optionally color) of a view by ID.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">onSave</span>(<span class="variable">$p</span>) {
+    <span class="keyword">return</span> <span class="function">setText</span>(<span class="string">"status"</span>, <span class="string">"Saved!"</span>, <span class="string">"#4CAF50"</span>);
+}</code></pre>
+                    </div>
+
+                    <h3 id="goToScreen">goToScreen()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">goToScreen</span>(<span class="keyword">string</span> <span class="param">$screen</span>, <span class="keyword">array</span> <span class="param">$data</span> = [])
+                    </div>
+                    <p>Navigate to another screen (PHP method) with optional data.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">onOpenProfile</span>(<span class="variable">$p</span>) {
+    <span class="keyword">return</span> <span class="function">goToScreen</span>(<span class="string">"profileScreen"</span>, [<span class="string">'userId'</span> => <span class="number">123</span>]);
+}
+<span class="keyword">function</span> <span class="function">profileScreen</span>(<span class="variable">$p</span>) {
+    <span class="variable">$userId</span> = <span class="variable">$p</span>[<span class="string">'userId'</span>];
+    <span class="keyword">return</span> <span class="function">page</span>(<span class="string">"Profile #"</span> . <span class="variable">$userId</span>, [...]);
+}</code></pre>
+                    </div>
+
+                    <h3 id="goBack">goBack()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">goBack</span>()
+                    </div>
+                    <p>Navigate back to the previous screen.</p>
+                </section>
+
+                <!-- ==================== DIALOGS ==================== -->
+                <section id="dialogs">
+                    <h2>Dialogs &amp; Popups</h2>
+
+                    <h3 id="confirm">confirm()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">confirm</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">string</span> <span class="param">$message</span>, <span class="keyword">string</span> <span class="param">$onConfirm</span>, <span class="keyword">?string</span> <span class="param">$onCancel</span> = null, <span class="keyword">string</span> <span class="param">$confirmText</span> = "Yes", <span class="keyword">string</span> <span class="param">$cancelText</span> = "No")
+                    </div>
+                    <p>Shows a confirmation dialog with two buttons.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">onDelete</span>(<span class="variable">$p</span>) {
+    <span class="keyword">return</span> <span class="function">confirm</span>(<span class="string">"Delete?"</span>, <span class="string">"This cannot be undone."</span>, <span class="string">"doDelete"</span>, <span class="keyword">null</span>, <span class="string">"Delete"</span>, <span class="string">"Keep"</span>);
+}</code></pre>
+                    </div>
+
+                    <h3 id="prompt">prompt()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">prompt</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">string</span> <span class="param">$hint</span>, <span class="keyword">string</span> <span class="param">$callback</span>, <span class="keyword">string</span> <span class="param">$defaultValue</span> = "")
+                    </div>
+                    <p>Shows an input dialog. Callback receives <code class="inline-code">$params['text']</code>.</p>
+
+                    <h3 id="selectDialog">selectDialog()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">selectDialog</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">array</span> <span class="param">$items</span>, <span class="keyword">string</span> <span class="param">$onSelect</span>)
+                    </div>
+                    <p>List selection dialog. Callback receives <code class="inline-code">$params['item']</code> and <code class="inline-code">$params['index']</code>.</p>
+
+                    <h3 id="pickDate">pickDate() / pickTime()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">pickDate</span>(<span class="keyword">string</span> <span class="param">$callback</span>, <span class="keyword">?string</span> <span class="param">$initialDate</span> = null)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">pickTime</span>(<span class="keyword">string</span> <span class="param">$callback</span>, <span class="keyword">bool</span> <span class="param">$is24Hour</span> = false)
+                    </div>
+                    <p>Native date/time picker dialogs. Date callback receives <code class="inline-code">year</code>, <code class="inline-code">month</code>, <code class="inline-code">day</code>. Time callback receives <code class="inline-code">hour</code>, <code class="inline-code">minute</code>.</p>
+
+                    <h3 id="showBottomSheet">showBottomSheet()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">showBottomSheet</span>(<span class="keyword">array</span> <span class="param">$content</span>, <span class="keyword">?string</span> <span class="param">$title</span> = null)
+                    </div>
+                    <p>Shows a bottom sheet with custom content. Use <code class="inline-code">closeDialog()</code> to dismiss.</p>
+                </section>
+
+                <!-- ==================== ANIMATION ==================== -->
+                <section id="animation">
+                    <h2>Animation</h2>
+
+                    <h3 id="animateView">animateView()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">animateView</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$property</span>, <span class="keyword">float</span> <span class="param">$toValue</span>, <span class="keyword">int</span> <span class="param">$duration</span> = 300, <span class="keyword">string</span> <span class="param">$interpolator</span> = "decelerate")
+                    </div>
+                    <p>Animate a view property. Properties: <code class="inline-code">alpha</code>, <code class="inline-code">translationX</code>, <code class="inline-code">translationY</code>, <code class="inline-code">rotation</code>, <code class="inline-code">scaleX</code>, <code class="inline-code">scaleY</code>. Interpolators: <code class="inline-code">linear</code>, <code class="inline-code">accelerate</code>, <code class="inline-code">decelerate</code>, <code class="inline-code">bounce</code>, <code class="inline-code">overshoot</code>.</p>
+
+                    <h3 id="fadeIn">Convenience Animations</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">fadeIn($id, $duration = 300)</span><span class="fn-item-desc">Fade in from transparent</span></div>
+                        <div class="fn-item"><span class="fn-item-name">fadeOut($id, $duration = 300)</span><span class="fn-item-desc">Fade out to transparent</span></div>
+                        <div class="fn-item"><span class="fn-item-name">slideX($id, $toX, $duration = 300)</span><span class="fn-item-desc">Slide horizontally</span></div>
+                        <div class="fn-item"><span class="fn-item-name">slideY($id, $toY, $duration = 300)</span><span class="fn-item-desc">Slide vertically</span></div>
+                        <div class="fn-item"><span class="fn-item-name">scaleView($id, $scale, $duration = 300)</span><span class="fn-item-desc">Scale uniformly</span></div>
+                        <div class="fn-item"><span class="fn-item-name">rotateView($id, $degrees, $duration = 300)</span><span class="fn-item-desc">Rotate view</span></div>
+                    </div>
+
+                    <h3 id="bounce">bounce() / shake()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">bounce</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">int</span> <span class="param">$duration</span> = 400)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">shake</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">int</span> <span class="param">$duration</span> = 400)
+                    </div>
+                    <p>Pre-built attention animations.</p>
+                </section>
+
+                <!-- ==================== CLIPBOARD & SHARING ==================== -->
+                <section id="clipboard">
+                    <h2>Clipboard &amp; Sharing</h2>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">copyText($text, $label)</span><span class="fn-item-desc">Copy text to clipboard</span></div>
+                        <div class="fn-item"><span class="fn-item-name">shareText($text, $title)</span><span class="fn-item-desc">Open Android share sheet</span></div>
+                        <div class="fn-item"><span class="fn-item-name">openBrowser($url)</span><span class="fn-item-desc">Open URL in default browser</span></div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW MANIPULATION ==================== -->
+                <section id="view-manipulation">
+                    <h2>View Manipulation</h2>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">removeComponent($id)</span><span class="fn-item-desc">Remove a view from the layout</span></div>
+                        <div class="fn-item"><span class="fn-item-name">addComponent($parentId, $child, $index)</span><span class="fn-item-desc">Add a component to a parent layout</span></div>
+                        <div class="fn-item"><span class="fn-item-name">replaceContent($parentId, $children)</span><span class="fn-item-desc">Replace all children of a layout</span></div>
+                        <div class="fn-item"><span class="fn-item-name">scrollToPosition($id, $x, $y, $smooth)</span><span class="fn-item-desc">Scroll a ScrollView to position</span></div>
+                    </div>
+                </section>
+
+                <!-- ==================== SENSORS ==================== -->
+                <section id="sensors">
+                    <h2>Sensors</h2>
+                    <p class="section-desc">All sensor functions are asynchronous — they trigger a DroidScript sensor read and call your PHP callback with the results.</p>
+
+                    <h3 id="gps">gps()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">gps</span>(<span class="keyword">string</span> <span class="param">$callback</span>) <span class="tag tag-async">async</span>
+                    </div>
+                    <p>Get GPS location. Callback receives: <code class="inline-code">lat</code>, <code class="inline-code">lng</code>, <code class="inline-code">altitude</code>.</p>
+
+                    <h3 id="battery">battery()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">battery</span>(<span class="keyword">string</span> <span class="param">$callback</span>) <span class="tag tag-async">async</span>
+                    </div>
+                    <p>Get battery info. Callback receives: <code class="inline-code">level</code> (int), <code class="inline-code">charging</code> (bool).</p>
+
+                    <h3 id="compass">compass() / scanBarcode()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">compass</span>(<span class="keyword">string</span> <span class="param">$callback</span>) <span class="tag tag-async">async</span>
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">scanBarcode</span>(<span class="keyword">string</span> <span class="param">$callback</span>) <span class="tag tag-async">async</span>
+                    </div>
+                    <p>Compass returns <code class="inline-code">azimuth</code>, <code class="inline-code">pitch</code>, <code class="inline-code">roll</code>. Barcode returns <code class="inline-code">code</code>.</p>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Sensor Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">getLocation</span>(<span class="variable">$p</span>) { <span class="keyword">return</span> <span class="function">gps</span>(<span class="string">"onLocation"</span>); }
+<span class="keyword">function</span> <span class="function">onLocation</span>(<span class="variable">$p</span>) {
+    <span class="keyword">return</span> <span class="function">setText</span>(<span class="string">"loc"</span>, <span class="string">"📍 "</span> . <span class="variable">$p</span>[<span class="string">'lat'</span>] . <span class="string">", "</span> . <span class="variable">$p</span>[<span class="string">'lng'</span>]);
+}</code></pre>
+                    </div>
+
+                    <h3 id="motion-sensors">Motion Sensors</h3>
+                    <p>All return sensor data via callback.</p>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Callback Data</th></tr>
+                        <tr><td>accelerometer($cb)</td><td><code>x, y, z</code> — acceleration in m/s²</td></tr>
+                        <tr><td>gyroscope($cb)</td><td><code>x, y, z</code> — rotation rate in rad/s</td></tr>
+                        <tr><td>gravity($cb)</td><td><code>x, y, z</code> — gravity vector</td></tr>
+                        <tr><td>magneticField($cb)</td><td><code>x, y, z</code> — magnetic field in μT</td></tr>
+                        <tr><td>orientation($cb)</td><td><code>azimuth, pitch, roll</code></td></tr>
+                    </table>
+
+                    <h3 id="env-sensors">Environment Sensors</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Callback Data</th></tr>
+                        <tr><td>light($cb)</td><td><code>lux</code> — ambient light</td></tr>
+                        <tr><td>proximity($cb)</td><td><code>distance</code> — proximity in cm</td></tr>
+                        <tr><td>pressure($cb)</td><td><code>hPa</code> — barometric pressure</td></tr>
+                        <tr><td>humidity($cb)</td><td><code>percent</code> — relative humidity</td></tr>
+                        <tr><td>temperature($cb)</td><td><code>celsius</code> — ambient temperature</td></tr>
+                        <tr><td>stepCounter($cb)</td><td><code>steps</code> — total step count</td></tr>
+                    </table>
+
+                    <h3 id="device-info">Device &amp; Screen Info</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Callback Data</th></tr>
+                        <tr><td>deviceInfo($cb)</td><td><code>model, manufacturer, brand, androidVersion, sdkVersion</code></td></tr>
+                        <tr><td>screenInfo($cb)</td><td><code>width, height, density, dpi</code></td></tr>
+                        <tr><td>locationEnabled($cb)</td><td><code>enabled</code> (bool)</td></tr>
+                    </table>
+                </section>
+
+                <!-- ==================== NETWORK & HTTP ==================== -->
+                <section id="network">
+                    <h2>Network &amp; HTTP</h2>
+
+                    <h3 id="httpGet">httpGet()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">httpGet</span>(<span class="keyword">string</span> <span class="param">$url</span>, <span class="keyword">string</span> <span class="param">$callback</span>) <span class="tag tag-async">async</span>
+                    </div>
+                    <p>HTTP GET request. Callback receives <code class="inline-code">response</code> (string), <code class="inline-code">status</code> (int).</p>
+
+                    <h3 id="httpPost">httpPost()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">httpPost</span>(<span class="keyword">string</span> <span class="param">$url</span>, <span class="keyword">string</span> <span class="param">$body</span>, <span class="keyword">string</span> <span class="param">$callback</span>, <span class="keyword">string</span> <span class="param">$headers</span> = '') <span class="tag tag-async">async</span>
+                    </div>
+                    <p>HTTP POST request with body and optional headers.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example: API Call</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">fetchData</span>(<span class="variable">$p</span>) {
+    <span class="keyword">return</span> <span class="function">httpGet</span>(<span class="string">"https://api.example.com/data"</span>, <span class="string">"onDataReceived"</span>);
+}
+<span class="keyword">function</span> <span class="function">onDataReceived</span>(<span class="variable">$p</span>) {
+    <span class="variable">$data</span> = <span class="function">json_decode</span>(<span class="variable">$p</span>[<span class="string">'response'</span>], <span class="keyword">true</span>);
+    <span class="keyword">return</span> <span class="function">setText</span>(<span class="string">"result"</span>, <span class="variable">$data</span>[<span class="string">'message'</span>]);
+}</code></pre>
+                    </div>
+
+                    <h3>download()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">download</span>(<span class="keyword">string</span> <span class="param">$url</span>, <span class="keyword">string</span> <span class="param">$dest</span>, <span class="keyword">string</span> <span class="param">$callback</span>)
+                    </div>
+                    <p>Download a file to local path.</p>
+
+                    <h3 id="network-fns">Network Info Functions</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>wifiInfo($cb)</td><td>Current WiFi connection info</td></tr>
+                        <tr><td>wifiScan($cb)</td><td>Scan nearby WiFi networks</td></tr>
+                        <tr><td>bluetoothInfo($cb)</td><td>Bluetooth adapter info</td></tr>
+                        <tr><td>btDiscover($cb)</td><td>Discover Bluetooth devices</td></tr>
+                        <tr><td>networkInfo($cb)</td><td>Network connectivity status</td></tr>
+                    </table>
+                </section>
+
+                <!-- ==================== MEDIA ==================== -->
+                <section id="media">
+                    <h2>Media</h2>
+
+                    <h3 id="media-fns">Audio &amp; Photo</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>takePhoto($cb)</td><td>Open camera and capture photo</td></tr>
+                        <tr><td>playSound($file, $cb)</td><td>Play audio file</td></tr>
+                        <tr><td>stopSound($cb)</td><td>Stop audio playback</td></tr>
+                        <tr><td>recordSound($file, $cb)</td><td>Start audio recording</td></tr>
+                        <tr><td>stopRecord($cb)</td><td>Stop audio recording</td></tr>
+                        <tr><td>playRingtone($type)</td><td>Play system ringtone (notification, alarm, ringtone)</td></tr>
+                    </table>
+
+                    <h3 id="speak">Text-to-Speech &amp; Recognition</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">speak</span>(<span class="keyword">string</span> <span class="param">$text</span>)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">listenSpeech</span>(<span class="keyword">string</span> <span class="param">$callback</span>)
+                    </div>
+                    <p><code class="inline-code">speak()</code> reads text aloud. <code class="inline-code">listenSpeech()</code> activates speech recognition — callback receives <code class="inline-code">text</code>.</p>
+                </section>
+
+                <!-- ==================== HARDWARE ==================== -->
+                <section id="hardware">
+                    <h2>Hardware Control</h2>
+
+                    <h3 id="hardware-fns">Device Controls</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>vibratePhone($ms = 200)</td><td>Vibrate device for duration</td></tr>
+                        <tr><td>getVol($cb, $stream = 'music')</td><td>Get volume level</td></tr>
+                        <tr><td>setVol($level, $stream = 'music')</td><td>Set volume level</td></tr>
+                        <tr><td>setRinger($mode)</td><td>Set ringer mode: normal, silent, vibrate</td></tr>
+                        <tr><td>setBrightness($level)</td><td>Set screen brightness (0.0 - 1.0)</td></tr>
+                        <tr><td>keepScreenOn($on = true)</td><td>Prevent screen from sleeping</td></tr>
+                        <tr><td>toggleFlash($on = true)</td><td>Toggle flashlight</td></tr>
+                    </table>
+
+                    <h3 id="comm-fns">Communication</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>sms($phone, $message, $cb)</td><td>Send SMS message</td></tr>
+                        <tr><td>call($number)</td><td>Initiate phone call</td></tr>
+                        <tr><td>notify($title, $message, $cb)</td><td>Show system notification</td></tr>
+                        <tr><td>email($to, $subject, $body, $attachment)</td><td>Compose email</td></tr>
+                        <tr><td>scanCode($cb)</td><td>Scan QR/barcode</td></tr>
+                    </table>
+
+                    <h3 id="crypto-fns">Encryption &amp; Hashing</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>encrypt($text, $password, $cb)</td><td>AES encrypt text</td></tr>
+                        <tr><td>decrypt($text, $password, $cb)</td><td>AES decrypt text</td></tr>
+                        <tr><td>hashText($text, $algo, $cb)</td><td>Hash text with specified algorithm</td></tr>
+                        <tr><td>md5Hash($text, $cb)</td><td>MD5 hash shortcut</td></tr>
+                        <tr><td>sha256($text, $cb)</td><td>SHA-256 hash shortcut</td></tr>
+                    </table>
+
+                    <h3 id="file-fns">File System</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>loadFile($path, $cb)</td><td>Read a file. Callback gets <code>content</code>.</td></tr>
+                        <tr><td>writeFile($path, $content, $cb)</td><td>Write content to file</td></tr>
+                        <tr><td>listFiles($path, $cb)</td><td>List directory contents</td></tr>
+                        <tr><td>fileExists($path, $cb)</td><td>Check if file exists</td></tr>
+                    </table>
+
+                    <h3>Apps &amp; Intents</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">launchApp</span>(<span class="keyword">string</span> <span class="param">$package</span>)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">sendAndroidIntent</span>(<span class="keyword">string</span> <span class="param">$action</span>, <span class="keyword">string</span> <span class="param">$uri</span> = '', <span class="keyword">string</span> <span class="param">$type</span> = '', <span class="keyword">string</span> <span class="param">$extras</span> = '')
+                    </div>
+                    <p>Launch another app by package name, or send a raw Android Intent.</p>
+                </section>
+
+                <!-- ==================== VIEW PROPERTIES ==================== -->
+                <section id="view-properties">
+                    <h2>View Property Helpers</h2>
+                    <p class="section-desc">Read and modify view properties after initial render. All use the view's <code class="inline-code">id</code>.</p>
+
+                    <h3 id="get-set">Universal get / set / update</h3>
+                    <div class="method-sig">
+                        <span class="return-type">void</span> <span class="method-name">get</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$property</span>, <span class="keyword">string</span> <span class="param">$callback</span>) <span class="tag tag-async">async</span>
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">set</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">string</span> <span class="param">$property</span>, <span class="param">$value</span>)
+                    </div>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">update</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$properties</span>)
+                    </div>
+                    <p>Universal property access. <code class="inline-code">update()</code> sets multiple properties at once.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="comment">// Set one property</span>
+<span class="keyword">return</span> <span class="function">set</span>(<span class="string">"my_label"</span>, <span class="string">"text"</span>, <span class="string">"New text"</span>);
+
+<span class="comment">// Set multiple properties</span>
+<span class="keyword">return</span> <span class="function">update</span>(<span class="string">"my_label"</span>, [
+    <span class="string">"text"</span> => <span class="string">"Updated!"</span>,
+    <span class="string">"textColor"</span> => <span class="string">"#4CAF50"</span>,
+    <span class="string">"bold"</span> => <span class="keyword">true</span>
+]);</code></pre>
+                    </div>
+
+                    <h3 id="shortcut-setters">Shortcut Setters</h3>
+                    <p>Convenience functions for common property changes. All return action arrays.</p>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>setColor($id, $color)</td><td>Set text color</td></tr>
+                        <tr><td>setSize($id, $size)</td><td>Set text size (sp)</td></tr>
+                        <tr><td>setBackground($id, $color)</td><td>Set background color</td></tr>
+                        <tr><td>show($id)</td><td>Make view visible</td></tr>
+                        <tr><td>hide($id)</td><td>Remove from layout (GONE)</td></tr>
+                        <tr><td>invisible($id)</td><td>Hide but keep space</td></tr>
+                        <tr><td>enable($id)</td><td>Enable interaction</td></tr>
+                        <tr><td>disable($id)</td><td>Disable interaction</td></tr>
+                        <tr><td>setAlpha($id, $alpha)</td><td>Set opacity (0.0 - 1.0)</td></tr>
+                        <tr><td>setChecked($id, $bool)</td><td>Set checkbox/switch state</td></tr>
+                        <tr><td>setImage($id, $src)</td><td>Change image source</td></tr>
+                        <tr><td>setHint($id, $hint)</td><td>Change input placeholder</td></tr>
+                        <tr><td>clear($id)</td><td>Clear text content</td></tr>
+                        <tr><td>focus($id)</td><td>Request focus</td></tr>
+                        <tr><td>clearFocus($id)</td><td>Clear focus</td></tr>
+                    </table>
+
+                    <h4>Dimension &amp; Transform Setters</h4>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>setWidth($id, $w) / setHeight($id, $h)</td><td>Set dimensions</td></tr>
+                        <tr><td>setDimensions($id, $w, $h)</td><td>Set width + height</td></tr>
+                        <tr><td>setPadding($id, $p) / setPaddingAll($id, l, t, r, b)</td><td>Set padding</td></tr>
+                        <tr><td>setMargin($id, $m) / setMarginAll($id, l, t, r, b)</td><td>Set margin</td></tr>
+                        <tr><td>setCornerRadius($id, $r)</td><td>Set corner radius</td></tr>
+                        <tr><td>setElevation($id, $e)</td><td>Set elevation</td></tr>
+                        <tr><td>setRotation($id, $deg)</td><td>Set rotation</td></tr>
+                        <tr><td>setScale($id, $s)</td><td>Set uniform scale</td></tr>
+                        <tr><td>setPosition($id, $x, $y)</td><td>Set translation X/Y</td></tr>
+                        <tr><td>setProgress($id, $val)</td><td>Set progress bar value</td></tr>
+                        <tr><td>setBorder($id, $color, $width)</td><td>Set border</td></tr>
+                    </table>
+
+                    <h3 id="shortcut-getters">Property Getters</h3>
+                    <p>Asynchronous — all take <code class="inline-code">($id, $callback)</code>. Callback receives the property value.</p>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Returns</th></tr>
+                        <tr><td>getTextValue / getText</td><td>Current text content</td></tr>
+                        <tr><td>getColor</td><td>Text color</td></tr>
+                        <tr><td>getTextSize</td><td>Font size</td></tr>
+                        <tr><td>getBackground</td><td>Background color</td></tr>
+                        <tr><td>getVisibility</td><td>"visible", "invisible", "gone"</td></tr>
+                        <tr><td>getEnabled</td><td>is enabled (bool)</td></tr>
+                        <tr><td>getAlpha</td><td>Opacity value</td></tr>
+                        <tr><td>getCheckedState / getChecked</td><td>Checkbox/switch state</td></tr>
+                        <tr><td>getWidth / getHeight</td><td>View dimensions</td></tr>
+                        <tr><td>getProgress / getMax</td><td>Progress bar state</td></tr>
+                        <tr><td>getRotation / getScaleX / getScaleY</td><td>Transform values</td></tr>
+                        <tr><td>getTranslationX / getTranslationY</td><td>Translation values</td></tr>
+                        <tr><td>getSelected / getFocused</td><td>Selection/focus state</td></tr>
+                    </table>
+
+                    <h3 id="style-helpers">Compound Style Helpers</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">styleText</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$style</span>)
+                    </div>
+                    <p>Apply multiple text styles: <code class="inline-code">text</code>, <code class="inline-code">color</code>, <code class="inline-code">size</code>, <code class="inline-code">bold</code>.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">styleView</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$style</span>)
+                    </div>
+                    <p>Apply visual styles: <code class="inline-code">background</code>, <code class="inline-code">corners</code>, <code class="inline-code">elevation</code>, <code class="inline-code">alpha</code>.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">transform</span>(<span class="keyword">string</span> <span class="param">$id</span>, <span class="keyword">array</span> <span class="param">$transform</span>)
+                    </div>
+                    <p>Apply transforms: <code class="inline-code">x</code>, <code class="inline-code">y</code>, <code class="inline-code">rotation</code>, <code class="inline-code">scale</code>.</p>
+
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">resetTransform</span>(<span class="keyword">string</span> <span class="param">$id</span>)
+                    </div>
+                    <p>Reset all transforms to default.</p>
+                </section>
+
+                <!-- ==================== TEMPLATES ==================== -->
+                <section id="templates">
+                    <h2>Pre-built Templates</h2>
+                    <p class="section-desc">Ready-to-use screen layouts. Just call and customize.</p>
+
+                    <h3 id="loginForm">loginForm()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VerticalLayout</span> <span class="method-name">loginForm</span>(<span class="keyword">string</span> <span class="param">$onLogin</span>, <span class="keyword">array</span> <span class="param">$options</span> = [])
+                    </div>
+                    <p>Pre-built login form with username/password fields.</p>
+                    <table>
+                        <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+                        <tr><td><code>title</code></td><td>"Login"</td><td>Form title</td></tr>
+                        <tr><td><code>userLabel</code></td><td>"Username"</td><td>Username field label</td></tr>
+                        <tr><td><code>passLabel</code></td><td>"Password"</td><td>Password field label</td></tr>
+                        <tr><td><code>buttonText</code></td><td>"Login"</td><td>Submit button text</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">Example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="keyword">function</span> <span class="function">index</span>() {
+    <span class="keyword">return</span> <span class="function">loginForm</span>(<span class="string">"onLogin"</span>, [
+        <span class="string">'title'</span> => <span class="string">'Welcome'</span>,
+        <span class="string">'buttonText'</span> => <span class="string">'Sign In'</span>
+    ]);
+}
+<span class="keyword">function</span> <span class="function">onLogin</span>(<span class="variable">$p</span>) {
+    <span class="variable">$user</span> = <span class="function">getViewProperty</span>(<span class="string">"username"</span>, <span class="string">"text"</span>);
+    <span class="keyword">return</span> <span class="function">toast</span>(<span class="string">"Hello, "</span> . <span class="variable">$user</span>);
+}</code></pre>
+                    </div>
+
+                    <h3 id="simpleList">simpleList()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VerticalLayout</span> <span class="method-name">simpleList</span>(<span class="keyword">array</span> <span class="param">$items</span>, <span class="keyword">?string</span> <span class="param">$onItemClick</span> = null)
+                    </div>
+                    <p>Creates a simple scrollable list from an array of strings.</p>
+
+                    <h3 id="tabbedPage">tabbedPage()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VerticalLayout</span> <span class="method-name">tabbedPage</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">array</span> <span class="param">$tabDefs</span>, <span class="keyword">?string</span> <span class="param">$onTabChange</span> = null)
+                    </div>
+                    <p>Page with tab navigation at the top. <code class="inline-code">$tabDefs</code> is an array of <code class="inline-code">['label' => ..., 'content' => [...]]</code>.</p>
+
+                    <h3 id="formPage">formPage()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">VerticalLayout</span> <span class="method-name">formPage</span>(<span class="keyword">string</span> <span class="param">$title</span>, <span class="keyword">array</span> <span class="param">$fields</span>, <span class="keyword">string</span> <span class="param">$onSubmit</span>, <span class="keyword">string</span> <span class="param">$submitText</span> = "Submit")
+                    </div>
+                    <p>Auto-generates a form page from field definitions.</p>
+
+                    <h3 id="more-templates">More Templates</h3>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td>confirmDialog($msg, $onYes, $onNo)</td><td>Full-screen confirm dialog layout</td></tr>
+                        <tr><td>statusLabel($id, $text, $icon)</td><td>Label with emoji icon prefix</td></tr>
+                        <tr><td>settingsPage($title, $settings)</td><td>Settings screen with toggle items</td></tr>
+                        <tr><td>profilePage($profile)</td><td>User profile page layout</td></tr>
+                        <tr><td>detailPage($title, $details, $actions)</td><td>Detail view with key-value pairs</td></tr>
+                        <tr><td>mediaCard($data)</td><td>Card with image, title, description</td></tr>
+                        <tr><td>emptyState($msg, $icon, $actionText, $method)</td><td>Empty state placeholder</td></tr>
+                        <tr><td>loading($message)</td><td>Loading spinner screen</td></tr>
+                    </table>
+                </section>
+
+                <!-- ==================== COLORS ==================== -->
+                <section id="colors">
+                    <h2 id="colors-class">Colors Class</h2>
+                    <p>Pre-defined color constants: <code class="inline-code">Colors::PRIMARY</code>, <code class="inline-code">Colors::SUCCESS</code>, etc.</p>
+                    <table>
+                        <tr><th>Constant</th><th>Value</th><th>Preview</th></tr>
+                        <tr><td><code>Colors::PRIMARY</code></td><td>#4ec9b0</td><td style="background:#4ec9b0;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::SUCCESS</code></td><td>#4CAF50</td><td style="background:#4CAF50;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::WARNING</code></td><td>#FF9800</td><td style="background:#FF9800;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::DANGER</code></td><td>#f44336</td><td style="background:#f44336;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::INFO</code></td><td>#2196F3</td><td style="background:#2196F3;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::PURPLE</code></td><td>#9C27B0</td><td style="background:#9C27B0;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::GRAY</code></td><td>#607D8B</td><td style="background:#607D8B;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::DARK</code></td><td>#1e1e1e</td><td style="background:#1e1e1e;width:40px;height:16px;border-radius:3px;border:1px solid #444"></td></tr>
+                        <tr><td><code>Colors::LIGHT</code></td><td>#f5f5f5</td><td style="background:#f5f5f5;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::WHITE</code></td><td>#ffffff</td><td style="background:#ffffff;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::BLACK</code></td><td>#000000</td><td style="background:#000000;width:40px;height:16px;border-radius:3px;border:1px solid #444"></td></tr>
+                        <tr><td><code>Colors::TEXT</code></td><td>#d4d4d4</td><td style="background:#d4d4d4;width:40px;height:16px;border-radius:3px"></td></tr>
+                        <tr><td><code>Colors::TEXT_MUTED</code></td><td>#808080</td><td style="background:#808080;width:40px;height:16px;border-radius:3px"></td></tr>
+                    </table>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Preview</span>
+                <button class="modal-close" onclick="closePreview()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="phone-preview">
+                    <div class="phone-screen" id="previewScreen"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="previews.js"></script>
+    <script>
+    function filterSidebar(query) {
+        query = query.toLowerCase();
+        document.querySelectorAll('.sidebar-items a').forEach(function(a) {
+            a.style.display = a.textContent.toLowerCase().includes(query) ? '' : 'none';
+        });
+    }
+    function copyCode(btn) {
+        var code = btn.closest('.code-block').querySelector('pre').textContent;
+        navigator.clipboard.writeText(code).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+        });
+    }
+    </script>
+</body>
+</html>

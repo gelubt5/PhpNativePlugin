@@ -28,6 +28,9 @@ class Router {
                 return;
             }
 
+            // Mark output done (prevent simple.php autorun from producing duplicate output)
+            $GLOBALS['_simple_php_did_output'] = true;
+
             // Returnăm JSON curat
             if (is_object($result) && method_exists($result, 'toArray')) {
                 echo json_encode($result->toArray());

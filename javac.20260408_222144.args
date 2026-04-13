@@ -1,0 +1,9 @@
+-source
+11
+-target
+11
+-classpath
+/usr/local/share/android-commandlinetools/platforms/android-34/android.jar
+-d
+build
+PhpNativePlugin.java

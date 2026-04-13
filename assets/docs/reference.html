@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Reference - PhpNativePlugin</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .icon-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #252526;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .icon-item span:first-child {
+            font-size: 20px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            border: 1px solid #444;
+        }
+        .filter-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 15px;
+            background: #2d2d30;
+            border: 1px solid #3c3c3c;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .filter-input:focus {
+            outline: none;
+            border-color: #4ec9b0;
+        }
+        .method-table {
+            font-size: 13px;
+        }
+        .method-table td:first-child {
+            font-family: 'Fira Code', monospace;
+            white-space: nowrap;
+        }
+        .component-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #2d2d30;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #9cdcfe;
+        }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand">PhpNativePlugin</a>
+            <div class="nav-links">
+                <a href="index.html">Overview</a>
+                <a href="simple.html">simple.php</a>
+                <a href="ui_core.html">ui_core.php</a>
+                <a href="reference.html" class="active">Reference</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Quick Reference</h1>
+        <p class="subtitle">All methods, icons, and colors at a glance.</p>
+
+        <div class="toc">
+            <div class="toc-title">Jump To</div>
+            <ul class="toc-list">
+                <li><a href="#getters">Getter Methods</a></li>
+                <li><a href="#setters">Setter Methods</a></li>
+                <li><a href="#actions">Action Functions</a></li>
+                <li><a href="#icons">Material Icons</a></li>
+                <li><a href="#colors">Color Constants</a></li>
+            </ul>
+        </div>
+
+        <!-- Getter Methods -->
+        <section id="getters">
+            <h2>Getter Methods</h2>
+            <p>Use with <code class="inline-code">getViewProperty($id, $getter)</code></p>
+            
+            <input type="text" class="filter-input" placeholder="Filter getters..." onkeyup="filterTable(this, 'getters-table')">
+            
+            <table id="getters-table" class="method-table">
+                <thead>
+                    <tr><th>Getter</th><th>Returns</th><th>Components</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>_getText</td><td>string</td><td><span class="component-badge">TextView</span> <span class="component-badge">EditText</span> <span class="component-badge">Button</span> <span class="component-badge">CheckBox</span></td></tr>
+                    <tr><td>_getTextColor</td><td>string (hex)</td><td><span class="component-badge">TextView</span> <span class="component-badge">EditText</span> <span class="component-badge">Button</span></td></tr>
+                    <tr><td>_getTextSize</td><td>int (sp)</td><td><span class="component-badge">TextView</span> <span class="component-badge">EditText</span></td></tr>
+                    <tr><td>_getHint</td><td>string</td><td><span class="component-badge">EditText</span></td></tr>
+                    <tr><td>_getChecked</td><td>bool</td><td><span class="component-badge">CheckBox</span> <span class="component-badge">Switch</span></td></tr>
+                    <tr><td>_getProgress</td><td>int</td><td><span class="component-badge">SeekBar</span> <span class="component-badge">ProgressBar</span></td></tr>
+                    <tr><td>_getMax</td><td>int</td><td><span class="component-badge">SeekBar</span> <span class="component-badge">ProgressBar</span></td></tr>
+                    <tr><td>_getSelectedIndex</td><td>int</td><td><span class="component-badge">Spinner</span> <span class="component-badge">BottomNavBar</span></td></tr>
+                    <tr><td>_getSelectedItem</td><td>string</td><td><span class="component-badge">Spinner</span></td></tr>
+                    <tr><td>_getBackground</td><td>string (hex)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getAlpha</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getX</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getY</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getWidth</td><td>int</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getHeight</td><td>int</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getVisibility</td><td>string</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getEnabled</td><td>bool</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getRotation</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getScaleX</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getScaleY</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>_getScrollY</td><td>int</td><td><span class="component-badge">ScrollView</span></td></tr>
+                    <tr><td>_getItemCount</td><td>int</td><td><span class="component-badge">ListView</span></td></tr>
+                    <tr><td>_getDrawerOpen</td><td>bool</td><td><span class="component-badge">DrawerLayout</span></td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Setter Methods -->
+        <section id="setters">
+            <h2>Setter Methods</h2>
+            <p>Use with <code class="inline-code">updateView($id, ['property' => value])</code> — property names are without "set" prefix.</p>
+            
+            <input type="text" class="filter-input" placeholder="Filter setters..." onkeyup="filterTable(this, 'setters-table')">
+            
+            <table id="setters-table" class="method-table">
+                <thead>
+                    <tr><th>Property</th><th>Type</th><th>Components</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>text</td><td>string</td><td><span class="component-badge">TextView</span> <span class="component-badge">EditText</span> <span class="component-badge">Button</span> <span class="component-badge">CheckBox</span></td></tr>
+                    <tr><td>textColor</td><td>string (hex)</td><td><span class="component-badge">TextView</span> <span class="component-badge">EditText</span> <span class="component-badge">Button</span></td></tr>
+                    <tr><td>textSize</td><td>int (sp)</td><td><span class="component-badge">TextView</span> <span class="component-badge">EditText</span></td></tr>
+                    <tr><td>hint</td><td>string</td><td><span class="component-badge">EditText</span></td></tr>
+                    <tr><td>hintColor</td><td>string (hex)</td><td><span class="component-badge">EditText</span></td></tr>
+                    <tr><td>bold</td><td>bool</td><td><span class="component-badge">TextView</span> <span class="component-badge">Button</span></td></tr>
+                    <tr><td>italic</td><td>bool</td><td><span class="component-badge">TextView</span></td></tr>
+                    <tr><td>gravity</td><td>"left" | "center" | "right"</td><td><span class="component-badge">TextView</span></td></tr>
+                    <tr><td>html</td><td>string</td><td><span class="component-badge">TextView</span></td></tr>
+                    <tr><td>maxLines</td><td>int</td><td><span class="component-badge">TextView</span></td></tr>
+                    <tr><td>checked</td><td>bool</td><td><span class="component-badge">CheckBox</span> <span class="component-badge">Switch</span></td></tr>
+                    <tr><td>progress</td><td>int</td><td><span class="component-badge">SeekBar</span> <span class="component-badge">ProgressBar</span></td></tr>
+                    <tr><td>max</td><td>int</td><td><span class="component-badge">SeekBar</span></td></tr>
+                    <tr><td>items</td><td>array</td><td><span class="component-badge">Spinner</span></td></tr>
+                    <tr><td>selectedIndex</td><td>int</td><td><span class="component-badge">Spinner</span> <span class="component-badge">BottomNavBar</span></td></tr>
+                    <tr><td>background</td><td>string (hex)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>cornerRadius</td><td>int (dp)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>elevation</td><td>int (dp)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>alpha</td><td>float (0-1)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>enabled</td><td>bool</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>visible</td><td>bool</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>gone</td><td>bool</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>rotation</td><td>float (degrees)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>scaleX</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>scaleY</td><td>float</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>translationX</td><td>float (dp)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>translationY</td><td>float (dp)</td><td><span class="component-badge">All</span></td></tr>
+                    <tr><td>icon</td><td>string</td><td><span class="component-badge">Button</span></td></tr>
+                    <tr><td>src</td><td>string (url)</td><td><span class="component-badge">ImageView</span></td></tr>
+                    <tr><td>title</td><td>string</td><td><span class="component-badge">TopAppBar</span></td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Action Functions -->
+        <section id="actions">
+            <h2>Action Functions</h2>
+            <p>Return these from handler methods to execute actions.</p>
+            
+            <table>
+                <thead>
+                    <tr><th>Function</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>toast($message)</code></td><td>Show toast message</td></tr>
+                    <tr><td><code>alert($message, $title)</code></td><td>Show alert dialog</td></tr>
+                    <tr><td><code>goToScreen($method, $data)</code></td><td>Navigate to another screen</td></tr>
+                    <tr><td><code>updateView($id, $props)</code></td><td>Update view properties</td></tr>
+                    <tr><td><code>updateMany($updates)</code></td><td>Update multiple views</td></tr>
+                    <tr><td><code>batch($actions)</code></td><td>Execute multiple actions</td></tr>
+                    <tr><td><code>listAddItem($id, $item, $pos)</code></td><td>Add item to ListView</td></tr>
+                    <tr><td><code>listDeleteItem($id, $index)</code></td><td>Delete item from ListView</td></tr>
+                    <tr><td><code>listUpdateItem($id, $index, $item)</code></td><td>Update ListView item</td></tr>
+                    <tr><td><code>listSetItems($id, $items)</code></td><td>Replace all ListView items</td></tr>
+                    <tr><td><code>listClear($id)</code></td><td>Clear all ListView items</td></tr>
+                    <tr><td><code>drawerOpen($id)</code></td><td>Open navigation drawer</td></tr>
+                    <tr><td><code>drawerClose($id)</code></td><td>Close navigation drawer</td></tr>
+                    <tr><td><code>drawerToggle($id)</code></td><td>Toggle drawer state</td></tr>
+                    <tr><td><code>gps($callback)</code></td><td>Get GPS location</td></tr>
+                    <tr><td><code>battery($callback)</code></td><td>Get battery status</td></tr>
+                    <tr><td><code>compass($callback)</code></td><td>Get compass reading</td></tr>
+                    <tr><td><code>scanBarcode($callback)</code></td><td>Scan barcode/QR code</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Material Icons -->
+        <section id="icons">
+            <h2>Material Icons</h2>
+            <p>Use icon names with <code class="inline-code">setIcon()</code>, <code class="inline-code">setNavigationIcon()</code>, and <code class="inline-code">addAction()</code>.</p>
+            
+            <input type="text" class="filter-input" placeholder="Search icons..." onkeyup="filterIcons(this)">
+            
+            <div class="icon-grid" id="icon-grid">
+                <div class="icon-item"><span>☰</span>menu</div>
+                <div class="icon-item"><span>←</span>arrow_back</div>
+                <div class="icon-item"><span>→</span>arrow_forward</div>
+                <div class="icon-item"><span>↑</span>arrow_upward</div>
+                <div class="icon-item"><span>↓</span>arrow_downward</div>
+                <div class="icon-item"><span>✕</span>close</div>
+                <div class="icon-item"><span>✓</span>check</div>
+                <div class="icon-item"><span>＋</span>add</div>
+                <div class="icon-item"><span>−</span>remove</div>
+                <div class="icon-item"><span>✎</span>edit</div>
+                <div class="icon-item"><span>🗑</span>delete</div>
+                <div class="icon-item"><span>💾</span>save</div>
+                <div class="icon-item"><span>🔍</span>search</div>
+                <div class="icon-item"><span>⚙</span>settings</div>
+                <div class="icon-item"><span>🏠</span>home</div>
+                <div class="icon-item"><span>♥</span>favorite</div>
+                <div class="icon-item"><span>★</span>star</div>
+                <div class="icon-item"><span>👤</span>person</div>
+                <div class="icon-item"><span>👥</span>people</div>
+                <div class="icon-item"><span>📧</span>email</div>
+                <div class="icon-item"><span>📞</span>phone</div>
+                <div class="icon-item"><span>📍</span>place</div>
+                <div class="icon-item"><span>📅</span>event</div>
+                <div class="icon-item"><span>⏰</span>schedule</div>
+                <div class="icon-item"><span>🔔</span>notifications</div>
+                <div class="icon-item"><span>🔇</span>notifications_off</div>
+                <div class="icon-item"><span>🔓</span>lock_open</div>
+                <div class="icon-item"><span>🔒</span>lock</div>
+                <div class="icon-item"><span>👁</span>visibility</div>
+                <div class="icon-item"><span>👁‍🗨</span>visibility_off</div>
+                <div class="icon-item"><span>📷</span>camera</div>
+                <div class="icon-item"><span>🖼</span>image</div>
+                <div class="icon-item"><span>📁</span>folder</div>
+                <div class="icon-item"><span>📄</span>description</div>
+                <div class="icon-item"><span>📤</span>share</div>
+                <div class="icon-item"><span>⬇</span>download</div>
+                <div class="icon-item"><span>⬆</span>upload</div>
+                <div class="icon-item"><span>🔗</span>link</div>
+                <div class="icon-item"><span>📋</span>content_copy</div>
+                <div class="icon-item"><span>📌</span>content_paste</div>
+                <div class="icon-item"><span>✂</span>content_cut</div>
+                <div class="icon-item"><span>↩</span>undo</div>
+                <div class="icon-item"><span>↪</span>redo</div>
+                <div class="icon-item"><span>🔄</span>refresh</div>
+                <div class="icon-item"><span>⊙</span>more_vert</div>
+                <div class="icon-item"><span>⋯</span>more_horiz</div>
+                <div class="icon-item"><span>ⓘ</span>info</div>
+                <div class="icon-item"><span>⚠</span>warning</div>
+                <div class="icon-item"><span>⛔</span>error</div>
+                <div class="icon-item"><span>❓</span>help</div>
+                <div class="icon-item"><span>▶</span>play_arrow</div>
+                <div class="icon-item"><span>⏸</span>pause</div>
+                <div class="icon-item"><span>⏹</span>stop</div>
+                <div class="icon-item"><span>⏭</span>skip_next</div>
+                <div class="icon-item"><span>⏮</span>skip_previous</div>
+                <div class="icon-item"><span>🔊</span>volume_up</div>
+                <div class="icon-item"><span>🔉</span>volume_down</div>
+                <div class="icon-item"><span>🔇</span>volume_off</div>
+                <div class="icon-item"><span>🛒</span>shopping_cart</div>
+                <div class="icon-item"><span>💳</span>credit_card</div>
+                <div class="icon-item"><span>📊</span>bar_chart</div>
+                <div class="icon-item"><span>📈</span>trending_up</div>
+                <div class="icon-item"><span>📉</span>trending_down</div>
+                <div class="icon-item"><span>☁</span>cloud</div>
+                <div class="icon-item"><span>⬇</span>cloud_download</div>
+                <div class="icon-item"><span>⬆</span>cloud_upload</div>
+                <div class="icon-item"><span>📱</span>smartphone</div>
+                <div class="icon-item"><span>💻</span>computer</div>
+                <div class="icon-item"><span>⌨</span>keyboard</div>
+                <div class="icon-item"><span>🖱</span>mouse</div>
+                <div class="icon-item"><span>📶</span>wifi</div>
+                <div class="icon-item"><span>📵</span>wifi_off</div>
+                <div class="icon-item"><span>📡</span>bluetooth</div>
+                <div class="icon-item"><span>🔋</span>battery_full</div>
+                <div class="icon-item"><span>🔌</span>power</div>
+                <div class="icon-item"><span>💡</span>lightbulb</div>
+                <div class="icon-item"><span>🌙</span>dark_mode</div>
+                <div class="icon-item"><span>☀</span>light_mode</div>
+            </div>
+        </section>
+
+        <!-- Colors -->
+        <section id="colors">
+            <h2>Color Constants</h2>
+            <p>Available via the <code class="inline-code">Colors</code> class.</p>
+            
+            <table>
+                <thead>
+                    <tr><th>Constant</th><th>Hex Value</th><th>Preview</th><th>Usage</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Colors::PRIMARY</code></td>
+                        <td>#4ec9b0</td>
+                        <td><div class="color-swatch" style="background:#4ec9b0"></div></td>
+                        <td>Brand color, links, primary actions</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::SUCCESS</code></td>
+                        <td>#4CAF50</td>
+                        <td><div class="color-swatch" style="background:#4CAF50"></div></td>
+                        <td>Success states, confirmations</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::WARNING</code></td>
+                        <td>#FF9800</td>
+                        <td><div class="color-swatch" style="background:#FF9800"></div></td>
+                        <td>Warnings, caution</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::DANGER</code></td>
+                        <td>#f44336</td>
+                        <td><div class="color-swatch" style="background:#f44336"></div></td>
+                        <td>Errors, destructive actions</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::INFO</code></td>
+                        <td>#2196F3</td>
+                        <td><div class="color-swatch" style="background:#2196F3"></div></td>
+                        <td>Information, links</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::PURPLE</code></td>
+                        <td>#9C27B0</td>
+                        <td><div class="color-swatch" style="background:#9C27B0"></div></td>
+                        <td>Accent, special actions</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::GRAY</code></td>
+                        <td>#607D8B</td>
+                        <td><div class="color-swatch" style="background:#607D8B"></div></td>
+                        <td>Secondary, disabled</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::DARK</code></td>
+                        <td>#1e1e1e</td>
+                        <td><div class="color-swatch" style="background:#1e1e1e"></div></td>
+                        <td>Background, dark theme</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::TEXT</code></td>
+                        <td>#e0e0e0</td>
+                        <td><div class="color-swatch" style="background:#e0e0e0"></div></td>
+                        <td>Default text color</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::TEXT_SECONDARY</code></td>
+                        <td>#888888</td>
+                        <td><div class="color-swatch" style="background:#888888"></div></td>
+                        <td>Secondary text, hints</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::CARD</code></td>
+                        <td>#2d2d30</td>
+                        <td><div class="color-swatch" style="background:#2d2d30"></div></td>
+                        <td>Card background</td>
+                    </tr>
+                    <tr>
+                        <td><code>Colors::BORDER</code></td>
+                        <td>#3c3c3c</td>
+                        <td><div class="color-swatch" style="background:#3c3c3c"></div></td>
+                        <td>Borders, dividers</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Example Usage</h3>
+            <div class="code-block">
+                <div class="code-header">
+                    <span class="code-title">Using Colors</span>
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code><span class="keyword">use</span> Colors;
+
+<span class="comment">// In simple.php functions</span>
+<span class="function">button</span>(<span class="string">"Save"</span>, <span class="string">"save"</span>, [<span class="string">'color'</span> => <span class="class">Colors</span>::<span class="variable">SUCCESS</span>]);
+<span class="function">button</span>(<span class="string">"Delete"</span>, <span class="string">"delete"</span>, [<span class="string">'color'</span> => <span class="class">Colors</span>::<span class="variable">DANGER</span>]);
+<span class="function">label</span>(<span class="string">"Warning!"</span>, [<span class="string">'color'</span> => <span class="class">Colors</span>::<span class="variable">WARNING</span>]);
+
+<span class="comment">// In ui_core.php fluent API</span>
+(<span class="keyword">new</span> <span class="class">Button</span>(<span class="string">"Submit"</span>))
+    -><span class="function">setBackground</span>(<span class="class">Colors</span>::<span class="variable">PRIMARY</span>)
+    -><span class="function">setTextColor</span>(<span class="class">Colors</span>::<span class="variable">TEXT</span>);
+
+(<span class="keyword">new</span> <span class="class">CardView</span>())
+    -><span class="function">setBackground</span>(<span class="class">Colors</span>::<span class="variable">CARD</span>);</code></pre>
+            </div>
+        </section>
+
+        <!-- Component Quick Reference -->
+        <section id="components">
+            <h2>Components Overview</h2>
+            
+            <table>
+                <thead>
+                    <tr><th>Component</th><th>simple.php</th><th>ui_core.php</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Text label</td><td><code>label($text, $style)</code></td><td><code>new TextView($text)</code></td></tr>
+                    <tr><td>Button</td><td><code>button($text, $action, $style)</code></td><td><code>new Button($text)</code></td></tr>
+                    <tr><td>Text input</td><td><code>input($id, $hint, $opts)</code></td><td><code>new EditText()</code></td></tr>
+                    <tr><td>Checkbox</td><td><code>checkbox($id, $label, $cb)</code></td><td><code>new CheckBox($label)</code></td></tr>
+                    <tr><td>Image</td><td><code>image($src, $opts)</code></td><td><code>new ImageView($src)</code></td></tr>
+                    <tr><td>Dropdown</td><td>-</td><td><code>new Spinner()</code></td></tr>
+                    <tr><td>Slider</td><td>-</td><td><code>new SeekBar()</code></td></tr>
+                    <tr><td>Toggle</td><td>-</td><td><code>new SwitchView($label)</code></td></tr>
+                    <tr><td>Progress</td><td>-</td><td><code>new ProgressBar()</code></td></tr>
+                    <tr><td>Vertical stack</td><td><code>page($title, $content)</code></td><td><code>new VerticalLayout()</code></td></tr>
+                    <tr><td>Horizontal row</td><td><code>row($elements)</code></td><td><code>new HorizontalLayout()</code></td></tr>
+                    <tr><td>Card</td><td><code>card($title, $content)</code></td><td><code>new CardView()</code></td></tr>
+                    <tr><td>Scroll container</td><td>-</td><td><code>new ScrollView()</code></td></tr>
+                    <tr><td>List</td><td><code>simpleList($items, $cb)</code></td><td><code>new ListView()</code></td></tr>
+                    <tr><td>Nav drawer</td><td>-</td><td><code>new DrawerLayout()</code></td></tr>
+                    <tr><td>Top bar</td><td>-</td><td><code>new TopAppBar($title)</code></td></tr>
+                    <tr><td>Bottom nav</td><td>-</td><td><code>new BottomNavBar()</code></td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        function filterTable(input, tableId) {
+            const filter = input.value.toLowerCase();
+            const table = document.getElementById(tableId);
+            const rows = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let match = false;
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().includes(filter)) {
+                        match = true;
+                        break;
+                    }
+                }
+                rows[i].style.display = match ? '' : 'none';
+            }
+        }
+
+        function filterIcons(input) {
+            const filter = input.value.toLowerCase();
+            const items = document.querySelectorAll('.icon-item');
+            
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        function copyCode(btn) {
+            const pre = btn.closest('.code-block').querySelector('pre');
+            const text = pre.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 1500);
+            });
+        }
+    </script>
+</body>
+</html>

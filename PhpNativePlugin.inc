@@ -97,6 +97,29 @@ function PhpNativePlugin(options) {
     }
     
     /**
+     * Extract documentation files to a DroidScript app folder.
+     * Copies: docs/, docs_examples/, DocRunner.js -> {appName}.js
+     * @param {string} appName Name of the DroidScript app
+     * @returns {object} {success, path, files: [...]} or {error}
+     */
+    this.ExtractDocs = function(appName) {
+        var result = this.plg.Send("ExtractDocs", appName);
+        try { return JSON.parse(result); }
+        catch(e) { return {error: result}; }
+    }
+    
+    /**
+     * Debug plugin paths - shows where files are located
+     * Use this to find where docs are actually stored on the device
+     * @returns {object} {paths: {...}, m_plugDir, m_filesDir, extStorage}
+     */
+    this.DebugPaths = function() {
+        var result = this.plg.Send("DebugPaths");
+        try { return JSON.parse(result); }
+        catch(e) { return {error: result}; }
+    }
+    
+    /**
      * Get debug info about all relevant paths (for troubleshooting)
      * Returns: package, idePath, ideExists, apkPath, apkExists, legacyPath, legacyExists, etc.
      * @param {string} [appName] App name to test paths with
@@ -134,9 +157,9 @@ function PhpNativePlugin(options) {
      * Start the PHP application (calls logic.php with method)
      * @param {string} [method="index"] Initial PHP method to call
      */
-    this.Start = function(method) {
+    this.Start = function(method,entryFile) {
         method = method || "index";
-        this.plg.Send("StartApp", method);
+        this.plg.Send("StartApp", method,entryFile);
     }
     
     /**
@@ -156,6 +179,31 @@ function PhpNativePlugin(options) {
     this.RunApp = function(method) {
         method = method || "index";
         this.plg.Send("RunApp", method);
+    }
+    
+    /**
+     * Run any PHP file and render its UI output.
+     * Searches for the file in: app dir, plugin assets, plugin dir
+     * @param {string} filePath Path to PHP file (relative or absolute)
+     * @param {string} [method="index"] Method to call
+     */
+    this.RunFile = function(filePath, method,appName) {
+        method = method || "index";
+        this.plg.Send("RunFile", filePath, method,appName);
+    }
+    
+    /**
+     * Debug: Run a PHP file and return raw output (doesn't render)
+     * Use this to diagnose why examples show white screen
+     * @param {string} filePath Path to PHP file
+     * @param {string} [method="index"] Method to call
+     * @returns {object} {file, includePath, method, exitCode, outputLength, output}
+     */
+    this.RunFileDebug = function(filePath, method) {
+        method = method || "index";
+        var result = this.plg.Send("RunFileDebug", filePath, method);
+        try { return JSON.parse(result); }
+        catch(e) { return {error: result}; }
     }
     
     /**
@@ -224,6 +272,24 @@ function PhpNativePlugin(options) {
      */
     this.RemoveOverlay = function() {
         this.plg.Send("RemoveOverlay");
+    }
+
+    /**
+     * Navigate back to the previous screen.
+     * If at root screen, shows exit confirmation dialog.
+     */
+    this.GoBack = function() {
+        this.plg.Send("GoBack");
+    }
+
+    /**
+     * Set callback for when the user confirms exit via back button.
+     * Called after the overlay is hidden.
+     * @param {function} callback Function to call on exit
+     */
+    this.SetOnBack = function(callback) {
+        this._onBack = callback;
+        this.plg.Send("SetOnBack", "_phpPlugin._onBack");
     }
     
     // =========================================================================

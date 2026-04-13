@@ -207,6 +207,595 @@ function checkbox(string $id, string $text, ?string $onChange = null) {
 }
 
 /**
+ * Create a toggle switch
+ * 
+ * @param string $id Unique ID
+ * @param string $text Label text
+ * @param bool $checked Initial state
+ * @param string|null $onChange Method to call when toggled
+ * @return SwitchView
+ * 
+ * Example:
+ *   toggle("dark_mode", "Dark Mode", false, "onDarkModeToggle")
+ */
+function toggle(string $id, string $text, bool $checked = false, ?string $onChange = null) {
+    $sw = (new SwitchView())
+        ->id($id)
+        ->text($text)
+        ->checked($checked);
+    
+    if ($onChange) {
+        $sw->onCheckedChange($onChange);
+    }
+    
+    return $sw;
+}
+
+
+/**
+ * Create a ToggleButton
+ * 
+ * @param string $id Unique ID
+ * @param string $textOn Text when ON
+ * @param string $textOff Text when OFF
+ * @param bool $checked Initial state
+ * @param string|null $onChange Method to call when toggled
+ * @return ToggleButton
+ */
+function toggleButton(string $id, string $textOn = "ON", string $textOff = "OFF", bool $checked = false, ?string $onChange = null) {
+    $tb = (new ToggleButton())
+        ->id($id)
+        ->textOn($textOn)
+        ->textOff($textOff)
+        ->checked($checked);
+    
+    if ($onChange) {
+        $tb->onCheckedChange($onChange);
+    }
+    
+    return $tb;
+}
+
+/**
+ * Create a radio button group
+ * 
+ * @param string $id Group ID
+ * @param array $options Array of ["id" => "opt1", "text" => "Option 1"] or simple strings
+ * @param string|null $onChange Method to call when selection changes
+ * @param string|null $selected Initially selected option ID
+ * @return RadioGroup
+ * 
+ * Example:
+ *   radioGroup("size", ["Small", "Medium", "Large"], "onSizeChange")
+ *   radioGroup("color", [
+ *       ["id" => "red", "text" => "Red"],
+ *       ["id" => "blue", "text" => "Blue"],
+ *   ], "onColorChange", "red")
+ */
+function radioGroup(string $id, array $options, ?string $onChange = null, ?string $selected = null) {
+    $buttons = [];
+    foreach ($options as $index => $option) {
+        if (is_string($option)) {
+            $rb = (new RadioButton())
+                ->id($id . "_" . $index)
+                ->text($option);
+            if ($selected !== null && $selected == $id . "_" . $index) {
+                $rb->checked(true);
+            }
+        } else {
+            $optId = $option['id'] ?? $id . "_" . $index;
+            $rb = (new RadioButton())
+                ->id($optId)
+                ->text($option['text'] ?? "Option $index");
+            if ($selected !== null && $selected == $optId) {
+                $rb->checked(true);
+            }
+        }
+        $buttons[] = $rb;
+    }
+    
+    $group = (new RadioGroup($buttons))->id($id);
+    if ($onChange) {
+        $group->onCheckedChange($onChange);
+    }
+    
+    return $group;
+}
+
+/**
+ * Create a rating bar (stars)
+ * 
+ * @param string $id Unique ID
+ * @param float $rating Initial rating
+ * @param int $numStars Number of stars
+ * @param string|null $onChange Method to call when rating changes
+ * @return RatingBar
+ * 
+ * Example:
+ *   rating("product_rating", 3.5, 5, "onRatingChange")
+ */
+function rating(string $id, float $rating = 0, int $numStars = 5, ?string $onChange = null) {
+    $rb = (new RatingBar())
+        ->id($id)
+        ->numStars($numStars)
+        ->rating($rating)
+        ->stepSize(0.5);
+    
+    if ($onChange) {
+        $rb->onRatingBarChange($onChange);
+    }
+    
+    return $rb;
+}
+
+/**
+ * Create a seek bar (slider)
+ * 
+ * @param string $id Unique ID
+ * @param int $progress Initial progress value
+ * @param int $max Maximum value
+ * @param string|null $onChange Method to call when value changes
+ * @return SeekBar
+ * 
+ * Example:
+ *   seekbar("volume", 50, 100, "onVolumeChange")
+ */
+function seekbar(string $id, int $progress = 0, int $max = 100, ?string $onChange = null) {
+    $sb = (new SeekBar())
+        ->id($id)
+        ->progress($progress)
+        ->max($max);
+    
+    if ($onChange) {
+        $sb->onSeekBarChange($onChange);
+    }
+    
+    return $sb;
+}
+
+/**
+ * Create a progress bar
+ * 
+ * @param string $id Unique ID
+ * @param int $progress Initial progress (0-100)
+ * @param int $max Maximum value
+ * @return ProgressBar
+ * 
+ * Example:
+ *   progress("download", 45)
+ */
+function progress(string $id, int $progress = 0, int $max = 100) {
+    return (new ProgressBar())
+        ->id($id)
+        ->progress($progress)
+        ->max($max);
+}
+
+/**
+ * Create a dropdown spinner (select box)
+ * 
+ * @param string $id Unique ID
+ * @param array $items Array of string options
+ * @param string|null $onChange Method to call when selection changes
+ * @param int $selectedIndex Initially selected index
+ * @return Spinner
+ * 
+ * Example:
+ *   spinner("country", ["USA", "UK", "Canada"], "onCountryChange")
+ */
+function spinner(string $id, array $items, ?string $onChange = null, int $selectedIndex = 0) {
+    $sp = (new Spinner())
+        ->id($id)
+        ->items($items)
+        ->selectedPosition($selectedIndex);
+    
+    if ($onChange) {
+        $sp->onItemSelected($onChange);
+    }
+    
+    return $sp;
+}
+
+/**
+ * Create a number picker
+ * 
+ * @param string $id Unique ID
+ * @param int $min Minimum value
+ * @param int $max Maximum value
+ * @param int $value Initial value
+ * @param string|null $onChange Method to call when value changes
+ * @return NumberPicker
+ * 
+ * Example:
+ *   numberPicker("age", 1, 120, 25, "onAgeChange")
+ */
+function numberPicker(string $id, int $min = 0, int $max = 100, int $value = 0, ?string $onChange = null) {
+    $np = (new NumberPicker())
+        ->id($id)
+        ->minValue($min)
+        ->maxValue($max)
+        ->value($value);
+    
+    if ($onChange) {
+        $np->onValueChange($onChange);
+    }
+    
+    return $np;
+}
+
+/**
+ * Create an auto-complete text input
+ * 
+ * @param string $id Unique ID
+ * @param string $hint Placeholder text
+ * @param array $suggestions Auto-complete suggestions
+ * @param string|null $onChange Method to call when text changes
+ * @return AutoCompleteTextView
+ * 
+ * Example:
+ *   autoComplete("city", "Enter city", ["New York", "London", "Tokyo"])
+ */
+function autoComplete(string $id, string $hint, array $suggestions, ?string $onChange = null) {
+    $ac = (new AutoCompleteTextView())
+        ->id($id)
+        ->hint($hint)
+        ->suggestions($suggestions)
+        ->completionThreshold(1);
+    
+    if ($onChange) {
+        $ac->onItemClick($onChange);
+    }
+    
+    return $ac;
+}
+
+/**
+ * Create a search view / search bar
+ * 
+ * @param string $id Unique ID
+ * @param string $hint Search hint text
+ * @param string|null $onSearch Method to call when search is submitted
+ * @param string|null $onTextChange Method to call on each keystroke
+ * @return SearchView
+ * 
+ * Example:
+ *   searchBar("search", "Search products...", "onSearch", "onSearchType")
+ */
+function searchBar(string $id, string $hint = "Search...", ?string $onSearch = null, ?string $onTextChange = null) {
+    $sv = (new SearchView())
+        ->id($id)
+        ->queryHint($hint)
+        ->iconifiedByDefault(false);
+    
+    if ($onSearch) {
+        $sv->onQueryTextSubmit($onSearch);
+    }
+    if ($onTextChange) {
+        $sv->onQueryTextChange($onTextChange);
+    }
+    
+    return $sv;
+}
+
+/**
+ * Create a Material-style text input with floating label
+ * 
+ * @param string $id Unique ID
+ * @param string $hint Label / hint text
+ * @param array $options ['helperText', 'error', 'counter', 'maxLength', 'inputType']
+ * @return TextInputLayout
+ * 
+ * Example:
+ *   textField("email", "Email Address", ['helperText' => 'Required', 'inputType' => 'textEmailAddress'])
+ */
+function textField(string $id, string $hint, array $options = []) {
+    $til = (new TextInputLayout())
+        ->id($id)
+        ->hint($hint);
+    
+    if (isset($options['helperText'])) $til->helperText($options['helperText']);
+    if (isset($options['error'])) $til->errorText($options['error']);
+    if (isset($options['counter']) && $options['counter']) {
+        $til->counterEnabled(true);
+        if (isset($options['maxLength'])) $til->counterMaxLength($options['maxLength']);
+    }
+    if (isset($options['inputType'])) $til->inputType($options['inputType']);
+    
+    return $til;
+}
+
+/**
+ * Create a floating action button (FAB)
+ * 
+ * @param string $id Unique ID
+ * @param string $icon Icon name (e.g., "add", "edit", "check")
+ * @param string $action Method to call when clicked
+ * @param array $style ['color' => '#FF4081', 'iconColor' => '#fff']
+ * @return FloatingActionButton
+ * 
+ * Example:
+ *   fab("add_btn", "add", "onAddItem")
+ */
+function fab(string $id, string $icon, string $action, array $style = []) {
+    $f = (new FloatingActionButton())
+        ->id($id)
+        ->icon($icon)
+        ->action($action);
+    
+    if (isset($style['color'])) $f->backgroundColor($style['color']);
+    if (isset($style['iconColor'])) $f->iconColor($style['iconColor']);
+    
+    return $f;
+}
+
+/**
+ * Create a chip tag
+ * 
+ * @param string $text Chip text
+ * @param string|null $action Method to call when clicked
+ * @param array $style ['color' => '#E0E0E0', 'textColor' => '#333']
+ * @return Chip
+ * 
+ * Example:
+ *   chip("Android", "onChipClick")
+ */
+function chip(string $text, ?string $action = null, array $style = []) {
+    $c = (new Chip())->text($text);
+    
+    if ($action) $c->action($action);
+    if (isset($style['color'])) $c->backgroundColor($style['color']);
+    if (isset($style['textColor'])) $c->textColor($style['textColor']);
+    if (isset($style['id'])) $c->id($style['id']);
+    
+    return $c;
+}
+
+/**
+ * Create a group of chips
+ * 
+ * @param array $chips Array of chip() results or strings
+ * @param string|null $onSelect Handler for selection
+ * @return ChipGroup
+ * 
+ * Example:
+ *   chipGroup(["PHP", "Java", "Python"])
+ *   chipGroup([chip("Tag1"), chip("Tag2")])
+ */
+function chipGroup(array $chips, ?string $onSelect = null) {
+    $children = [];
+    foreach ($chips as $c) {
+        if (is_string($c)) {
+            $ch = chip($c, $onSelect);
+            $children[] = $ch;
+        } else {
+            $children[] = $c;
+        }
+    }
+    
+    return new ChipGroup($children);
+}
+
+/**
+ * Create a tab bar
+ * 
+ * @param string $id Unique ID
+ * @param array $tabs Array of tab definitions: ["Home", "Profile"] or [["text" => "Home", "icon" => "home"], ...]
+ * @param string $onSelect Method to call when tab changes
+ * @param int $selected Initially selected tab index
+ * @return TabLayout
+ * 
+ * Example:
+ *   tabs("my_tabs", ["Home", "Search", "Profile"], "onTabChange")
+ */
+function tabs(string $id, array $tabs, ?string $onSelect = null, int $selected = 0) {
+    $tabItems = [];
+    foreach ($tabs as $tab) {
+        if (is_string($tab)) {
+            $tabItems[] = ["text" => $tab];
+        } else {
+            $tabItems[] = $tab;
+        }
+    }
+    
+    $tl = (new TabLayout())
+        ->id($id)
+        ->tabs($tabItems)
+        ->selectedTab($selected);
+    
+    if ($onSelect) {
+        $tl->onTabSelected($onSelect);
+    }
+    
+    return $tl;
+}
+
+/**
+ * Create a Material card container
+ * 
+ * @param array $content Array of child components
+ * @param array $style ['background' => '#fff', 'corners' => 12, 'elevation' => 4]
+ * @return CardView
+ * 
+ * Example:
+ *   materialCard([
+ *       label("Card Title", ['bold' => true]),
+ *       label("Some content here"),
+ *       button("Action", "onAction"),
+ *   ], ['corners' => 16, 'elevation' => 8])
+ */
+function materialCard(array $content, array $style = []) {
+    $card = (new CardView($content))
+        ->cornerRadius($style['corners'] ?? 12)
+        ->elevation($style['elevation'] ?? 4)
+        ->padding($style['padding'] ?? 16)
+        ->margin($style['margin'] ?? 8);
+    
+    if (isset($style['background'])) $card->backgroundColor($style['background']);
+    
+    return $card;
+}
+
+/**
+ * Create a grid layout
+ * 
+ * @param array $children Array of child components
+ * @param int $columns Number of columns
+ * @return GridLayout
+ * 
+ * Example:
+ *   grid([
+ *       button("1", "onClick"), button("2", "onClick"),
+ *       button("3", "onClick"), button("4", "onClick"),
+ *   ], 2)
+ */
+function grid(array $children, int $columns = 2) {
+    $layout = (new GridLayout($children))->columnCount($columns);
+    return $layout;
+}
+
+/**
+ * Create a table layout
+ * 
+ * @param array $rows Array of arrays (each sub-array is a row of components/strings)
+ * @param array $style ['headerBg' => '#333', 'headerColor' => '#fff']
+ * @return TableLayout
+ * 
+ * Example:
+ *   table([
+ *       ["Name", "Age", "City"],      // header row
+ *       ["Alice", "30", "NYC"],
+ *       ["Bob", "25", "London"],
+ *   ], ['headerBg' => '#1976D2', 'headerColor' => '#fff'])
+ */
+function table(array $rows, array $style = []) {
+    $tableRows = [];
+    foreach ($rows as $rowIndex => $row) {
+        $cells = [];
+        foreach ($row as $cell) {
+            if ($cell instanceof Component) {
+                $cells[] = $cell;
+            } else {
+                $tv = (new TextView())
+                    ->text((string) $cell)
+                    ->padding(8);
+                
+                // Style header row differently
+                if ($rowIndex === 0 && isset($style['headerColor'])) {
+                    $tv->textColor($style['headerColor'])->textStyle("bold");
+                }
+                
+                $cells[] = $tv;
+            }
+        }
+        
+        $tr = new TableRow($cells);
+        if ($rowIndex === 0 && isset($style['headerBg'])) {
+            $tr->backgroundColor($style['headerBg']);
+        }
+        $tableRows[] = $tr;
+    }
+    
+    return (new TableLayout($tableRows))->stretchColumns("*");
+}
+
+/**
+ * Create a video player
+ * 
+ * @param string $id Unique ID
+ * @param string $uri Video URI (URL or file path)
+ * @param array $options ['autoPlay' => false, 'width' => -1, 'height' => 200]
+ * @return VideoView
+ */
+function video(string $id, string $uri, array $options = []) {
+    $vv = (new VideoView())
+        ->id($id)
+        ->videoUri($uri);
+    
+    if (isset($options['autoPlay'])) $vv->autoPlay($options['autoPlay']);
+    if (isset($options['width'])) $vv->width($options['width']);
+    if (isset($options['height'])) $vv->height($options['height']);
+    
+    return $vv;
+}
+
+/**
+ * Create a web view
+ * 
+ * @param string $id Unique ID
+ * @param string $url URL to load
+ * @param array $options ['height' => 400, 'javaScriptEnabled' => true]
+ * @return WebView
+ * 
+ * Example:
+ *   webView("browser", "https://example.com")
+ */
+function webView(string $id, string $url, array $options = []) {
+    $wv = (new WebView())
+        ->id($id)
+        ->loadUrl($url);
+    
+    if (isset($options['height'])) $wv->height($options['height']);
+    if (isset($options['javaScriptEnabled'])) {
+        $wv->settings(["javaScriptEnabled" => $options['javaScriptEnabled']]);
+    }
+    
+    return $wv;
+}
+
+/**
+ * Create a calendar view
+ * 
+ * @param string $id Unique ID
+ * @param string|null $onChange Method to call when date changes
+ * @return CalendarView
+ */
+function calendar(string $id, ?string $onChange = null) {
+    $cv = (new CalendarView())->id($id);
+    if ($onChange) $cv->onDateChange($onChange);
+    return $cv;
+}
+
+/**
+ * Create a scroll view wrapper
+ * 
+ * @param array $content Array of child components
+ * @return ScrollView
+ */
+function scrollView(array $content) {
+    return new ScrollView([
+        new VerticalLayout($content)
+    ]);
+}
+
+/**
+ * Create a horizontal scroll wrapper
+ * 
+ * @param array $content Array of child components 
+ * @return HorizontalScrollView
+ */
+function horizontalScroll(array $content) {
+    return new HorizontalScrollView([
+        (new HorizontalLayout($content))
+    ]);
+}
+
+/**
+ * Create a frame/stack layout where children overlap
+ * 
+ * @param array $content Array of child components
+ * @return StackLayout
+ * 
+ * Example:
+ *   stack([
+ *       image("bg.jpg", ['width' => -1, 'height' => -1]),
+ *       label("Overlay Text", ['center' => true]),
+ *   ])
+ */
+function stack(array $content) {
+    return new StackLayout($content);
+}
+
+/**
  * Create an image
  * 
  * @param string $src Image URL or base64
@@ -327,12 +916,371 @@ function setText(string $id, string $text, ?string $color = null) {
  * Example:
  *   return goTo("showDetails", ["id" => 123]);
  */
-function goTo(string $screen, array $data = []) {
+function goToScreen(string $screen, array $data = []) {
     return [
         "action" => "NAVIGATE",
         "screen" => $screen,
         "data" => $data
     ];
+}
+
+/**
+ * Go back to the previous screen in navigation history.
+ * If at the root screen, shows an exit confirmation dialog.
+ * 
+ * @return array
+ * 
+ * Example:
+ *   return goBack();
+ */
+function goBack() {
+    return [
+        "action" => "GO_BACK"
+    ];
+}
+
+// =============================================================================
+// DIALOGS & POPUPS - Rich dialog builders
+// =============================================================================
+
+/**
+// =============================================================================
+// DIALOGS & POPUPS - Rich dialog builders
+// =============================================================================
+
+// Note: snackbar(), dialog(), listDialog(), datePickerDialog(), timePickerDialog(),
+// inputDialog(), bottomSheet(), dismissDialog() are already available from ui_core.php.
+// These wrappers provide simpler, more intuitive names.
+
+/**
+ * Show a confirmation dialog with Yes/No buttons
+ * 
+ * @param string $title Dialog title
+ * @param string $message Dialog message
+ * @param string $onConfirm Method to call on "Yes"
+ * @param string|null $onCancel Method to call on "No" (optional)
+ * @param string $confirmText Positive button text
+ * @param string $cancelText Negative button text
+ * @return array
+ * 
+ * Example:
+ *   return confirm("Delete?", "This cannot be undone.", "doDelete");
+ */
+function confirm(string $title, string $message, string $onConfirm, ?string $onCancel = null, string $confirmText = "Yes", string $cancelText = "No") {
+    return dialog($title, $message, $onConfirm, $onCancel, $confirmText, $cancelText);
+}
+
+/**
+ * Show a selection list dialog
+ * 
+ * @param string $title Dialog title
+ * @param array $items List of string items to choose from
+ * @param string $onSelect Method to call with selected item (receives index and text)
+ * @return array
+ * 
+ * Example:
+ *   return selectDialog("Pick a color", ["Red", "Green", "Blue"], "onColorPick");
+ */
+function selectDialog(string $title, array $items, string $onSelect) {
+    return listDialog($title, $items, $onSelect);
+}
+
+/**
+ * Show a date picker dialog
+ * 
+ * @param string $callback Method to receive the date (year, month, day)
+ * @param string|null $initialDate Initial date as "YYYY-MM-DD"
+ * @return array
+ * 
+ * Example:
+ *   return pickDate("onDatePicked");
+ */
+function pickDate(string $callback, ?string $initialDate = null) {
+    return datePickerDialog($callback, $initialDate);
+}
+
+/**
+ * Show a time picker dialog
+ * 
+ * @param string $callback Method to receive the time (hour, minute)
+ * @param bool $is24Hour Use 24-hour format
+ * @return array
+ * 
+ * Example:
+ *   return pickTime("onTimePicked");
+ */
+function pickTime(string $callback, bool $is24Hour = false) {
+    return timePickerDialog($callback, $is24Hour);
+}
+
+/**
+ * Show an input dialog (text prompt)
+ * 
+ * @param string $title Dialog title
+ * @param string $hint Input hint text
+ * @param string $callback Method to receive the entered text
+ * @param string $defaultValue Pre-filled value
+ * @return array
+ * 
+ * Example:
+ *   return prompt("Enter Name", "Your name...", "onNameEntered");
+ */
+function prompt(string $title, string $hint, string $callback, string $defaultValue = "") {
+    return inputDialog($title, $hint, $callback, $defaultValue);
+}
+
+/**
+ * Show a bottom sheet with custom content
+ * 
+ * @param array $content Array of child components
+ * @param string|null $title Optional title
+ * @return array
+ * 
+ * Example:
+ *   return showBottomSheet([
+ *       label("Choose an option"),
+ *       button("Option A", "onPickA"),
+ *       button("Option B", "onPickB"),
+ *   ], "Options");
+ */
+function showBottomSheet(array $content, ?string $title = null) {
+    $children = $content;
+    if ($title) {
+        array_unshift($children, label($title, ['bold' => true, 'size' => 20, 'padding' => 8]));
+    }
+    $layout = (new VerticalLayout($children))->padding(16);
+    return bottomSheet($layout);
+}
+
+/**
+ * Close any open dialog/bottom sheet
+ * @return array
+ */
+function closeDialog() {
+    return dismissDialog();
+}
+
+// =============================================================================
+// ANIMATION - Animate views
+// =============================================================================
+
+// Note: animate(), animateSet() are already available from ui_core.php.
+// These wrappers provide single-property convenience and preset animations.
+
+/**
+ * Animate a single property of a view
+ * 
+ * @param string $id View ID to animate
+ * @param string $property Property to animate (alpha, translationX, translationY, scaleX, scaleY, rotation)
+ * @param float $toValue Target value
+ * @param int $duration Duration in milliseconds
+ * @param string $interpolator Interpolator type (linear, accelerate, decelerate, bounce, overshoot)
+ * @return array
+ * 
+ * Example:
+ *   return animateView("my_view", "alpha", 0.5, 500);
+ */
+function animateView(string $id, string $property, float $toValue, int $duration = 300, string $interpolator = "decelerate") {
+    return animate($id, [$property => $toValue], $duration, $interpolator);
+}
+
+/**
+ * Fade in a view
+ * 
+ * @param string $id View ID
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function fadeIn(string $id, int $duration = 300) {
+    return animate($id, ["alpha" => 1.0], $duration);
+}
+
+/**
+ * Fade out a view
+ * 
+ * @param string $id View ID
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function fadeOut(string $id, int $duration = 300) {
+    return animate($id, ["alpha" => 0.0], $duration);
+}
+
+/**
+ * Slide a view horizontally
+ * 
+ * @param string $id View ID
+ * @param float $toX Target X translation in pixels
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function slideX(string $id, float $toX, int $duration = 300) {
+    return animate($id, ["translationX" => $toX], $duration);
+}
+
+/**
+ * Slide a view vertically
+ * 
+ * @param string $id View ID
+ * @param float $toY Target Y translation in pixels
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function slideY(string $id, float $toY, int $duration = 300) {
+    return animate($id, ["translationY" => $toY], $duration);
+}
+
+/**
+ * Scale a view uniformly
+ * 
+ * @param string $id View ID
+ * @param float $scale Scale factor (1.0 = normal)
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function scaleView(string $id, float $scale, int $duration = 300) {
+    return animate($id, ["scaleX" => $scale, "scaleY" => $scale], $duration);
+}
+
+/**
+ * Rotate a view
+ * 
+ * @param string $id View ID
+ * @param float $degrees Rotation angle in degrees
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function rotateView(string $id, float $degrees, int $duration = 300) {
+    return animate($id, ["rotation" => $degrees], $duration);
+}
+
+/**
+ * Run a "bounce" animation - scale up then back
+ * 
+ * @param string $id View ID
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function bounce(string $id, int $duration = 400) {
+    return animateSet([
+        animate($id, ["scaleX" => 1.3, "scaleY" => 1.3], $duration / 2, "overshoot"),
+        animate($id, ["scaleX" => 1.0, "scaleY" => 1.0], $duration / 2, "decelerate"),
+    ], true);
+}
+
+/**
+ * Run a "shake" animation
+ * 
+ * @param string $id View ID
+ * @param int $duration Duration in ms
+ * @return array
+ */
+function shake(string $id, int $duration = 400) {
+    $step = (int)($duration / 7);
+    return animateSet([
+        animate($id, ["translationX" => -15], $step, "linear"),
+        animate($id, ["translationX" => 15], $step, "linear"),
+        animate($id, ["translationX" => -10], $step, "linear"),
+        animate($id, ["translationX" => 10], $step, "linear"),
+        animate($id, ["translationX" => -5], $step, "linear"),
+        animate($id, ["translationX" => 5], $step, "linear"),
+        animate($id, ["translationX" => 0], $step, "decelerate"),
+    ], true);
+}
+
+// =============================================================================
+// CLIPBOARD & SHARING
+// =============================================================================
+
+/**
+ * Copy text to clipboard
+ * 
+ * @param string $text Text to copy
+ * @param string $label Clipboard label
+ * @return array
+ * 
+ * Example:
+ *   return copyText("Hello world!");
+ */
+function copyText(string $text, string $label = "Copied") {
+    return copyToClipboard($text, $label);
+}
+
+/**
+ * Share text/content via Android share sheet
+ * 
+ * @param string $text Text to share
+ * @param string $title Share dialog title
+ * @return array
+ * 
+ * Example:
+ *   return shareText("Check out this app!", "Share via");
+ */
+function shareText(string $text, string $title = "Share") {
+    return share($text, $title);
+}
+
+/**
+ * Open a URL in the browser
+ * 
+ * @param string $url URL to open
+ * @return array
+ * 
+ * Example:
+ *   return openBrowser("https://example.com");
+ */
+function openBrowser(string $url) {
+    return openUrl($url);
+}
+
+// =============================================================================
+// VIEW MANIPULATION - Dynamic add/remove/replace
+// =============================================================================
+
+/**
+ * Remove a view from the layout
+ * 
+ * @param string $id ID of the view to remove
+ * @return array
+ */
+function removeComponent(string $id) {
+    return removeView($id);
+}
+
+/**
+ * Add a child component to a parent layout
+ * 
+ * @param string $parentId Parent layout ID
+ * @param Component $child Component to add
+ * @param int $index Position to insert at (-1 = end)
+ * @return array
+ */
+function addComponent(string $parentId, Component $child, int $index = -1) {
+    return addView($parentId, $child, $index);
+}
+
+/**
+ * Replace all children of a layout
+ * 
+ * @param string $parentId Parent layout ID
+ * @param array $children New children components
+ * @return array
+ */
+function replaceContent(string $parentId, array $children) {
+    return replaceChildren($parentId, $children);
+}
+
+/**
+ * Scroll a scrollable view to a specific position
+ * 
+ * @param string $id ScrollView ID
+ * @param int $x X position
+ * @param int $y Y position
+ * @param bool $smooth Use smooth scrolling
+ * @return array
+ */
+function scrollToPosition(string $id, int $x = 0, int $y = 0, bool $smooth = true) {
+    return scrollTo($id, $x, $smooth);
 }
 
 // =============================================================================
@@ -345,7 +1293,7 @@ function goTo(string $screen, array $data = []) {
  * @param string $callback Method to receive location data
  * @return array
  * 
- * Your callback receives: ['lat' => 12.34, 'lng' => 56.78, 'altitude' => 100]
+ * Your callback receives: ['lat' => 12.34, 'lng' => 56.78, 'altitude' => 100, 'speed' => 0, 'bearing' => 0]
  * 
  * Example:
  *   function getMyLocation($p) { return gps("onLocation"); }
@@ -378,10 +1326,12 @@ function battery(string $callback) {
 /**
  * Scan a barcode/QR code
  * 
+ * NOTE: Requires an external barcode scanner app (like ZXing) to be installed.
+ * 
  * @param string $callback Method to receive scan result
  * @return array
  * 
- * Your callback receives: ['code' => 'scanned-value']
+ * Your callback receives: ['code' => 'scanned-value', 'format' => 'QR_CODE']
  */
 function scanBarcode(string $callback) {
     return [
@@ -405,6 +1355,639 @@ function compass(string $callback) {
         "sensor" => "compass",
         "callback" => $callback
     ];
+}
+
+// =============================================================================
+// MOTION SENSORS
+// =============================================================================
+
+/**
+ * Read accelerometer (device acceleration). Callback receives: {x, y, z, values}
+ */
+function accelerometer(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "accelerometer", "callback" => $callback];
+}
+
+/**
+ * Read gyroscope (rotation rate). Callback receives: {x, y, z, values}
+ */
+function gyroscope(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "gyroscope", "callback" => $callback];
+}
+
+/**
+ * Read gravity sensor. Callback receives: {x, y, z, values}
+ */
+function gravity(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "gravity", "callback" => $callback];
+}
+
+/**
+ * Read magnetic field sensor. Callback receives: {x, y, z, values}
+ */
+function magneticField(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "magneticfield", "callback" => $callback];
+}
+
+/**
+ * Read orientation (azimuth, pitch, roll). Alias for compass with extra data.
+ */
+function orientation(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "compass", "callback" => $callback];
+}
+
+// =============================================================================
+// ENVIRONMENT SENSORS
+// =============================================================================
+
+/**
+ * Read ambient light level. Callback receives: {light}
+ */
+function light(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "light", "callback" => $callback];
+}
+
+/**
+ * Read proximity sensor. Callback receives: {distance, near (bool)}
+ */
+function proximity(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "proximity", "callback" => $callback];
+}
+
+/**
+ * Read barometric pressure. Callback receives: {pressure} (hPa)
+ */
+function pressure(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "pressure", "callback" => $callback];
+}
+
+/**
+ * Read relative humidity. Callback receives: {humidity} (%)
+ */
+function humidity(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "humidity", "callback" => $callback];
+}
+
+/**
+ * Read ambient temperature. Callback receives: {temperature} (°C)
+ */
+function temperature(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "temperature", "callback" => $callback];
+}
+
+/**
+ * Read step counter. Callback receives: {steps}
+ */
+function stepCounter(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "stepcounter", "callback" => $callback];
+}
+
+// =============================================================================
+// DEVICE & SCREEN INFO
+// =============================================================================
+
+/**
+ * Get device information. Callback receives: {model, osVersion, apiLevel, deviceId, isTablet, language, country, appName, packageName, freeSpace}
+ */
+function deviceInfo(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "deviceinfo", "callback" => $callback];
+}
+
+/**
+ * Get screen information. Callback receives: {width, height, density, rotation, orientation}
+ */
+function screenInfo(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "screeninfo", "callback" => $callback];
+}
+
+/**
+ * Check if location/GPS is enabled. Callback receives: {enabled}
+ */
+function locationEnabled(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "locationenabled", "callback" => $callback];
+}
+
+// =============================================================================
+// NETWORK
+// =============================================================================
+
+/**
+ * Get WiFi info. Callback receives: {ssid, ip, rssi, mac}
+ */
+function wifiInfo(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "wifi", "callback" => $callback];
+}
+
+/**
+ * Scan for available WiFi networks. Callback receives: {networks}
+ */
+function wifiScan(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "wifiscan", "callback" => $callback];
+}
+
+/**
+ * Get Bluetooth info. Callback receives: {enabled, paired}
+ */
+function bluetoothInfo(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "bluetooth", "callback" => $callback];
+}
+
+/**
+ * Discover nearby Bluetooth devices. Callback receives: {name, address} per device found.
+ */
+function btDiscover(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "btdiscover", "callback" => $callback];
+}
+
+/**
+ * Get network status. Callback receives: {connected, ip, mac, ssid, rssi, wifiEnabled, bluetoothEnabled}
+ */
+function networkInfo(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "networkinfo", "callback" => $callback];
+}
+
+// =============================================================================
+// HTTP REQUESTS
+// =============================================================================
+
+/**
+ * Make an HTTP GET request
+ * 
+ * @param string $url The URL to request
+ * @param string $callback Callback receives: {response, error, url}
+ */
+if (!function_exists('httpGet')) {
+function httpGet(string $url, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "http", "callback" => $callback,
+        "params" => ["url" => $url, "httpMethod" => "GET"]
+    ];
+}
+}
+
+/**
+ * Make an HTTP POST request
+ * 
+ * @param string $url The URL to request
+ * @param string $body POST body content
+ * @param string $callback Callback receives: {response, error, url}
+ * @param string $headers Optional comma-separated headers 
+ */
+if (!function_exists('httpPost')) {
+function httpPost(string $url, string $body, string $callback, string $headers = '') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "http", "callback" => $callback,
+        "params" => ["url" => $url, "httpMethod" => "POST", "body" => $body, "headers" => $headers]
+    ];
+}
+}
+
+/**
+ * Download a file from URL
+ * 
+ * @param string $url URL to download
+ * @param string $dest Destination path on device
+ * @param string $callback Callback receives: {file, success, url}
+ */
+function download(string $url, string $dest, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "download", "callback" => $callback,
+        "params" => ["url" => $url, "dest" => $dest]
+    ];
+}
+
+// =============================================================================
+// MEDIA - Audio, Photo, Recording
+// =============================================================================
+
+/**
+ * Take a photo with the camera (uses existing camera sensor)
+ * 
+ * @param string $callback Callback receives: {uri}
+ */
+if (!function_exists('takePhoto')) {
+function takePhoto(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "camera", "callback" => $callback];
+}
+}
+
+/**
+ * Play an audio file
+ * 
+ * @param string $file Path to audio file
+ * @param string $callback Callback receives: {status: 'playing'|'complete', file}
+ */
+function playSound(string $file, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "playaudio", "callback" => $callback,
+        "params" => ["file" => $file]
+    ];
+}
+
+/**
+ * Stop the current audio player
+ * 
+ * @param string $callback Callback receives: {status: 'stopped'}
+ */
+function stopSound(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "stopaudio", "callback" => $callback];
+}
+
+/**
+ * Start recording audio
+ * 
+ * @param string $file Path to save recording
+ * @param string $callback Callback receives: {status: 'recording', file}
+ */
+function recordSound(string $file, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "recordaudio", "callback" => $callback,
+        "params" => ["file" => $file]
+    ];
+}
+
+/**
+ * Stop audio recording
+ * 
+ * @param string $callback Callback receives: {status: 'stopped'}
+ */
+function stopRecord(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "stoprecording", "callback" => $callback];
+}
+
+/**
+ * Play a system ringtone
+ * 
+ * @param string $type Ringtone type: 'notification', 'alarm', 'ringtone'
+ */
+if (!function_exists('playRingtone')) {
+function playRingtone(string $type = 'notification') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "ringtone", "callback" => "_noop",
+        "params" => ["ringtoneType" => $type]
+    ];
+}
+}
+
+// =============================================================================
+// TEXT-TO-SPEECH & SPEECH RECOGNITION
+// =============================================================================
+
+/**
+ * Speak text aloud (text-to-speech)
+ * 
+ * @param string $text Text to speak
+ */
+function speak(string $text) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "speech", "callback" => "_noop",
+        "params" => ["text" => $text]
+    ];
+}
+
+/**
+ * Start speech recognition (speech-to-text)
+ * 
+ * @param string $callback Callback receives: {text}
+ */
+function listenSpeech(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "speechrecognition", "callback" => $callback];
+}
+
+// =============================================================================
+// HARDWARE CONTROL
+// =============================================================================
+
+/**
+ * Vibrate the device
+ * 
+ * @param int $ms Duration in milliseconds (default 200)
+ */
+function vibratePhone(int $ms = 200) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "vibrate", "callback" => "_noop",
+        "params" => ["duration" => $ms]
+    ];
+}
+
+/**
+ * Get current volume level
+ * 
+ * @param string $callback Callback receives: {volume, stream}
+ * @param string $stream Audio stream: 'music', 'ring', 'alarm', 'notification'
+ */
+function getVol(string $callback, string $stream = 'music') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "getvolume", "callback" => $callback,
+        "params" => ["stream" => $stream]
+    ];
+}
+
+/**
+ * Set volume level
+ * 
+ * @param int $level Volume level (0-15 typically)
+ * @param string $stream Audio stream: 'music', 'ring', 'alarm', 'notification'
+ */
+function setVol(int $level, string $stream = 'music') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "setvolume", "callback" => "_noop",
+        "params" => ["level" => $level, "stream" => $stream]
+    ];
+}
+
+/**
+ * Set ringer mode
+ * 
+ * @param string $mode 'normal', 'vibrate', or 'silent'
+ */
+function setRinger(string $mode) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "setringermode", "callback" => "_noop",
+        "params" => ["mode" => $mode]
+    ];
+}
+
+/**
+ * Set screen brightness
+ * 
+ * @param float $level Brightness 0.0 to 1.0
+ */
+function setBrightness(float $level) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "setbrightness", "callback" => "_noop",
+        "params" => ["level" => $level]
+    ];
+}
+
+/**
+ * Prevent screen from locking
+ * 
+ * @param bool $on True to keep screen on, false to allow lock
+ */
+function keepScreenOn(bool $on = true) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "preventscreenlock", "callback" => "_noop",
+        "params" => ["prevent" => $on]
+    ];
+}
+
+/**
+ * Toggle flashlight on/off
+ * 
+ * @param bool $on True = on, false = off
+ */
+function toggleFlash(bool $on = true) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "flashlight", "callback" => "_noop",
+        "params" => ["on" => $on]
+    ];
+}
+
+// =============================================================================
+// CLIPBOARD
+// =============================================================================
+
+/**
+ * Copy text to clipboard
+ * 
+ * @param string $text Text to copy
+ */
+function clipboardCopy(string $text) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "clipboard_set", "callback" => "_noop",
+        "params" => ["text" => $text]
+    ];
+}
+
+/**
+ * Get text from clipboard
+ * 
+ * @param string $callback Callback receives: {text}
+ */
+function clipboardPaste(string $callback) {
+    return ["action" => "DS_SENSOR_CALL", "sensor" => "clipboard_get", "callback" => $callback];
+}
+
+// =============================================================================
+// COMMUNICATION - SMS, Phone, Email, Notifications
+// =============================================================================
+
+/**
+ * Send an SMS message
+ * 
+ * @param string $phone Phone number
+ * @param string $message SMS text
+ * @param string $callback Callback receives: {status}
+ */
+function sms(string $phone, string $message, string $callback = '_noop') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "sms", "callback" => $callback,
+        "params" => ["phone" => $phone, "message" => $message]
+    ];
+}
+
+/**
+ * Make a phone call
+ * 
+ * @param string $number Phone number to call
+ */
+function call(string $number) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "phonecall", "callback" => "_noop",
+        "params" => ["number" => $number]
+    ];
+}
+
+/**
+ * Show a notification
+ * 
+ * @param string $title Notification title
+ * @param string $message Notification body
+ * @param string $callback Callback receives: {action} when tapped
+ */
+function notify(string $title, string $message, string $callback = '_noop') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "notification", "callback" => $callback,
+        "params" => ["title" => $title, "message" => $message]
+    ];
+}
+
+/**
+ * Send an email (opens email chooser)
+ * 
+ * @param string $to Recipient email
+ * @param string $subject Email subject
+ * @param string $body Email body
+ * @param string $attachment Optional file attachment path
+ */
+function email(string $to, string $subject, string $body, string $attachment = '') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "sendemail", "callback" => "_noop",
+        "params" => ["recipient" => $to, "subject" => $subject, "body" => $body, "attachment" => $attachment]
+    ];
+}
+
+/**
+ * Scan a QR code / barcode (alias for scanBarcode)
+ */
+function scanCode(string $callback) {
+    return scanBarcode($callback);
+}
+
+// =============================================================================
+// ENCRYPTION & HASHING
+// =============================================================================
+
+/**
+ * Encrypt text with a password
+ * 
+ * @param string $text Text to encrypt
+ * @param string $password Encryption password
+ * @param string $callback Callback receives: {result}
+ */
+function encrypt(string $text, string $password, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "encrypt", "callback" => $callback,
+        "params" => ["text" => $text, "password" => $password]
+    ];
+}
+
+/**
+ * Decrypt text with a password
+ * 
+ * @param string $text Encrypted text
+ * @param string $password Decryption password
+ * @param string $callback Callback receives: {result}
+ */
+function decrypt(string $text, string $password, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "decrypt", "callback" => $callback,
+        "params" => ["text" => $text, "password" => $password]
+    ];
+}
+
+/**
+ * Hash text with specified algorithm
+ * 
+ * @param string $text Text to hash
+ * @param string $algorithm Algorithm: 'MD5', 'SHA1', 'SHA256', 'SHA512'
+ * @param string $callback Callback receives: {result, algorithm}
+ */
+if (!function_exists('hashText')) {
+function hashText(string $text, string $algorithm, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "hash", "callback" => $callback,
+        "params" => ["text" => $text, "algorithm" => $algorithm]
+    ];
+}
+}
+
+/** Convenience: MD5 hash */
+function md5Hash(string $text, string $callback) {
+    return hashText($text, 'MD5', $callback);
+}
+
+/** Convenience: SHA-256 hash */
+function sha256(string $text, string $callback) {
+    return hashText($text, 'SHA256', $callback);
+}
+
+// =============================================================================
+// FILE SYSTEM - Read/Write files on the Android device
+// =============================================================================
+
+/**
+ * Read a file from device storage
+ * 
+ * Note: Named loadFile() instead of readFile() to avoid conflict
+ * with PHP's built-in readfile() function (case-insensitive).
+ * 
+ * @param string $path File path on device
+ * @param string $callback Callback receives: {content, path} or {error, path}
+ */
+function loadFile(string $path, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "readfile", "callback" => $callback,
+        "params" => ["path" => $path]
+    ];
+}
+
+/**
+ * Write content to a file on device storage
+ * 
+ * @param string $path File path on device
+ * @param string $content Content to write
+ * @param string $callback Callback receives: {success, path} or {error}
+ */
+function writeFile(string $path, string $content, string $callback = '_noop') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "writefile", "callback" => $callback,
+        "params" => ["path" => $path, "content" => $content]
+    ];
+}
+
+/**
+ * List files in a folder on device storage
+ * 
+ * @param string $path Folder path
+ * @param string $callback Callback receives: {files, path} or {error}
+ */
+function listFiles(string $path, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "listfolder", "callback" => $callback,
+        "params" => ["path" => $path]
+    ];
+}
+
+/**
+ * Check if a file exists on device storage
+ * 
+ * @param string $path File path
+ * @param string $callback Callback receives: {exists, path}
+ */
+function fileExists(string $path, string $callback) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "fileexists", "callback" => $callback,
+        "params" => ["path" => $path]
+    ];
+}
+
+// =============================================================================
+// APPS & INTENTS
+// =============================================================================
+
+/**
+ * Launch another app by package name
+ * 
+ * @param string $package Package name e.g. 'com.google.android.gm'
+ */
+function launchApp(string $package) {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "openapp", "callback" => "_noop",
+        "params" => ["package" => $package]
+    ];
+}
+
+/**
+ * Send an Android Intent
+ * 
+ * @param string $action Intent action e.g. 'android.intent.action.VIEW'
+ * @param string $uri URI for the intent
+ * @param string $type MIME type
+ * @param string $extras JSON-encoded extras
+ */
+function sendAndroidIntent(string $action, string $uri = '', string $type = '', string $extras = '') {
+    return [
+        "action" => "DS_SENSOR_CALL", "sensor" => "intent", "callback" => "_noop",
+        "params" => ["intentAction" => $action, "uri" => $uri, "type" => $type, "extras" => $extras]
+    ];
+}
+
+/**
+ * Internal no-op callback for fire-and-forget sensor calls.
+ * Used when no response handling is needed.
+ */
+function _noop($p) {
+    return null;
 }
 
 // =============================================================================
@@ -523,13 +2106,7 @@ function update(string $id, array $properties) {
  *       "btn1" => ["enabled" => false]
  *   ]);
  */
-function updateMany(array $updates) {
-    $commands = [];
-    foreach ($updates as $id => $properties) {
-        $commands[] = updateView($id, $properties);
-    }
-    return ["action" => "BATCH", "commands" => $commands];
-}
+
 
 // =============================================================================
 // SHORTCUT SETTERS - Common property changes in one call
@@ -1552,6 +3129,314 @@ function statusLabel(string $id, string $initialText = "Ready", string $icon = "
     ]);
 }
 
+/**
+ * Create a tabbed page layout
+ * 
+ * Each tab maps to a method/content builder.
+ * 
+ * @param string $title Page title
+ * @param array $tabDefs Array of ['name' => tab title, 'content' => [components]]
+ * @param string|null $onTabChange Method to call on tab change
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return tabbedPage("My App", [
+ *       ['name' => 'Home', 'content' => [label("Welcome!")]],
+ *       ['name' => 'Settings', 'content' => [toggle("dark", "Dark Mode")]],
+ *   ]);
+ */
+function tabbedPage(string $title, array $tabDefs, ?string $onTabChange = null) {
+    $tabNames = array_map(fn($t) => $t['name'], $tabDefs);
+    
+    $content = [
+        tabs("page_tabs", $tabNames, $onTabChange ?? ""),
+    ];
+    
+    // Show first tab's content by default
+    if (!empty($tabDefs[0]['content'])) {
+        $contentArea = (new VerticalLayout($tabDefs[0]['content']))
+            ->id("tab_content")
+            ->padding(16);
+        $content[] = $contentArea;
+    }
+    
+    return page($title, $content);
+}
+
+/**
+ * Create a settings page with labeled toggles/inputs
+ * 
+ * @param string $title Page title
+ * @param array $settings Array of settings items
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return settingsPage("Settings", [
+ *       ['type' => 'toggle', 'id' => 'dark', 'label' => 'Dark Mode', 'onChange' => 'onDarkToggle'],
+ *       ['type' => 'toggle', 'id' => 'notif', 'label' => 'Notifications', 'onChange' => 'onNotifToggle'],
+ *       ['type' => 'spinner', 'id' => 'lang', 'label' => 'Language', 'items' => ['English', 'Spanish', 'French']],
+ *       ['type' => 'slider', 'id' => 'font_size', 'label' => 'Font Size', 'max' => 30],
+ *   ]);
+ */
+function settingsPage(string $title, array $settings) {
+    $items = [];
+    foreach ($settings as $s) {
+        $type = $s['type'] ?? 'toggle';
+        
+        $rowContent = [label($s['label'] ?? '', ['size' => 16])];
+        
+        switch ($type) {
+            case 'toggle':
+                $rowContent[] = toggle($s['id'], '', $s['value'] ?? false, $s['onChange'] ?? null);
+                break;
+            case 'spinner':
+                $rowContent[] = spinner($s['id'], $s['items'] ?? [], $s['onChange'] ?? null);
+                break;
+            case 'slider':
+                $rowContent[] = seekbar($s['id'], $s['value'] ?? 50, $s['max'] ?? 100, $s['onChange'] ?? null);
+                break;
+            case 'input':
+                $rowContent[] = input($s['id'], $s['hint'] ?? '', []);
+                break;
+        }
+        
+        $items[] = row($rowContent);
+        $items[] = divider();
+    }
+    
+    return page($title, $items);
+}
+
+/**
+ * Create a form with labeled fields
+ * 
+ * @param string $title Form title
+ * @param array $fields Array of field definitions
+ * @param string $onSubmit Method to call on submit
+ * @param string $submitText Submit button text
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return formPage("Register", [
+ *       ['id' => 'name', 'label' => 'Name'],
+ *       ['id' => 'email', 'label' => 'Email', 'inputType' => 'textEmailAddress'],
+ *       ['id' => 'password', 'label' => 'Password', 'password' => true],
+ *       ['id' => 'agree', 'label' => 'I agree to terms', 'type' => 'checkbox'],
+ *   ], "onRegister", "Register");
+ */
+function formPage(string $title, array $fields, string $onSubmit, string $submitText = "Submit") {
+    $elements = [];
+    
+    foreach ($fields as $f) {
+        $type = $f['type'] ?? 'text';
+        
+        switch ($type) {
+            case 'checkbox':
+                $elements[] = checkbox($f['id'], $f['label'], $f['onChange'] ?? null);
+                break;
+            case 'toggle':
+                $elements[] = toggle($f['id'], $f['label']);
+                break;
+            case 'spinner':
+                $elements[] = label($f['label'], ['size' => 14, 'color' => Colors::TEXT_MUTED]);
+                $elements[] = spinner($f['id'], $f['items'] ?? []);
+                break;
+            case 'radio':
+                $elements[] = label($f['label'], ['size' => 14, 'color' => Colors::TEXT_MUTED]);
+                $elements[] = radioGroup($f['id'], $f['options'] ?? []);
+                break;
+            case 'material':
+                $elements[] = textField($f['id'], $f['label'], $f);
+                break;
+            default:
+                if (isset($f['password']) && $f['password']) {
+                    $elements[] = input($f['id'], $f['label'], ['password' => true]);
+                } else {
+                    $elements[] = input($f['id'], $f['label'], $f);
+                }
+                break;
+        }
+        $elements[] = spacer(8);
+    }
+    
+    $elements[] = spacer(16);
+    $elements[] = button($submitText, $onSubmit, ['color' => Colors::PRIMARY]);
+    
+    return page($title, $elements);
+}
+
+/**
+ * Create a profile page layout
+ * 
+ * @param array $profile ['name', 'subtitle', 'image', 'actions' => [button components]]
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return profilePage([
+ *       'name' => 'John Doe',
+ *       'subtitle' => 'john@example.com',
+ *       'image' => 'https://example.com/avatar.jpg',
+ *       'actions' => [
+ *           button("Edit Profile", "onEditProfile"),
+ *           button("Logout", "onLogout", ['color' => Colors::DANGER]),
+ *       ],
+ *   ]);
+ */
+function profilePage(array $profile) {
+    $content = [];
+    
+    if (isset($profile['image'])) {
+        $content[] = (new ImageView())
+            ->src($profile['image'])
+            ->width(100)->height(100)
+            ->scaleType("centerCrop");
+    }
+    
+    $content[] = spacer(16);
+    $content[] = label($profile['name'] ?? 'User', ['bold' => true, 'size' => 24, 'center' => true]);
+    
+    if (isset($profile['subtitle'])) {
+        $content[] = label($profile['subtitle'], ['size' => 14, 'color' => Colors::TEXT_MUTED, 'center' => true]);
+    }
+    
+    $content[] = spacer(24);
+    
+    foreach ($profile['actions'] ?? [] as $action) {
+        $content[] = $action;
+        $content[] = spacer(8);
+    }
+    
+    return page('', $content);
+}
+
+/**
+ * Create a detail/info page with key-value pairs
+ * 
+ * @param string $title Page title
+ * @param array $details ['key' => 'value', ...] pairs
+ * @param array $actions Optional action buttons
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return detailPage("Order #123", [
+ *       'Status' => 'Shipped',
+ *       'Date' => '2025-01-15',
+ *       'Total' => '$99.99',
+ *   ], [button("Track", "onTrack")]);
+ */
+function detailPage(string $title, array $details, array $actions = []) {
+    $items = [];
+    foreach ($details as $key => $value) {
+        $items[] = row([
+            label($key, ['size' => 14, 'color' => Colors::TEXT_MUTED, 'width' => 120]),
+            label((string) $value, ['size' => 16, 'bold' => true]),
+        ]);
+        $items[] = divider();
+    }
+    
+    if (!empty($actions)) {
+        $items[] = spacer(16);
+        $items[] = row($actions);
+    }
+    
+    return page($title, $items);
+}
+
+/**
+ * Create a media card (image + text + actions)
+ * 
+ * @param array $data ['image', 'title', 'subtitle', 'body', 'actions']
+ * @return CardView
+ * 
+ * Example:
+ *   return mediaCard([
+ *       'image' => 'https://example.com/photo.jpg',
+ *       'title' => 'Beautiful Sunset',
+ *       'subtitle' => 'By John',
+ *       'body' => 'A stunning sunset captured at the beach.',
+ *       'actions' => [
+ *           button("Like", "onLike"),
+ *           button("Share", "onShare"),
+ *       ]
+ *   ]);
+ */
+function mediaCard(array $data) {
+    $content = [];
+    
+    if (isset($data['image'])) {
+        $content[] = (new ImageView())
+            ->src($data['image'])
+            ->width(-1)->height(200)
+            ->scaleType("centerCrop");
+    }
+    
+    if (isset($data['title'])) {
+        $content[] = label($data['title'], ['bold' => true, 'size' => 20, 'padding' => 12]);
+    }
+    
+    if (isset($data['subtitle'])) {
+        $content[] = label($data['subtitle'], ['size' => 14, 'color' => Colors::TEXT_MUTED, 'paddingLeft' => 12]);
+    }
+    
+    if (isset($data['body'])) {
+        $content[] = label($data['body'], ['size' => 16, 'padding' => 12]);
+    }
+    
+    if (!empty($data['actions'])) {
+        $content[] = row($data['actions']);
+    }
+    
+    return materialCard($content, ['corners' => 16, 'elevation' => 4, 'padding' => 0]);
+}
+
+/**
+ * Create an empty state placeholder
+ * 
+ * @param string $message Message to display
+ * @param string $icon Optional emoji icon
+ * @param string|null $actionText Button text for action
+ * @param string|null $actionMethod Method for the action button
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return emptyState("No items yet", "📋", "Add Item", "onAddItem");
+ */
+function emptyState(string $message, string $icon = "📭", ?string $actionText = null, ?string $actionMethod = null) {
+    $content = [
+        spacer(60),
+        label($icon, ['size' => 48, 'center' => true]),
+        spacer(16),
+        label($message, ['size' => 18, 'color' => Colors::TEXT_MUTED, 'center' => true]),
+    ];
+    
+    if ($actionText && $actionMethod) {
+        $content[] = spacer(24);
+        $content[] = button($actionText, $actionMethod, ['color' => Colors::PRIMARY]);
+    }
+    
+    return (new VerticalLayout($content))
+        ->gravity("center")
+        ->width(-1)->height(-1);
+}
+
+/**
+ * Create a loading indicator with message
+ * 
+ * @param string $message Loading message
+ * @return VerticalLayout
+ * 
+ * Example:
+ *   return loading("Please wait...");
+ */
+function loading(string $message = "Loading...") {
+    return (new VerticalLayout([
+        spacer(60),
+        (new ProgressBar())->id("loading_spinner"),
+        spacer(16),
+        label($message, ['size' => 16, 'color' => Colors::TEXT_MUTED, 'center' => true]),
+    ]))->gravity("center")->width(-1)->height(-1);
+}
+
 // =============================================================================
 // UTILITY HELPERS
 // =============================================================================
@@ -1584,5 +3469,72 @@ function compassDirection($azimuth) {
     $directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     return $directions[round($azimuth / 45) % 8];
 }
+
+// =============================================================================
+// AUTO-RUN BOOTSTRAP
+// When a PHP file includes simple.php and defines an App or MyApp class,
+// this code automatically runs the appropriate method and outputs JSON.
+// Uses shutdown function to run AFTER all code is loaded.
+// =============================================================================
+
+// Global flag to prevent double execution (in case router.php also runs)
+$GLOBALS['_simple_php_did_output'] = false;
+
+function _simple_php_autorun() {
+    // Prevent double execution
+    if (!empty($GLOBALS['_simple_php_did_output'])) {
+        return;
+    }
+    
+    // Only run in CLI mode
+    if (php_sapi_name() !== 'cli') {
+        return;
+    }
+    
+    // Suppress errors to keep output clean JSON
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    
+    // Parse --method argument
+    global $argv;
+    $method = 'index';
+    foreach ($argv ?? [] as $arg) {
+        if (strpos($arg, '--method=') === 0) {
+            $method = substr($arg, 9);
+            break;
+        }
+    }
+    
+    // Find and instantiate App class (check both App and MyApp names)
+    $appInstance = null;
+    if (class_exists('App')) {
+        $appInstance = new App();
+    } elseif (class_exists('MyApp')) {
+        $appInstance = new MyApp();
+    }
+    
+    if ($appInstance && method_exists($appInstance, $method)) {
+        // Get parameters from env or global
+        $params = [];
+        
+        // Call method and output result
+        $result = $appInstance->$method($params);
+        
+        // Mark that we've produced output
+        $GLOBALS['_simple_php_did_output'] = true;
+        
+        // If result is a Component, render to JSON
+        if ($result instanceof Component) {
+            echo $result->toJson();
+        } elseif (is_array($result)) {
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } elseif (is_string($result)) {
+            echo $result;
+        }
+    }
+}
+
+// Register to run after all code is loaded
+register_shutdown_function('_simple_php_autorun');
 
 ?>
