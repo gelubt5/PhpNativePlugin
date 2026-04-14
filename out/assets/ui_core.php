@@ -17,12 +17,17 @@
  *   // To get a value:
  *   return $myLabel->_getText("onGotText");
  */
-abstract class Component {
+abstract class Component implements \JsonSerializable {
     protected $attributes = [];
     
     // =========================================================================
     // ATTRIBUTE SETTER (via __call) - These GO to XML
     // =========================================================================
+    
+    // JsonSerializable implementation - allows Component to be json_encoded directly
+    public function jsonSerialize(): mixed {
+        return $this->toArray();
+    }
     
     public function __call($name, $arguments) {
         // Only set attribute if method name does NOT start with underscore

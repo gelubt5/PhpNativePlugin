@@ -1315,9 +1315,11 @@ public class PhpNativePlugin {
     }
 
     private void processPhpResponse(String jsonResponse) {
+        Log.d(TAG, "processPhpResponse INPUT (first 300): " + (jsonResponse != null ? jsonResponse.substring(0, Math.min(300, jsonResponse.length())) : "null"));
         try {
             JSONObject response = new JSONObject(jsonResponse);
             String action = response.optString("action", "");
+            Log.d(TAG, "processPhpResponse: action='" + action + "' hasType=" + response.has("type") + " hasChildren=" + response.has("children"));
 
             // Check for special DroidScript sensor call action (legacy - uses JS)
             if ("DS_SENSOR_CALL".equals(action)) {
@@ -1368,6 +1370,7 @@ public class PhpNativePlugin {
             }
             // Check for UI render action
             else if ("render".equals(action) || response.has("type") || response.has("children")) {
+                Log.d(TAG, ">>> ROUTING TO renderUI! action=" + action + " type=" + response.optString("type", "none"));
                 m_mainHandler.post(() -> renderUI(jsonResponse));
             }
             // Check for view update action
@@ -1561,12 +1564,96 @@ public class PhpNativePlugin {
                 handleScrollTo(response);
             }
             
+            // Call PHP method action - useful for onInit callbacks
+            // Note: does NOT re-render if the method returns a layout (to avoid clearing current UI)
+            else if ("callMethod".equals(action)) {
+                String method = response.optString("method", "");
+                JSONObject params = response.optJSONObject("params");
+                String paramsJson = params != null ? params.toString() : "{}";
+                
+                if (!method.isEmpty()) {
+                    Log.d(TAG, "callMethod: " + method + " with params: " + paramsJson);
+                    m_executor.execute(() -> {
+                        String phpResponse = callPhp(method, paramsJson);
+                        // Only process non-render actions (updates, native calls, etc.)
+                        // Skip if response would trigger a full re-render
+                        try {
+                            JSONObject resp = new JSONObject(phpResponse);
+                            String respAction = resp.optString("action", "");
+                            // Skip processing if it's a layout that would replace current UI
+                            if (!resp.has("type") && !resp.has("children") && !"render".equals(respAction)) {
+                                m_mainHandler.post(() -> processPhpResponse(phpResponse));
+                            } else {
+                                Log.d(TAG, "callMethod: skipping re-render from " + method);
+                            }
+                        } catch (Exception e) {
+                            // If not valid JSON, try processing anyway
+                            m_mainHandler.post(() -> processPhpResponse(phpResponse));
+                        }
+                    });
+                }
+            }
+            
             // Batch multiple actions
             else if ("batch".equals(action)) {
                 JSONArray batchActions = response.optJSONArray("actions");
-                if (batchActions != null) {
+                Log.d(TAG, "BATCH: processing " + (batchActions != null ? batchActions.length() : 0) + " actions");
+                
+                if (batchActions != null && batchActions.length() > 0) {
+                    // Process actions in order, but with proper timing
+                    // Actions BEFORE first render: immediate
+                    // First render: with small delay  
+                    // Actions AFTER render: with larger delay (so render completes first)
+                    
+                    int firstRenderIndex = -1;
+                    
+                    // Find first render action
                     for (int i = 0; i < batchActions.length(); i++) {
-                        processPhpResponse(batchActions.getJSONObject(i).toString());
+                        try {
+                            JSONObject item = batchActions.getJSONObject(i);
+                            if (item.has("type") || item.has("children") || "render".equals(item.optString("action"))) {
+                                firstRenderIndex = i;
+                                break;
+                            }
+                        } catch (Exception e) {}
+                    }
+                    
+                    Log.d(TAG, "BATCH: firstRenderIndex=" + firstRenderIndex);
+                    
+                    // Process each action with appropriate timing
+                    for (int i = 0; i < batchActions.length(); i++) {
+                        try {
+                            final JSONObject item = batchActions.getJSONObject(i);
+                            final int index = i;
+                            boolean isRender = item.has("type") || item.has("children") || "render".equals(item.optString("action"));
+                            
+                            if (firstRenderIndex < 0) {
+                                // No render in batch - process everything immediately
+                                Log.d(TAG, "BATCH[" + i + "] immediate (no render in batch)");
+                                processPhpResponse(item.toString());
+                            } else if (i < firstRenderIndex) {
+                                // Before render - process immediately
+                                Log.d(TAG, "BATCH[" + i + "] immediate (before render)");
+                                processPhpResponse(item.toString());
+                            } else if (isRender) {
+                                // This is a render - delay slightly so any immediate actions complete
+                                Log.d(TAG, "BATCH[" + i + "] render with 50ms delay");
+                                m_mainHandler.postDelayed(() -> {
+                                    Log.d(TAG, "BATCH[" + index + "] executing render now");
+                                    renderUI(item.toString());
+                                }, 50);
+                            } else {
+                                // After render - delay more so render completes
+                                int delayAfterRender = 150 + ((i - firstRenderIndex) * 50);
+                                Log.d(TAG, "BATCH[" + i + "] post-render action with " + delayAfterRender + "ms delay");
+                                m_mainHandler.postDelayed(() -> {
+                                    Log.d(TAG, "BATCH[" + index + "] executing post-render action now");
+                                    processPhpResponse(item.toString());
+                                }, delayAfterRender);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "BATCH: error processing item " + i, e);
+                        }
                     }
                 }
             }
@@ -1908,6 +1995,118 @@ public class PhpNativePlugin {
     /**
      * Register all built-in native handlers for sensors, device APIs, etc.
      * These run pure Java code without DroidScript.
+     */
+    /**
+     * Registers all native handler functions that can be called from PHP/JavaScript.
+     * 
+     * This comprehensive method sets up handlers for various Android device capabilities
+     * and features, organized into logical categories:
+     * 
+     * MOTION SENSORS:
+     * - accelerometer: Reads accelerometer x, y, z values
+     * - gyroscope: Reads gyroscope rotation values in x, y, z axes
+     * - gravity: Reads gravity sensor data
+     * - magneticfield: Reads magnetic field sensor values
+     * - compass/orientation: Calculates azimuth, pitch, roll from rotation vector
+     * 
+     * ENVIRONMENT SENSORS:
+     * - light: Reads ambient light level in lux
+     * - proximity: Detects object proximity distance and near/far state
+     * - pressure: Reads atmospheric pressure in hPa
+     * - humidity: Reads relative humidity percentage
+     * - temperature: Reads ambient temperature in Celsius
+     * - stepcounter: Counts steps (requires API 29+ with ACTIVITY_RECOGNITION permission)
+     * 
+     * LOCATION/GPS:
+     * - location/gps: Requests fine location permission and starts continuous location updates
+     * - lastlocation: Returns last known GPS or network location
+     * - locationenabled: Checks if GPS and network location providers are enabled
+     * - geocode: Converts address string to latitude/longitude coordinates
+     * - reversegeocode: Converts latitude/longitude to address, city, country, postal code
+     * 
+     * BATTERY & POWER:
+     * - battery: Returns battery level, percentage, charging status, health, and temperature
+     * - powersavemode: Checks if power save mode is currently enabled
+     * 
+     * DEVICE & SCREEN INFO:
+     * - deviceinfo: Returns device model, manufacturer, brand, OS version, build fingerprint
+     * - screeninfo: Returns screen dimensions, density, and DPI information
+     * 
+     * NETWORK - WiFi & Bluetooth:
+     * - wifi: Returns WiFi enabled status, connected SSID, BSSID, signal strength (RSSI), link speed, and IP address
+     * - wifiscan: Scans for available WiFi networks with SSID, BSSID, signal level, and frequency
+     * - bluetooth: Returns Bluetooth availability, enabled status, device name, address, and paired devices list
+     * - networkinfo: Checks network connectivity status, type (WiFi/cellular), metering, and VPN usage
+     * 
+     * HTTP REQUESTS:
+     * - http: Performs HTTP requests (GET, POST, PUT, PATCH) with custom headers, body, and timeout
+     * - download: Downloads files via DownloadManager with progress notifications
+     * 
+     * AUDIO - MediaPlayer, Recording, Volume:
+     * - playaudio: Plays audio file with status callbacks for playing and completion
+     * - pauseaudio: Pauses currently playing audio
+     * - stopaudio: Stops audio playback and releases resources
+     * - recordaudio: Records audio to M4A format with microphone permission
+     * - stoprecording: Stops audio recording
+     * - getvolume: Returns current volume levels for music, ring, alarm, and notification streams
+     * - setvolume: Sets volume level for specified audio stream
+     * - setringermode: Changes ringer mode (normal, silent, vibrate)
+     * 
+     * TEXT-TO-SPEECH & SPEECH RECOGNITION:
+     * - tts/speech: Converts text to speech with completion callbacks
+     * - speechrecognition: Starts voice recognition with results and alternatives
+     * 
+     * COMMUNICATION - SMS, Phone, Email:
+     * - sendsms: Sends SMS message to phone number (requires SEND_SMS permission)
+     * - phonecall: Initiates phone call to number (requires CALL_PHONE permission)
+     * - opendial: Opens phone dialer with pre-filled number
+     * - sendemail: Opens email composer with recipient, subject, and body
+     * 
+     * SYSTEM - Clipboard, Vibration, Flashlight, Notifications:
+     * - clipboard_get: Reads text from system clipboard
+     * - clipboard_set: Writes text to system clipboard
+     * - vibrate: Vibrates device with duration or custom pattern (API 26+ support)
+     * - flashlight: Controls device flashlight/torch (requires API 23+)
+     * - notification: Shows system notification with title and message
+     * - cancelnotification: Cancels notification by ID
+     * - keepscreenon: Prevents screen from turning off
+     * - setbrightness: Sets screen brightness level (0.0 to 1.0)
+     * 
+     * FILE SYSTEM:
+     * - readfile: Reads file content as text with size and modification metadata
+     * - writefile: Writes or appends text to file, creating parent directories as needed
+     * - deletefile: Deletes file from filesystem
+     * - fileexists: Checks file existence, type (file/directory), size, and modification time
+     * - listdir: Lists directory contents with file info (name, path, type, size, modified)
+     * - mkdir: Creates directory tree
+     * - zipfile: Compresses single file to ZIP archive
+     * - zipfolder: Compresses entire directory tree to ZIP archive
+     * - unzip: Extracts ZIP archive to specified directory with file list
+     * 
+     * INTENTS - Open Apps, URLs, Share:
+     * - openapp: Launches app by package name via intent
+     * - openurl: Opens URL in browser
+     * - opensettings: Opens system settings (WiFi, Bluetooth, Location, App Details, or General)
+     * - share: Opens share dialog with text and subject
+     * - sendintent: Sends custom intent with action, data, type, and extras
+     * 
+     * CRYPTO - Hash, Encrypt, Decrypt:
+     * - hash: Generates hash (SHA-256 default) of text
+     * - encrypt: Encrypts text with AES-256-CBC using password-derived key
+     * - decrypt: Decrypts AES-256-CBC encrypted text
+     * - base64encode: Encodes text to Base64
+     * - base64decode: Decodes Base64 text
+     * - randombytes: Generates cryptographically secure random bytes
+     * 
+     * CAMERA - Take Photo, Record Video, Pick Image:
+     * - takephoto: Launches camera to capture photo
+     * - recordvideo: Launches camera to record video with optional duration limit
+     * - pickimage: Opens gallery to select image
+     * - pickvideo: Opens gallery to select video
+     * 
+     * Each handler stores results via reportNativeResult() callback with corresponding handler name.
+     * Permission-required handlers use requestPermission() with success/failure callbacks.
+     * Sensor handlers use continuous event listeners via readSensor() method.
      */
     private void registerAllNativeHandlers() {
         
@@ -3432,7 +3631,7 @@ public class PhpNativePlugin {
     }
     
     /**
-     * Read current location
+     * Read current location using standard Android LocationManager
      */
     private void readLocation(String resultType) {
         try {
@@ -3458,6 +3657,8 @@ public class PhpNativePlugin {
             }
         } catch (SecurityException e) {
             reportNativeResult(resultType, createErrorJson("Location permission required"));
+        } catch (Exception e) {
+            reportNativeResult(resultType, createErrorJson("Location error: " + e.getMessage()));
         }
     }
     
