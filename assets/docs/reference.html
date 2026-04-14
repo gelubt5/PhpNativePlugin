@@ -188,6 +188,7 @@
             <h2>Action Functions</h2>
             <p>Return these from handler methods to execute actions.</p>
             
+            <h3>UI Actions</h3>
             <table>
                 <thead>
                     <tr><th>Function</th><th>Description</th></tr>
@@ -207,6 +208,82 @@
                     <tr><td><code>drawerOpen($id)</code></td><td>Open navigation drawer</td></tr>
                     <tr><td><code>drawerClose($id)</code></td><td>Close navigation drawer</td></tr>
                     <tr><td><code>drawerToggle($id)</code></td><td>Toggle drawer state</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Native Functions (Pure Java - Recommended)</h3>
+            <p>Use <code class="inline-code">native($type, $callback, $params = [])</code> for direct Java execution.</p>
+            <table>
+                <thead>
+                    <tr><th>Function</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>native("battery", $cb)</code></td><td>Get battery level &amp; charging status</td></tr>
+                    <tr><td><code>native("location", $cb)</code></td><td>Get GPS location</td></tr>
+                    <tr><td><code>native("accelerometer", $cb)</code></td><td>Read accelerometer</td></tr>
+                    <tr><td><code>native("gyroscope", $cb)</code></td><td>Read gyroscope</td></tr>
+                    <tr><td><code>native("compass", $cb)</code></td><td>Read compass heading</td></tr>
+                    <tr><td><code>native("light", $cb)</code></td><td>Read ambient light</td></tr>
+                    <tr><td><code>native("proximity", $cb)</code></td><td>Read proximity sensor</td></tr>
+                    <tr><td><code>native("takephoto", $cb)</code></td><td>Capture photo</td></tr>
+                    <tr><td><code>native("recordvideo", $cb)</code></td><td>Record video</td></tr>
+                    <tr><td><code>native("http", $cb, ["url" => ...])</code></td><td>HTTP request</td></tr>
+                    <tr><td><code>native("download", $cb, ["url" => ...])</code></td><td>Download file</td></tr>
+                    <tr><td><code>native("sendsms", $cb, [...])</code></td><td>Send SMS</td></tr>
+                    <tr><td><code>native("phonecall", $cb, [...])</code></td><td>Make phone call</td></tr>
+                    <tr><td><code>native("vibrate", $cb, [...])</code></td><td>Vibrate device</td></tr>
+                    <tr><td><code>native("flashlight", $cb, [...])</code></td><td>Toggle flashlight</td></tr>
+                    <tr><td><code>native("clipboard_get", $cb)</code></td><td>Get clipboard text</td></tr>
+                    <tr><td><code>native("clipboard_set", $cb, [...])</code></td><td>Set clipboard text</td></tr>
+                    <tr><td><code>native("notification", $cb, [...])</code></td><td>Show notification</td></tr>
+                    <tr><td><code>native("readfile", $cb, [...])</code></td><td>Read file</td></tr>
+                    <tr><td><code>native("writefile", $cb, [...])</code></td><td>Write file</td></tr>
+                    <tr><td><code>native("zipfile", $cb, [...])</code></td><td>Zip a file</td></tr>
+                    <tr><td><code>native("zipfolder", $cb, [...])</code></td><td>Zip a folder</td></tr>
+                    <tr><td><code>native("unzip", $cb, [...])</code></td><td>Extract zip</td></tr>
+                    <tr><td><code>native("hash", $cb, [...])</code></td><td>Hash text (MD5, SHA256...)</td></tr>
+                    <tr><td><code>native("encrypt", $cb, [...])</code></td><td>AES encrypt</td></tr>
+                    <tr><td><code>native("decrypt", $cb, [...])</code></td><td>AES decrypt</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Convenience Wrappers</h3>
+            <table>
+                <thead>
+                    <tr><th>Function</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>httpRequest($url, $cb, $method, $body?, $headers?)</code></td><td>Full HTTP request</td></tr>
+                    <tr><td><code>downloadFile($url, $dest, $cb)</code></td><td>Download file</td></tr>
+                    <tr><td><code>zipFile($src, $dest, $cb)</code></td><td>Zip a file</td></tr>
+                    <tr><td><code>zipFolder($src, $dest, $cb)</code></td><td>Zip a folder</td></tr>
+                    <tr><td><code>unzipFile($src, $dest, $cb)</code></td><td>Extract zip</td></tr>
+                    <tr><td><code>geocode($address, $cb)</code></td><td>Address to coordinates</td></tr>
+                    <tr><td><code>reverseGeocode($lat, $lng, $cb)</code></td><td>Coordinates to address</td></tr>
+                    <tr><td><code>takePhoto($cb)</code></td><td>Capture photo</td></tr>
+                    <tr><td><code>recordVideo($cb)</code></td><td>Record video</td></tr>
+                    <tr><td><code>pickImage($cb)</code></td><td>Pick image from gallery</td></tr>
+                    <tr><td><code>pickVideo($cb)</code></td><td>Pick video from gallery</td></tr>
+                    <tr><td><code>randomBytes($count, $cb)</code></td><td>Generate random bytes</td></tr>
+                    <tr><td><code>base64Encode($text, $cb)</code></td><td>Base64 encode</td></tr>
+                    <tr><td><code>base64Decode($text, $cb)</code></td><td>Base64 decode</td></tr>
+                    <tr><td><code>openSettings($cb)</code></td><td>Open device settings</td></tr>
+                    <tr><td><code>keepScreenOn($on, $cb)</code></td><td>Prevent screen sleep</td></tr>
+                    <tr><td><code>setScreenBrightness($level, $cb)</code></td><td>Set brightness</td></tr>
+                    <tr><td><code>showNotification($title, $msg, $cb)</code></td><td>Show notification</td></tr>
+                    <tr><td><code>cancelNotification($id, $cb)</code></td><td>Cancel notification</td></tr>
+                    <tr><td><code>shareTextNative($text, $cb)</code></td><td>Share via Android sheet (native)</td></tr>
+                    <tr><td><code>isPowerSaveMode($cb)</code></td><td>Check power save mode</td></tr>
+                    <tr><td><code>getLastLocation($cb)</code></td><td>Get cached location</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Legacy Sensor Functions (DroidScript)</h3>
+            <table>
+                <thead>
+                    <tr><th>Function</th><th>Description</th></tr>
+                </thead>
+                <tbody>
                     <tr><td><code>gps($callback)</code></td><td>Get GPS location</td></tr>
                     <tr><td><code>battery($callback)</code></td><td>Get battery status</td></tr>
                     <tr><td><code>compass($callback)</code></td><td>Get compass reading</td></tr>

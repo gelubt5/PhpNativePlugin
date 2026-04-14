@@ -83,8 +83,76 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.OvershootInterpolator;
 
+// Native functionality imports
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.location.Geocoder;
+import android.location.Address;
+import android.os.BatteryManager;
+import android.content.IntentFilter;
+import android.os.PowerManager;
+import android.os.Vibrator;
+import android.os.VibrationEffect;
+import android.os.Build;
+import android.os.Environment;
+import android.media.MediaRecorder;
+import android.media.MediaPlayer;
+import android.media.AudioManager;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.speech.SpeechRecognizer;
+import android.speech.RecognizerIntent;
+import android.speech.RecognitionListener;
+import android.telephony.SmsManager;
+import android.net.wifi.WifiManager;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.ScanResult;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.app.DownloadManager;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraAccessException;
+import android.provider.MediaStore;
+import android.provider.Settings;
+import android.app.NotificationManager;
+import android.app.NotificationChannel;
+import android.app.Notification;
+import android.app.PendingIntent;
+import android.util.DisplayMetrics;
+import android.content.pm.PackageManager;
+import android.Manifest;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.spec.IvParameterSpec;
+import android.util.Base64;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -156,6 +224,38 @@ public class PhpNativePlugin {
     private String m_OnBack;
 
     // -------------------------------------------------------------------------
+    // Native Call Handler System
+    // -------------------------------------------------------------------------
+    
+    /**
+     * Functional interface for native call handlers.
+     * Handlers receive params JSON and callback name, execute native Android code,
+     * and report results via reportNativeResult().
+     */
+    @FunctionalInterface
+    private interface NativeHandler {
+        void handle(JSONObject params, String callback);
+    }
+    
+    // Native handler registry
+    private Map<String, NativeHandler> m_nativeHandlers = new HashMap<>();
+    
+    // Native functionality state
+    private SensorManager m_sensorManager;
+    private LocationManager m_locationManager;
+    private TextToSpeech m_tts;
+    private SpeechRecognizer m_speechRecognizer;
+    private MediaPlayer m_mediaPlayer;
+    private MediaRecorder m_mediaRecorder;
+    private CameraManager m_cameraManager;
+    private boolean m_ttsReady = false;
+    
+    // Permission request tracking
+    private static final int PERMISSION_REQUEST_CODE = 1001;
+    private Map<Integer, Runnable> m_permissionCallbacks = new HashMap<>();
+    private int m_permissionRequestId = 0;
+
+    // -------------------------------------------------------------------------
     // Lifecycle
     // -------------------------------------------------------------------------
 
@@ -181,6 +281,12 @@ public class PhpNativePlugin {
         m_plugDir = m_ctx.getDir("Plugins", 0).getAbsolutePath() + "/phpnativeplugin";
         m_filesDir = m_ctx.getExternalFilesDir(null).getPath();
 
+        // Initialize native systems
+        initNativeSystems();
+        
+        // Register all native handlers
+        registerAllNativeHandlers();
+
         // Initialize PHP environment
         initPhpEnvironment();
     }
@@ -191,6 +297,24 @@ public class PhpNativePlugin {
         }
         if (m_overlayContainer != null) {
             removeOverlay();
+        }
+        // Release native resources
+        if (m_tts != null) {
+            m_tts.stop();
+            m_tts.shutdown();
+            m_tts = null;
+        }
+        if (m_speechRecognizer != null) {
+            m_speechRecognizer.destroy();
+            m_speechRecognizer = null;
+        }
+        if (m_mediaPlayer != null) {
+            m_mediaPlayer.release();
+            m_mediaPlayer = null;
+        }
+        if (m_mediaRecorder != null) {
+            try { m_mediaRecorder.release(); } catch (Exception e) {}
+            m_mediaRecorder = null;
         }
     }
 
@@ -1195,16 +1319,52 @@ public class PhpNativePlugin {
             JSONObject response = new JSONObject(jsonResponse);
             String action = response.optString("action", "");
 
-            // Check for special DroidScript sensor call action
+            // Check for special DroidScript sensor call action (legacy - uses JS)
             if ("DS_SENSOR_CALL".equals(action)) {
                 String sensor = response.optString("sensor");
                 String callback = response.optString("callback", "handle_sensor_result");
+                JSONObject paramsObj = response.optJSONObject("params");
+                String paramsJson = paramsObj != null ? paramsObj.toString() : "{}";
                 
                 // Store the PHP callback for when sensor returns
                 m_pendingSensorCallbacks.put(sensor, callback);
                 
-                // Inject sensor call into DroidScript
-                injectSensorCallForType(sensor, response);
+                // Execute via JS native call handler registry
+                try {
+                    ExecScript("_phpPlugin.NativeCall('" + escapeJs(sensor) + "', '" + escapeJs(paramsJson) + "');");
+                    Log.d(TAG, "Native call dispatched: " + sensor);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to dispatch native call: " + sensor, e);
+                    notifyError("Native call failed: " + e.getMessage());
+                }
+            }
+            // Native call action - pure Java implementation (no DroidScript)
+            else if ("NATIVE_CALL".equals(action)) {
+                String type = response.optString("type", response.optString("sensor", ""));
+                String callback = response.optString("callback", "handle_native_result");
+                JSONObject params = response.optJSONObject("params");
+                if (params == null) params = new JSONObject();
+                
+                Log.d(TAG, "NATIVE_CALL: type=" + type + ", callback=" + callback);
+                
+                // Store callback and dispatch to handler
+                m_pendingSensorCallbacks.put(type, callback);
+                
+                NativeHandler handler = m_nativeHandlers.get(type.toLowerCase());
+                if (handler != null) {
+                    final JSONObject finalParams = params;
+                    m_executor.execute(() -> {
+                        try {
+                            handler.handle(finalParams, callback);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Native handler error: " + type, e);
+                            reportNativeResult(type, createErrorJson("Handler error: " + e.getMessage()));
+                        }
+                    });
+                } else {
+                    Log.e(TAG, "Unknown native call type: " + type);
+                    reportNativeResult(type, createErrorJson("Unknown native call type: " + type));
+                }
             }
             // Check for UI render action
             else if ("render".equals(action) || response.has("type") || response.has("children")) {
@@ -1610,822 +1770,17 @@ public class PhpNativePlugin {
     // -------------------------------------------------------------------------
 
     private void injectSensorCall(String sensorType, String phpCallback) {
-        //m_pendingSensorCallbacks.put(sensorType, phpCallback);
-        injectSensorCallForType(sensorType, null);
-    
-    }
-
-    private void injectSensorCallForType(String sensorType, JSONObject params) {
-        String jsCode = "";
-        
-        switch (sensorType.toLowerCase()) {
-            case "location":
-            case "gps":
-                jsCode = generateLocationScript();
-                break;
-            
-            case "battery":
-                jsCode = generateBatteryScript();
-                break;
-            
-            case "accelerometer":
-                jsCode = generateAccelerometerScript();
-                break;
-            
-            case "compass":
-            case "orientation":
-                jsCode = generateCompassScript();
-                break;
-            
-           
-          
-            
-            case "camera":
-                String quality = params != null ? params.optString("quality", "80") : "80";
-                jsCode = generateCameraScript(quality);
-                break;
-            
-            case "wifi":
-                jsCode = generateWifiScript();
-                break;
-            
-            case "bluetooth":
-                jsCode = generateBluetoothScript();
-                break;
-            
-            case "nfc":
-                jsCode = generateNfcScript();
-                break;
-            
-            case "sms":
-                String phone = params != null ? params.optString("phone", "") : "";
-                String message = params != null ? params.optString("message", "") : "";
-                jsCode = generateSmsScript(phone, message);
-                break;
-            
-            case "notification":
-                String title = params != null ? params.optString("title", "Notification") : "Notification";
-                String body = params != null ? params.optString("body", "") : "";
-                jsCode = generateNotificationScript(title, body);
-                break;
-            
-            case "vibrate":
-                String pattern = params != null ? params.optString("pattern", "500") : "500";
-                jsCode = generateVibrateScript(pattern);
-                break;
-            
-            case "speech":
-                String text = params != null ? params.optString("text", "") : "";
-                jsCode = generateSpeechScript(text);
-                break;
-            
-            case "speechrecognition":
-                jsCode = generateSpeechRecognitionScript();
-                break;
-
-            // ---- Additional Sensors (from DroidScript app.CreateSensor) ----
-            case "gyroscope":
-                jsCode = generateGenericSensorScript("Gyroscope", "gyroscope");
-                break;
-            case "gravity":
-                jsCode = generateGenericSensorScript("Gravity", "gravity");
-                break;
-            case "proximity":
-                jsCode = generateProximitySensorScript();
-                break;
-            case "light":
-                jsCode = generateSingleValueSensorScript("Light", "light", "light");
-                break;
-            case "pressure":
-                jsCode = generateSingleValueSensorScript("Pressure", "pressure", "pressure");
-                break;
-            case "humidity":
-                jsCode = generateSingleValueSensorScript("Humidity", "humidity", "humidity");
-                break;
-            case "temperature":
-                jsCode = generateSingleValueSensorScript("Temperature", "temperature", "temperature");
-                break;
-            case "magneticfield":
-                jsCode = generateGenericSensorScript("MagneticField", "magneticfield");
-                break;
-            case "stepcounter":
-                jsCode = generateSingleValueSensorScript("StepCounter", "stepcounter", "steps");
-                break;
-
-            // ---- Device Info ----
-            case "deviceinfo":
-                jsCode = generateDeviceInfoScript();
-                break;
-            case "screeninfo":
-                jsCode = generateScreenInfoScript();
-                break;
-            case "locationenabled":
-                jsCode = generateLocationEnabledScript();
-                break;
-
-            // ---- Network ----
-            case "networkinfo":
-                jsCode = generateNetworkInfoScript();
-                break;
-            case "wifiscan":
-                jsCode = generateWifiScanScript();
-                break;
-            case "btdiscover":
-                jsCode = generateBtDiscoverScript();
-                break;
-
-            // ---- HTTP ----
-            case "http":
-                String httpUrl = params != null ? params.optString("url", "") : "";
-                String httpMethod = params != null ? params.optString("httpMethod", "GET") : "GET";
-                String httpBody = params != null ? params.optString("body", "") : "";
-                String httpHeaders = params != null ? params.optString("headers", "") : "";
-                jsCode = generateHttpRequestScript(httpUrl, httpMethod, httpBody, httpHeaders);
-                break;
-            case "download":
-                String dlUrl = params != null ? params.optString("url", "") : "";
-                String dlDest = params != null ? params.optString("dest", "") : "";
-                jsCode = generateDownloadScript(dlUrl, dlDest);
-                break;
-
-            // ---- Media ----
-            case "playaudio":
-                String audioFile = params != null ? params.optString("file", "") : "";
-                jsCode = generatePlayAudioScript(audioFile);
-                break;
-            case "stopaudio":
-                jsCode = generateStopAudioScript();
-                break;
-            case "recordaudio":
-                String recFile = params != null ? params.optString("file", "") : "";
-                jsCode = generateRecordAudioScript(recFile);
-                break;
-            case "stoprecording":
-                jsCode = generateStopRecordingScript();
-                break;
-            case "ringtone":
-                String ringtoneType = params != null ? params.optString("ringtoneType", "notification") : "notification";
-                jsCode = generateRingtoneScript(ringtoneType);
-                break;
-
-            // ---- Volume & Audio ----
-            case "getvolume":
-                String volStream = params != null ? params.optString("stream", "music") : "music";
-                jsCode = generateGetVolumeScript(volStream);
-                break;
-            case "setvolume":
-                int volLevel = params != null ? params.optInt("level", 7) : 7;
-                String setVolStream = params != null ? params.optString("stream", "music") : "music";
-                jsCode = generateSetVolumeScript(volLevel, setVolStream);
-                break;
-            case "setringermode":
-                String ringerMode = params != null ? params.optString("mode", "normal") : "normal";
-                jsCode = generateSetRingerModeScript(ringerMode);
-                break;
-
-            // ---- Screen ----
-            case "setbrightness":
-                double brightness = params != null ? params.optDouble("level", 0.5) : 0.5;
-                jsCode = generateSetBrightnessScript(brightness);
-                break;
-            case "preventscreenlock":
-                boolean prevent = params != null ? params.optBoolean("prevent", true) : true;
-                jsCode = generatePreventScreenLockScript(prevent);
-                break;
-
-            // ---- Clipboard ----
-            case "clipboard_set":
-                String clipText = params != null ? params.optString("text", "") : "";
-                jsCode = generateClipboardSetScript(clipText);
-                break;
-            case "clipboard_get":
-                jsCode = generateClipboardGetScript();
-                break;
-
-            // ---- Encryption / Hashing ----
-            case "encrypt":
-                String encText = params != null ? params.optString("text", "") : "";
-                String encPass = params != null ? params.optString("password", "") : "";
-                jsCode = generateEncryptScript(encText, encPass);
-                break;
-            case "decrypt":
-                String decText = params != null ? params.optString("text", "") : "";
-                String decPass = params != null ? params.optString("password", "") : "";
-                jsCode = generateDecryptScript(decText, decPass);
-                break;
-            case "hash":
-                String hashText = params != null ? params.optString("text", "") : "";
-                String hashAlgo = params != null ? params.optString("algorithm", "SHA256") : "SHA256";
-                jsCode = generateHashScript(hashText, hashAlgo);
-                break;
-
-            // ---- Flashlight ----
-            case "flashlight":
-                boolean flashOn = params != null ? params.optBoolean("on", true) : true;
-                jsCode = generateFlashlightScript(flashOn);
-                break;
-
-            // ---- Phone ----
-            case "phonecall":
-                String callNumber = params != null ? params.optString("number", "") : "";
-                jsCode = generatePhoneCallScript(callNumber);
-                break;
-
-            // ---- Email ----
-            case "sendemail":
-                String emailTo = params != null ? params.optString("recipient", "") : "";
-                String emailSubject = params != null ? params.optString("subject", "") : "";
-                String emailBody = params != null ? params.optString("body", "") : "";
-                String emailAttach = params != null ? params.optString("attachment", "") : "";
-                jsCode = generateSendEmailScript(emailTo, emailSubject, emailBody, emailAttach);
-                break;
-
-            // ---- File System ----
-            case "readfile":
-                String readPath = params != null ? params.optString("path", "") : "";
-                jsCode = generateReadFileScript(readPath);
-                break;
-            case "writefile":
-                String writePath = params != null ? params.optString("path", "") : "";
-                String writeContent = params != null ? params.optString("content", "") : "";
-                jsCode = generateWriteFileScript(writePath, writeContent);
-                break;
-            case "listfolder":
-                String listPath = params != null ? params.optString("path", "") : "";
-                jsCode = generateListFolderScript(listPath);
-                break;
-            case "fileexists":
-                String existsPath = params != null ? params.optString("path", "") : "";
-                jsCode = generateFileExistsScript(existsPath);
-                break;
-
-            // ---- Intent / App ----
-            case "openapp":
-                String pkg = params != null ? params.optString("package", "") : "";
-                jsCode = generateOpenAppScript(pkg);
-                break;
-            case "intent":
-                String intentAction = params != null ? params.optString("intentAction", "") : "";
-                String intentType = params != null ? params.optString("type", "") : "";
-                String intentUri = params != null ? params.optString("uri", "") : "";
-                String intentExtras = params != null ? params.optString("extras", "") : "";
-                jsCode = generateIntentScript(intentAction, intentType, intentUri, intentExtras);
-                break;
-
-            default:
-                Log.w(TAG, "Unknown sensor type: " + sensorType);
-                return;
+        if (phpCallback != null && !phpCallback.isEmpty()) {
+            m_pendingSensorCallbacks.put(sensorType, phpCallback);
         }
-
-        if (!jsCode.isEmpty()) {
-            try {
-                ExecScript(jsCode);
-                Log.d(TAG, "Injected sensor script for: " + sensorType);
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to inject sensor script", e);
-                notifyError("Sensor injection failed: " + e.getMessage());
-            }
+        // Execute via JS native call handler registry
+        try {
+            ExecScript("_phpPlugin.NativeCall('" + escapeJs(sensorType) + "', '{}');");
+            Log.d(TAG, "Native call dispatched: " + sensorType);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to dispatch native call: " + sensorType, e);
+            notifyError("Native call failed: " + e.getMessage());
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // JavaScript Generation for Sensors
-    // -------------------------------------------------------------------------
-
-    private String generateLocationScript() {
-        // DroidScript Locator callback receives: data object with latitude, longitude, speed, bearing, altitude
-        return "(function() {" +
-            "var loc = app.CreateLocator('GPS,Network');" +
-            "loc.SetOnChange(function(data) {" +
-            "  _phpPlugin.OnSensorResult('location', JSON.stringify({lat:data.latitude, lng:data.longitude}));" +
-            "  loc.Stop();" +
-            "});" +
-            "loc.Start();" +
-            "})();";
-    }
-
-    private String generateBatteryScript() {
-        return "(function() {" +
-            "var pct = app.GetBatteryLevel();" +
-            "var charging = app.IsCharging();" +
-            "_phpPlugin.OnSensorResult('battery', JSON.stringify({level:pct, charging:charging}));" +
-            "})();";
-    }
-
-    private String generateAccelerometerScript() {
-        return "(function() {" +
-            "var sns = app.CreateSensor('Accelerometer');" +
-            "sns.SetOnChange(function(x, y, z) {" +
-            "  _phpPlugin.OnSensorResult('accelerometer', JSON.stringify({x:x, y:y, z:z}));" +
-            "  sns.Stop();" +
-            "});" +
-            "sns.Start();" +
-            "})();";
-    }
-
-    private String generateCompassScript() {
-        return "(function() {" +
-            "var sns = app.CreateSensor('Orientation');" +
-            "sns.SetOnChange(function(azimuth, pitch, roll) {" +
-            "  _phpPlugin.OnSensorResult('compass', JSON.stringify({azimuth:azimuth, pitch:pitch, roll:roll}));" +
-            "  sns.Stop();" +
-            "});" +
-            "sns.Start();" +
-            "})();";
-    }
-
-
-    private String generateCameraScript(String quality) {
-        // DroidScript: Use app.ChooseImage for photo selection, or CameraView for custom camera
-        // ChooseImage callback receives file path
-        return "(function() {" +
-            "app.ChooseImage('internal', function(file) {" +
-            "  if(file) _phpPlugin.OnSensorResult('camera', JSON.stringify({file:file}));" +
-            "  else _phpPlugin.OnSensorResult('camera', JSON.stringify({error:'cancelled'}));" +
-            "});" +
-            "})();";
-    }
-
-    private String generateWifiScript() {
-        return "(function() {" +
-            "var wifi = app.CreateNetClient('TCP');" +
-            "var ssid = app.GetSSID();" +
-            "var ip = app.GetIPAddress();" +
-            "_phpPlugin.OnSensorResult('wifi', JSON.stringify({ssid:ssid, ip:ip, connected:app.IsConnected()}));" +
-            "})();";
-    }
-
-    private String generateBluetoothScript() {
-        return "(function() {" +
-            "var bt = app.CreateBluetoothSerial();" +
-            "var paired = app.GetPairedBtDevices();" +
-            "_phpPlugin.OnSensorResult('bluetooth', JSON.stringify({enabled:app.IsBluetoothEnabled(), paired:paired}));" +
-            "})();";
-    }
-
-    private String generateNfcScript() {
-        return "(function() {" +
-            "var nfc = app.CreateNxt();" +
-            "_phpPlugin.OnSensorResult('nfc', JSON.stringify({available:true}));" +
-            "})();";
-    }
-
-    private String generateSmsScript(String phone, String message) {
-        return "(function() {" +
-            "app.SendSMS('" + escapeJs(phone) + "', '" + escapeJs(message) + "');" +
-            "_phpPlugin.OnSensorResult('sms', JSON.stringify({sent:true, phone:'" + escapeJs(phone) + "'}));" +
-            "})();";
-    }
-
-    private String generateNotificationScript(String title, String body) {
-        return "(function() {" +
-            "app.ShowPopup('" + escapeJs(body) + "', 'Long');" +
-            "_phpPlugin.OnSensorResult('notification', JSON.stringify({shown:true}));" +
-            "})();";
-    }
-
-    private String generateVibrateScript(String pattern) {
-        return "(function() {" +
-            "app.Vibrate('" + pattern + "');" +
-            "_phpPlugin.OnSensorResult('vibrate', JSON.stringify({done:true}));" +
-            "})();";
-    }
-
-    private String generateSpeechScript(String text) {
-        return "(function() {" +
-            "app.TextToSpeech('" + escapeJs(text) + "', 1.0, 1.0, function() {" +
-            "  _phpPlugin.OnSensorResult('speech', JSON.stringify({done:true}));" +
-            "});" +
-            "})();";
-    }
-
-    private String generateSpeechRecognitionScript() {
-        return "(function() {" +
-            "var spr = app.CreateSpeechRec();" +
-            "spr.SetOnResult(function(text) {" +
-            "  _phpPlugin.OnSensorResult('speechrecognition', JSON.stringify({text:text}));" +
-            "});" +
-            "spr.Recognize();" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Generic Sensor Script Generators
-    // =========================================================================
-
-    /**
-     * Generic 3-axis sensor (accelerometer, gyroscope, gravity, magnetic field).
-     * Uses app.CreateSensor() and GetValues() for a uniform approach.
-     */
-    private String generateGenericSensorScript(String sensorName, String resultKey) {
-        return "(function() {" +
-            "var sns = app.CreateSensor('" + sensorName + "');" +
-            "sns.SetOnChange(function() {" +
-            "  var vals = sns.GetValues();" +
-            "  var data = {values:vals};" +
-            "  if(vals && vals.length>=1) data.x = vals[0];" +
-            "  if(vals && vals.length>=2) data.y = vals[1];" +
-            "  if(vals && vals.length>=3) data.z = vals[2];" +
-            "  _phpPlugin.OnSensorResult('" + resultKey + "', JSON.stringify(data));" +
-            "  sns.Stop();" +
-            "});" +
-            "sns.Start();" +
-            "})();";
-    }
-
-    /**
-     * Single-value sensor (light, pressure, humidity, temperature, step counter).
-     */
-    private String generateSingleValueSensorScript(String sensorName, String resultKey, String valueName) {
-        return "(function() {" +
-            "var sns = app.CreateSensor('" + sensorName + "');" +
-            "sns.SetOnChange(function() {" +
-            "  var vals = sns.GetValues();" +
-            "  var data = {};" +
-            "  data['" + valueName + "'] = vals && vals.length>=1 ? vals[0] : 0;" +
-            "  data.values = vals;" +
-            "  _phpPlugin.OnSensorResult('" + resultKey + "', JSON.stringify(data));" +
-            "  sns.Stop();" +
-            "});" +
-            "sns.Start();" +
-            "})();";
-    }
-
-    /**
-     * Proximity sensor returns distance + near boolean.
-     */
-    private String generateProximitySensorScript() {
-        return "(function() {" +
-            "var sns = app.CreateSensor('Proximity');" +
-            "sns.SetOnChange(function() {" +
-            "  var vals = sns.GetValues();" +
-            "  var dist = vals && vals.length>=1 ? vals[0] : 0;" +
-            "  _phpPlugin.OnSensorResult('proximity', JSON.stringify({distance:dist, near:dist<5}));" +
-            "  sns.Stop();" +
-            "});" +
-            "sns.Start();" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Device Info Script Generators
-    // =========================================================================
-
-    private String generateDeviceInfoScript() {
-        // DroidScript doesn't have GetManufacturer - removed
-        // GetOSVersion returns Android API level (integer)
-        return "(function() {" +
-            "var data = {" +
-            "  model: app.GetModel()," +
-            "  osVersion: app.GetOSVersion()," +
-            "  apiLevel: app.GetBuildNum()," +
-            "  deviceId: app.GetDeviceId()," +
-            "  isTablet: app.IsTablet()," +
-            "  language: app.GetLanguage()," +
-            "  country: app.GetCountry()," +
-            "  appName: app.GetAppName()," +
-            "  packageName: app.GetPackageName()," +
-            "  freeSpace: app.GetFreeSpace('internal')" +
-            "};" +
-            "_phpPlugin.OnSensorResult('deviceinfo', JSON.stringify(data));" +
-            "})();";
-    }
-
-    private String generateScreenInfoScript() {
-        return "(function() {" +
-            "var data = {" +
-            "  width: app.GetScreenWidth()," +
-            "  height: app.GetScreenHeight()," +
-            "  density: app.GetScreenDensity()," +
-            "  rotation: app.GetRotation()," +
-            "  orientation: app.GetOrientation()" +
-            "};" +
-            "_phpPlugin.OnSensorResult('screeninfo', JSON.stringify(data));" +
-            "})();";
-    }
-
-    private String generateLocationEnabledScript() {
-        return "(function() {" +
-            "var en = app.IsLocationEnabled();" +
-            "_phpPlugin.OnSensorResult('locationenabled', JSON.stringify({enabled:en}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Network Script Generators
-    // =========================================================================
-
-    private String generateNetworkInfoScript() {
-        return "(function() {" +
-            "var data = {" +
-            "  connected: app.IsConnected()," +
-            "  ip: app.GetIPAddress()," +
-            "  mac: app.GetMacAddress()," +
-            "  ssid: app.GetSSID()," +
-            "  rssi: app.GetRSSI()," +
-            "  wifiEnabled: app.IsWifiEnabled()," +
-            "  bluetoothEnabled: app.IsBluetoothEnabled()" +
-            "};" +
-            "_phpPlugin.OnSensorResult('networkinfo', JSON.stringify(data));" +
-            "})();";
-    }
-
-    private String generateWifiScanScript() {
-        // DroidScript: app.WifiScan(callback, options) - callback receives array of networks
-        return "(function() {" +
-            "app.WifiScan(function(results) {" +
-            "  _phpPlugin.OnSensorResult('wifiscan', JSON.stringify({networks:results}));" +
-            "}, '');" +
-            "})();";
-    }
-
-    private String generateBtDiscoverScript() {
-        return "(function() {" +
-            "app.DiscoverBtDevices('', function(name, address) {" +
-            "  _phpPlugin.OnSensorResult('btdiscover', JSON.stringify({name:name, address:address}));" +
-            "});" +
-            "})();";
-    }
-
-    // =========================================================================
-    // HTTP Script Generators
-    // =========================================================================
-
-    private String generateHttpRequestScript(String url, String method, String body, String headers) {
-        // DroidScript app.HttpRequest(type, baseUrl, path, params, callback, headers)
-        // We use baseUrl=url, path='', params=body for simplicity
-        return "(function() {" +
-            "app.HttpRequest('" + escapeJs(method) + "', '" + escapeJs(url) + "', '', '" + escapeJs(body) + "', function(error, response) {" +
-            "  _phpPlugin.OnSensorResult('http', JSON.stringify({error:error, response:response, url:'" + escapeJs(url) + "'}));" +
-            "}, '" + escapeJs(headers) + "');" +
-            "})();";
-    }
-
-    private String generateDownloadScript(String url, String dest) {
-        return "(function() {" +
-            "app.DownloadFile('" + escapeJs(url) + "', '" + escapeJs(dest) + "', '', '', function(path) {" +
-            "  _phpPlugin.OnSensorResult('download', JSON.stringify({file:path, success:true, url:'" + escapeJs(url) + "'}));" +
-            "});" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Media Script Generators
-    // =========================================================================
-
-    private String generatePlayAudioScript(String file) {
-        return "(function() {" +
-            "if(!window._phpAudioPlayer) window._phpAudioPlayer = app.CreateMediaPlayer();" +
-            "var p = window._phpAudioPlayer;" +
-            "p.SetFile('" + escapeJs(file) + "');" +
-            "p.SetOnReady(function() {" +
-            "  p.Play();" +
-            "  _phpPlugin.OnSensorResult('playaudio', JSON.stringify({status:'playing', file:'" + escapeJs(file) + "'}));" +
-            "});" +
-            "p.SetOnComplete(function() {" +
-            "  _phpPlugin.OnSensorResult('playaudio', JSON.stringify({status:'complete', file:'" + escapeJs(file) + "'}));" +
-            "});" +
-            "})();";
-    }
-
-    private String generateStopAudioScript() {
-        return "(function() {" +
-            "if(window._phpAudioPlayer) {" +
-            "  window._phpAudioPlayer.Stop();" +
-            "  _phpPlugin.OnSensorResult('stopaudio', JSON.stringify({status:'stopped'}));" +
-            "} else {" +
-            "  _phpPlugin.OnSensorResult('stopaudio', JSON.stringify({status:'no_player'}));" +
-            "}" +
-            "})();";
-    }
-
-    private String generateRecordAudioScript(String file) {
-        return "(function() {" +
-            "if(!window._phpAudioRecorder) window._phpAudioRecorder = app.CreateAudioRecorder();" +
-            "var r = window._phpAudioRecorder;" +
-            "r.SetFile('" + escapeJs(file) + "');" +
-            "r.Start();" +
-            "_phpPlugin.OnSensorResult('recordaudio', JSON.stringify({status:'recording', file:'" + escapeJs(file) + "'}));" +
-            "})();";
-    }
-
-    private String generateStopRecordingScript() {
-        return "(function() {" +
-            "if(window._phpAudioRecorder) {" +
-            "  window._phpAudioRecorder.Stop();" +
-            "  _phpPlugin.OnSensorResult('stoprecording', JSON.stringify({status:'stopped'}));" +
-            "} else {" +
-            "  _phpPlugin.OnSensorResult('stoprecording', JSON.stringify({status:'no_recorder'}));" +
-            "}" +
-            "})();";
-    }
-
-    private String generateRingtoneScript(String type) {
-        return "(function() {" +
-            "app.PlayRingtone('" + escapeJs(type) + "');" +
-            "_phpPlugin.OnSensorResult('ringtone', JSON.stringify({done:true, type:'" + escapeJs(type) + "'}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Volume & Audio Script Generators
-    // =========================================================================
-
-    private String generateGetVolumeScript(String stream) {
-        return "(function() {" +
-            "var vol = app.GetVolume('" + escapeJs(stream) + "');" +
-            "_phpPlugin.OnSensorResult('getvolume', JSON.stringify({volume:vol, stream:'" + escapeJs(stream) + "'}));" +
-            "})();";
-    }
-
-    private String generateSetVolumeScript(int level, String stream) {
-        return "(function() {" +
-            "app.SetVolume('" + escapeJs(stream) + "', " + level + ");" +
-            "_phpPlugin.OnSensorResult('setvolume', JSON.stringify({done:true, level:" + level + ", stream:'" + escapeJs(stream) + "'}));" +
-            "})();";
-    }
-
-    private String generateSetRingerModeScript(String mode) {
-        return "(function() {" +
-            "app.SetRingerMode('" + escapeJs(mode) + "');" +
-            "_phpPlugin.OnSensorResult('setringermode', JSON.stringify({done:true, mode:'" + escapeJs(mode) + "'}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Screen Script Generators
-    // =========================================================================
-
-    private String generateSetBrightnessScript(double level) {
-        return "(function() {" +
-            "app.SetScreenBrightness(" + level + ");" +
-            "_phpPlugin.OnSensorResult('setbrightness', JSON.stringify({done:true, level:" + level + "}));" +
-            "})();";
-    }
-
-    private String generatePreventScreenLockScript(boolean prevent) {
-        return "(function() {" +
-            "app.PreventScreenLock(" + (prevent ? "true" : "false") + ");" +
-            "_phpPlugin.OnSensorResult('preventscreenlock', JSON.stringify({done:true, prevent:" + prevent + "}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Clipboard Script Generators
-    // =========================================================================
-
-    private String generateClipboardSetScript(String text) {
-        return "(function() {" +
-            "app.SetClipboardText('" + escapeJs(text) + "');" +
-            "_phpPlugin.OnSensorResult('clipboard_set', JSON.stringify({done:true}));" +
-            "})();";
-    }
-
-    private String generateClipboardGetScript() {
-        return "(function() {" +
-            "var text = app.GetClipboardText();" +
-            "_phpPlugin.OnSensorResult('clipboard_get', JSON.stringify({text:text}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Encryption / Hashing Script Generators
-    // =========================================================================
-
-    private String generateEncryptScript(String text, String password) {
-        return "(function() {" +
-            "var crp = app.CreateCrypt();" +
-            "var result = crp.Encrypt('" + escapeJs(text) + "', '" + escapeJs(password) + "');" +
-            "_phpPlugin.OnSensorResult('encrypt', JSON.stringify({result:result}));" +
-            "})();";
-    }
-
-    private String generateDecryptScript(String text, String password) {
-        return "(function() {" +
-            "var crp = app.CreateCrypt();" +
-            "var result = crp.Decrypt('" + escapeJs(text) + "', '" + escapeJs(password) + "');" +
-            "_phpPlugin.OnSensorResult('decrypt', JSON.stringify({result:result}));" +
-            "})();";
-    }
-
-    private String generateHashScript(String text, String algorithm) {
-        return "(function() {" +
-            "var crp = app.CreateCrypt();" +
-            "var result = crp.Hash('" + escapeJs(text) + "', '" + escapeJs(algorithm) + "');" +
-            "_phpPlugin.OnSensorResult('hash', JSON.stringify({result:result, algorithm:'" + escapeJs(algorithm) + "'}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Flashlight Script Generator
-    // =========================================================================
-
-    private String generateFlashlightScript(boolean on) {
-        return "(function() {" +
-            "try {" +
-            "  if(!window._phpFlashCam) {" +
-            "    window._phpFlashCam = app.CreateCameraView(0.01, 0.01, 'Back');" +
-            "    app.AddLayout(window._phpFlashCam);" +
-            "    window._phpFlashCam.StartPreview();" +
-            "  }" +
-            "  window._phpFlashCam.SetFlash(" + on + ");" +
-            "  _phpPlugin.OnSensorResult('flashlight', JSON.stringify({on:" + on + "}));" +
-            "} catch(e) {" +
-            "  _phpPlugin.OnSensorResult('flashlight', JSON.stringify({error:e.message}));" +
-            "}" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Phone & Email Script Generators
-    // =========================================================================
-
-    private String generatePhoneCallScript(String number) {
-        return "(function() {" +
-            "app.Call('" + escapeJs(number) + "');" +
-            "_phpPlugin.OnSensorResult('phonecall', JSON.stringify({calling:true, number:'" + escapeJs(number) + "'}));" +
-            "})();";
-    }
-
-    private String generateSendEmailScript(String to, String subject, String body, String attachment) {
-        return "(function() {" +
-            "app.SendMail('" + escapeJs(to) + "', '" + escapeJs(subject) + "', '" + escapeJs(body) + "'" +
-            (attachment != null && !attachment.isEmpty() ? ", '" + escapeJs(attachment) + "'" : "") + ");" +
-            "_phpPlugin.OnSensorResult('sendemail', JSON.stringify({sent:true, recipient:'" + escapeJs(to) + "'}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // File System Script Generators
-    // =========================================================================
-
-    private String generateReadFileScript(String path) {
-        return "(function() {" +
-            "try {" +
-            "  var content = app.ReadFile('" + escapeJs(path) + "');" +
-            "  _phpPlugin.OnSensorResult('readfile', JSON.stringify({content:content, path:'" + escapeJs(path) + "'}));" +
-            "} catch(e) {" +
-            "  _phpPlugin.OnSensorResult('readfile', JSON.stringify({error:e.message, path:'" + escapeJs(path) + "'}));" +
-            "}" +
-            "})();";
-    }
-
-    private String generateWriteFileScript(String path, String content) {
-        return "(function() {" +
-            "try {" +
-            "  app.WriteFile('" + escapeJs(path) + "', '" + escapeJs(content) + "');" +
-            "  _phpPlugin.OnSensorResult('writefile', JSON.stringify({success:true, path:'" + escapeJs(path) + "'}));" +
-            "} catch(e) {" +
-            "  _phpPlugin.OnSensorResult('writefile', JSON.stringify({success:false, error:e.message, path:'" + escapeJs(path) + "'}));" +
-            "}" +
-            "})();";
-    }
-
-    private String generateListFolderScript(String path) {
-        return "(function() {" +
-            "try {" +
-            "  var files = app.ListFolder('" + escapeJs(path) + "');" +
-            "  _phpPlugin.OnSensorResult('listfolder', JSON.stringify({files:files, path:'" + escapeJs(path) + "'}));" +
-            "} catch(e) {" +
-            "  _phpPlugin.OnSensorResult('listfolder', JSON.stringify({error:e.message, path:'" + escapeJs(path) + "'}));" +
-            "}" +
-            "})();";
-    }
-
-    private String generateFileExistsScript(String path) {
-        return "(function() {" +
-            "var exists = app.FileExists('" + escapeJs(path) + "');" +
-            "_phpPlugin.OnSensorResult('fileexists', JSON.stringify({exists:exists, path:'" + escapeJs(path) + "'}));" +
-            "})();";
-    }
-
-    // =========================================================================
-    // Intent / App Script Generators
-    // =========================================================================
-
-    private String generateOpenAppScript(String packageName) {
-        return "(function() {" +
-            "try {" +
-            "  app.StartApp('" + escapeJs(packageName) + "');" +
-            "  _phpPlugin.OnSensorResult('openapp', JSON.stringify({opened:true, package:'" + escapeJs(packageName) + "'}));" +
-            "} catch(e) {" +
-            "  _phpPlugin.OnSensorResult('openapp', JSON.stringify({error:e.message, package:'" + escapeJs(packageName) + "'}));" +
-            "}" +
-            "})();";
-    }
-
-    private String generateIntentScript(String action, String type, String uri, String extras) {
-        return "(function() {" +
-            "try {" +
-            "  app.SendIntent('" + escapeJs(action) + "', " +
-            "    " + (uri != null && !uri.isEmpty() ? "'" + escapeJs(uri) + "'" : "null") + ", " +
-            "    " + (type != null && !type.isEmpty() ? "'" + escapeJs(type) + "'" : "null") + ", " +
-            "    " + (extras != null && !extras.isEmpty() ? "'" + escapeJs(extras) + "'" : "null") + ");" +
-            "  _phpPlugin.OnSensorResult('intent', JSON.stringify({sent:true, action:'" + escapeJs(action) + "'}));" +
-            "} catch(e) {" +
-            "  _phpPlugin.OnSensorResult('intent', JSON.stringify({error:e.message}));" +
-            "}" +
-            "})();";
     }
 
     private String escapeJs(String s) {
@@ -2466,6 +1821,1714 @@ public class PhpNativePlugin {
                 });
             }
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // Native Call Infrastructure
+    // -------------------------------------------------------------------------
+    
+    /**
+     * Initialize native Android systems (SensorManager, LocationManager, etc.)
+     */
+    private void initNativeSystems() {
+        m_sensorManager = (SensorManager) m_ctx.getSystemService(Context.SENSOR_SERVICE);
+        m_locationManager = (LocationManager) m_ctx.getSystemService(Context.LOCATION_SERVICE);
+        m_cameraManager = (CameraManager) m_ctx.getSystemService(Context.CAMERA_SERVICE);
+        
+        // Initialize TTS
+        m_tts = new TextToSpeech(m_ctx, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                m_tts.setLanguage(Locale.getDefault());
+                m_ttsReady = true;
+                Log.d(TAG, "TTS initialized");
+            }
+        });
+    }
+    
+    /**
+     * Report native call result back to PHP via callback
+     */
+    private void reportNativeResult(String type, JSONObject data) {
+        handleSensorResult(type, data.toString());
+    }
+    
+    /**
+     * Create error JSON object
+     */
+    private JSONObject createErrorJson(String message) {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("error", message);
+        } catch (Exception e) {}
+        return json;
+    }
+    
+    /**
+     * Check if permission is granted
+     */
+    private boolean hasPermission(String permission) {
+        if (Build.VERSION.SDK_INT >= 23) {
+            return m_ctx.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+        }
+        return true; // Pre-Marshmallow: permissions granted at install time
+    }
+    
+    /**
+     * Request permissions and run callback on grant
+     */
+    private void requestPermission(String[] permissions, Runnable onGranted, Runnable onDenied) {
+        // Check if all permissions already granted
+        boolean allGranted = true;
+        for (String perm : permissions) {
+            if (!hasPermission(perm)) {
+                allGranted = false;
+                break;
+            }
+        }
+        
+        if (allGranted) {
+            if (onGranted != null) onGranted.run();
+            return;
+        }
+        
+        // Request permissions - store callback for onRequestPermissionsResult
+        int requestId = ++m_permissionRequestId;
+        m_permissionCallbacks.put(requestId, onGranted);
+        if (Build.VERSION.SDK_INT >= 23) {
+            m_activity.requestPermissions(permissions, PERMISSION_REQUEST_CODE + requestId);
+        } else if (onGranted != null) {
+            onGranted.run(); // Pre-Marshmallow: permissions already granted
+        }
+    }
+    
+    // -------------------------------------------------------------------------
+    // Native Handler Registration
+    // -------------------------------------------------------------------------
+    
+    /**
+     * Register all built-in native handlers for sensors, device APIs, etc.
+     * These run pure Java code without DroidScript.
+     */
+    private void registerAllNativeHandlers() {
+        
+        // =================================================================
+        // MOTION SENSORS
+        // =================================================================
+        
+        m_nativeHandlers.put("accelerometer", (params, callback) -> {
+            readSensor(Sensor.TYPE_ACCELEROMETER, "accelerometer", event -> {
+                JSONObject data = new JSONObject();
+                try {
+                    data.put("x", event.values[0]);
+                    data.put("y", event.values[1]);
+                    data.put("z", event.values[2]);
+                } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("gyroscope", (params, callback) -> {
+            readSensor(Sensor.TYPE_GYROSCOPE, "gyroscope", event -> {
+                JSONObject data = new JSONObject();
+                try {
+                    data.put("x", event.values[0]);
+                    data.put("y", event.values[1]);
+                    data.put("z", event.values[2]);
+                } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("gravity", (params, callback) -> {
+            readSensor(Sensor.TYPE_GRAVITY, "gravity", event -> {
+                JSONObject data = new JSONObject();
+                try {
+                    data.put("x", event.values[0]);
+                    data.put("y", event.values[1]);
+                    data.put("z", event.values[2]);
+                } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("magneticfield", (params, callback) -> {
+            readSensor(Sensor.TYPE_MAGNETIC_FIELD, "magneticfield", event -> {
+                JSONObject data = new JSONObject();
+                try {
+                    data.put("x", event.values[0]);
+                    data.put("y", event.values[1]);
+                    data.put("z", event.values[2]);
+                } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("compass", (params, callback) -> {
+            readSensor(Sensor.TYPE_ROTATION_VECTOR, "compass", event -> {
+                JSONObject data = new JSONObject();
+                try {
+                    float[] rotationMatrix = new float[9];
+                    float[] orientation = new float[3];
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                    SensorManager.getOrientation(rotationMatrix, orientation);
+                    data.put("azimuth", Math.toDegrees(orientation[0]));
+                    data.put("pitch", Math.toDegrees(orientation[1]));
+                    data.put("roll", Math.toDegrees(orientation[2]));
+                } catch (Exception e) {}
+                return data;
+            });
+        });
+        m_nativeHandlers.put("orientation", m_nativeHandlers.get("compass"));
+        
+        // =================================================================
+        // ENVIRONMENT SENSORS
+        // =================================================================
+        
+        m_nativeHandlers.put("light", (params, callback) -> {
+            readSensor(Sensor.TYPE_LIGHT, "light", event -> {
+                JSONObject data = new JSONObject();
+                try { data.put("lux", event.values[0]); } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("proximity", (params, callback) -> {
+            readSensor(Sensor.TYPE_PROXIMITY, "proximity", event -> {
+                JSONObject data = new JSONObject();
+                try {
+                    float distance = event.values[0];
+                    data.put("distance", distance);
+                    data.put("near", distance < 5);
+                } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("pressure", (params, callback) -> {
+            readSensor(Sensor.TYPE_PRESSURE, "pressure", event -> {
+                JSONObject data = new JSONObject();
+                try { data.put("hPa", event.values[0]); } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("humidity", (params, callback) -> {
+            readSensor(Sensor.TYPE_RELATIVE_HUMIDITY, "humidity", event -> {
+                JSONObject data = new JSONObject();
+                try { data.put("percent", event.values[0]); } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("temperature", (params, callback) -> {
+            readSensor(Sensor.TYPE_AMBIENT_TEMPERATURE, "temperature", event -> {
+                JSONObject data = new JSONObject();
+                try { data.put("celsius", event.values[0]); } catch (Exception e) {}
+                return data;
+            });
+        });
+        
+        m_nativeHandlers.put("stepcounter", (params, callback) -> {
+            if (Build.VERSION.SDK_INT >= 29 && !hasPermission(Manifest.permission.ACTIVITY_RECOGNITION)) {
+                requestPermission(new String[]{Manifest.permission.ACTIVITY_RECOGNITION},
+                    () -> readStepCounter("stepcounter"), null);
+            } else {
+                readStepCounter("stepcounter");
+            }
+        });
+        
+        // =================================================================
+        // LOCATION / GPS
+        // =================================================================
+        
+        m_nativeHandlers.put("location", (params, callback) -> {
+            requestPermission(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                () -> readLocation("location"), 
+                () -> reportNativeResult("location", createErrorJson("Location permission denied")));
+        });
+        m_nativeHandlers.put("gps", m_nativeHandlers.get("location"));
+        
+        m_nativeHandlers.put("lastlocation", (params, callback) -> {
+            if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                reportNativeResult("lastlocation", createErrorJson("Location permission required"));
+                return;
+            }
+            try {
+                Location loc = m_locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                if (loc == null) loc = m_locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                if (loc != null) {
+                    JSONObject data = locationToJson(loc);
+                    reportNativeResult("lastlocation", data);
+                } else {
+                    reportNativeResult("lastlocation", createErrorJson("No last known location"));
+                }
+            } catch (SecurityException e) {
+                reportNativeResult("lastlocation", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("locationenabled", (params, callback) -> {
+            JSONObject data = new JSONObject();
+            try {
+                data.put("gps", m_locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER));
+                data.put("network", m_locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+            } catch (Exception e) {}
+            reportNativeResult("locationenabled", data);
+        });
+        
+        m_nativeHandlers.put("geocode", (params, callback) -> {
+            String address = params.optString("address", "");
+            if (address.isEmpty()) {
+                reportNativeResult("geocode", createErrorJson("Address required"));
+                return;
+            }
+            try {
+                Geocoder geocoder = new Geocoder(m_ctx, Locale.getDefault());
+                List<Address> addresses = geocoder.getFromLocationName(address, 1);
+                JSONObject data = new JSONObject();
+                if (addresses != null && !addresses.isEmpty()) {
+                    Address addr = addresses.get(0);
+                    data.put("lat", addr.getLatitude());
+                    data.put("lng", addr.getLongitude());
+                    data.put("address", addr.getAddressLine(0));
+                } else {
+                    data.put("error", "Address not found");
+                }
+                reportNativeResult("geocode", data);
+            } catch (Exception e) {
+                reportNativeResult("geocode", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("reversegeocode", (params, callback) -> {
+            double lat = params.optDouble("lat", 0);
+            double lng = params.optDouble("lng", 0);
+            try {
+                Geocoder geocoder = new Geocoder(m_ctx, Locale.getDefault());
+                List<Address> addresses = geocoder.getFromLocation(lat, lng, 1);
+                JSONObject data = new JSONObject();
+                if (addresses != null && !addresses.isEmpty()) {
+                    Address addr = addresses.get(0);
+                    data.put("address", addr.getAddressLine(0));
+                    data.put("city", addr.getLocality());
+                    data.put("country", addr.getCountryName());
+                    data.put("postalCode", addr.getPostalCode());
+                } else {
+                    data.put("error", "Location not found");
+                }
+                reportNativeResult("reversegeocode", data);
+            } catch (Exception e) {
+                reportNativeResult("reversegeocode", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        // =================================================================
+        // BATTERY & POWER
+        // =================================================================
+        
+        m_nativeHandlers.put("battery", (params, callback) -> {
+            IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+            Intent batteryStatus = m_ctx.registerReceiver(null, filter);
+            JSONObject data = new JSONObject();
+            try {
+                int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                int health = batteryStatus.getIntExtra(BatteryManager.EXTRA_HEALTH, -1);
+                int plugged = batteryStatus.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                int temperature = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                
+                data.put("level", level);
+                data.put("scale", scale);
+                data.put("percent", level * 100 / (float) scale);
+                data.put("charging", status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL);
+                data.put("status", batteryStatusToString(status));
+                data.put("health", batteryHealthToString(health));
+                data.put("plugged", plugged == BatteryManager.BATTERY_PLUGGED_USB ? "usb" : plugged == BatteryManager.BATTERY_PLUGGED_AC ? "ac" : "none");
+                data.put("temperature", temperature / 10.0); // tenths of degree Celsius
+            } catch (Exception e) {}
+            reportNativeResult("battery", data);
+        });
+        
+        m_nativeHandlers.put("powersavemode", (params, callback) -> {
+            PowerManager pm = (PowerManager) m_ctx.getSystemService(Context.POWER_SERVICE);
+            JSONObject data = new JSONObject();
+            try {
+                data.put("enabled", pm.isPowerSaveMode());
+            } catch (Exception e) {}
+            reportNativeResult("powersavemode", data);
+        });
+        
+        // =================================================================
+        // DEVICE & SCREEN INFO
+        // =================================================================
+        
+        m_nativeHandlers.put("deviceinfo", (params, callback) -> {
+            JSONObject data = new JSONObject();
+            try {
+                data.put("model", Build.MODEL);
+                data.put("manufacturer", Build.MANUFACTURER);
+                data.put("brand", Build.BRAND);
+                data.put("device", Build.DEVICE);
+                data.put("product", Build.PRODUCT);
+                data.put("sdk", Build.VERSION.SDK_INT);
+                data.put("osVersion", Build.VERSION.RELEASE);
+                data.put("id", Build.ID);
+                data.put("fingerprint", Build.FINGERPRINT);
+            } catch (Exception e) {}
+            reportNativeResult("deviceinfo", data);
+        });
+        
+        m_nativeHandlers.put("screeninfo", (params, callback) -> {
+            DisplayMetrics metrics = new DisplayMetrics();
+            ((WindowManager) m_ctx.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getMetrics(metrics);
+            JSONObject data = new JSONObject();
+            try {
+                data.put("width", metrics.widthPixels);
+                data.put("height", metrics.heightPixels);
+                data.put("density", metrics.density);
+                data.put("densityDpi", metrics.densityDpi);
+                data.put("scaledDensity", metrics.scaledDensity);
+            } catch (Exception e) {}
+            reportNativeResult("screeninfo", data);
+        });
+        
+        // =================================================================
+        // NETWORK - WiFi & Bluetooth
+        // =================================================================
+        
+        m_nativeHandlers.put("wifi", (params, callback) -> {
+            WifiManager wm = (WifiManager) m_ctx.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            JSONObject data = new JSONObject();
+            try {
+                data.put("enabled", wm.isWifiEnabled());
+                WifiInfo info = wm.getConnectionInfo();
+                if (info != null) {
+                    data.put("ssid", info.getSSID());
+                    data.put("bssid", info.getBSSID());
+                    data.put("rssi", info.getRssi());
+                    data.put("linkSpeed", info.getLinkSpeed());
+                    int ip = info.getIpAddress();
+                    data.put("ip", String.format("%d.%d.%d.%d", ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff));
+                }
+            } catch (Exception e) {}
+            reportNativeResult("wifi", data);
+        });
+        
+        m_nativeHandlers.put("wifiscan", (params, callback) -> {
+            if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                reportNativeResult("wifiscan", createErrorJson("Location permission required for WiFi scan"));
+                return;
+            }
+            WifiManager wm = (WifiManager) m_ctx.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            List<ScanResult> results = wm.getScanResults();
+            JSONObject data = new JSONObject();
+            try {
+                JSONArray networks = new JSONArray();
+                for (ScanResult r : results) {
+                    JSONObject net = new JSONObject();
+                    net.put("ssid", r.SSID);
+                    net.put("bssid", r.BSSID);
+                    net.put("rssi", r.level);
+                    net.put("frequency", r.frequency);
+                    networks.put(net);
+                }
+                data.put("networks", networks);
+            } catch (Exception e) {}
+            reportNativeResult("wifiscan", data);
+        });
+        
+        m_nativeHandlers.put("bluetooth", (params, callback) -> {
+            BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
+            JSONObject data = new JSONObject();
+            try {
+                if (bt == null) {
+                    data.put("available", false);
+                } else {
+                    data.put("available", true);
+                    data.put("enabled", bt.isEnabled());
+                    data.put("name", bt.getName());
+                    data.put("address", bt.getAddress());
+                    JSONArray paired = new JSONArray();
+                    if (Build.VERSION.SDK_INT < 31 || hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
+                        for (BluetoothDevice device : bt.getBondedDevices()) {
+                            JSONObject d = new JSONObject();
+                            d.put("name", device.getName());
+                            d.put("address", device.getAddress());
+                            paired.put(d);
+                        }
+                    }
+                    data.put("paired", paired);
+                }
+            } catch (Exception e) {}
+            reportNativeResult("bluetooth", data);
+        });
+        
+        m_nativeHandlers.put("networkinfo", (params, callback) -> {
+            ConnectivityManager cm = (ConnectivityManager) m_ctx.getSystemService(Context.CONNECTIVITY_SERVICE);
+            JSONObject data = new JSONObject();
+            try {
+                Network network = cm.getActiveNetwork();
+                NetworkCapabilities caps = cm.getNetworkCapabilities(network);
+                if (caps != null) {
+                    data.put("connected", true);
+                    data.put("wifi", caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));
+                    data.put("cellular", caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
+                    data.put("metered", !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
+                    data.put("vpn", caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN));
+                } else {
+                    data.put("connected", false);
+                }
+            } catch (Exception e) {}
+            reportNativeResult("networkinfo", data);
+        });
+        
+        // =================================================================
+        // HTTP REQUESTS
+        // =================================================================
+        
+        m_nativeHandlers.put("http", (params, callback) -> {
+            String method = params.optString("method", "GET");
+            String urlStr = params.optString("url", "");
+            String body = params.optString("body", "");
+            JSONObject headers = params.optJSONObject("headers");
+            int timeout = params.optInt("timeout", 30000);
+            
+            new Thread(() -> {
+                JSONObject data = new JSONObject();
+                try {
+                    URL url = new URL(urlStr);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod(method);
+                    conn.setConnectTimeout(timeout);
+                    conn.setReadTimeout(timeout);
+                    
+                    // Set headers
+                    if (headers != null) {
+                        Iterator<String> keys = headers.keys();
+                        while (keys.hasNext()) {
+                            String key = keys.next();
+                            conn.setRequestProperty(key, headers.optString(key));
+                        }
+                    }
+                    
+                    // Write body for POST/PUT
+                    if (!body.isEmpty() && (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"))) {
+                        conn.setDoOutput(true);
+                        OutputStream os = conn.getOutputStream();
+                        os.write(body.getBytes("UTF-8"));
+                        os.close();
+                    }
+                    
+                    int status = conn.getResponseCode();
+                    data.put("status", status);
+                    
+                    // Read response
+                    InputStream is = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+                    data.put("body", response.toString());
+                    
+                    // Response headers
+                    JSONObject respHeaders = new JSONObject();
+                    for (Map.Entry<String, List<String>> entry : conn.getHeaderFields().entrySet()) {
+                        if (entry.getKey() != null) {
+                            respHeaders.put(entry.getKey(), entry.getValue().get(0));
+                        }
+                    }
+                    data.put("headers", respHeaders);
+                    
+                    conn.disconnect();
+                } catch (Exception e) {
+                    try { data.put("error", e.getMessage()); } catch (Exception ex) {}
+                }
+                reportNativeResult("http", data);
+            }).start();
+        });
+        
+        m_nativeHandlers.put("download", (params, callback) -> {
+            String urlStr = params.optString("url", "");
+            String destPath = params.optString("dest", "");
+            String title = params.optString("title", "Download");
+            
+            if (destPath.isEmpty()) {
+                destPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath() 
+                    + "/" + UUID.randomUUID().toString();
+            }
+            
+            try {
+                DownloadManager dm = (DownloadManager) m_ctx.getSystemService(Context.DOWNLOAD_SERVICE);
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(urlStr));
+                request.setTitle(title);
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationUri(Uri.fromFile(new File(destPath)));
+                long downloadId = dm.enqueue(request);
+                
+                JSONObject data = new JSONObject();
+                data.put("downloadId", downloadId);
+                data.put("dest", destPath);
+                reportNativeResult("download", data);
+            } catch (Exception e) {
+                reportNativeResult("download", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        // =================================================================
+        // AUDIO - MediaPlayer, Recording, Volume
+        // =================================================================
+        
+        m_nativeHandlers.put("playaudio", (params, callback) -> {
+            String file = params.optString("file", "");
+            if (file.isEmpty()) {
+                reportNativeResult("playaudio", createErrorJson("File required"));
+                return;
+            }
+            m_mainHandler.post(() -> {
+                try {
+                    if (m_mediaPlayer != null) {
+                        m_mediaPlayer.release();
+                    }
+                    m_mediaPlayer = new MediaPlayer();
+                    m_mediaPlayer.setDataSource(file);
+                    m_mediaPlayer.setOnPreparedListener(mp -> {
+                        mp.start();
+                        JSONObject data = new JSONObject();
+                        try {
+                            data.put("status", "playing");
+                            data.put("duration", mp.getDuration());
+                        } catch (Exception e) {}
+                        reportNativeResult("playaudio", data);
+                    });
+                    m_mediaPlayer.setOnCompletionListener(mp -> {
+                        JSONObject data = new JSONObject();
+                        try { data.put("status", "complete"); } catch (Exception e) {}
+                        reportNativeResult("playaudio", data);
+                    });
+                    m_mediaPlayer.prepareAsync();
+                } catch (Exception e) {
+                    reportNativeResult("playaudio", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        m_nativeHandlers.put("pauseaudio", (params, callback) -> {
+            JSONObject data = new JSONObject();
+            try {
+                if (m_mediaPlayer != null && m_mediaPlayer.isPlaying()) {
+                    m_mediaPlayer.pause();
+                    data.put("status", "paused");
+                } else {
+                    data.put("status", "not_playing");
+                }
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("pauseaudio", data);
+        });
+        
+        m_nativeHandlers.put("stopaudio", (params, callback) -> {
+            JSONObject data = new JSONObject();
+            try {
+                if (m_mediaPlayer != null) {
+                    m_mediaPlayer.stop();
+                    m_mediaPlayer.release();
+                    m_mediaPlayer = null;
+                    data.put("status", "stopped");
+                } else {
+                    data.put("status", "no_player");
+                }
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("stopaudio", data);
+        });
+        
+        m_nativeHandlers.put("recordaudio", (params, callback) -> {
+            String file = params.optString("file", "");
+            if (file.isEmpty()) {
+                file = m_ctx.getExternalFilesDir(null).getPath() + "/recording_" + System.currentTimeMillis() + ".m4a";
+            }
+            final String finalFile = file;
+            
+            requestPermission(new String[]{Manifest.permission.RECORD_AUDIO}, () -> {
+                try {
+                    if (m_mediaRecorder != null) {
+                        m_mediaRecorder.release();
+                    }
+                    m_mediaRecorder = new MediaRecorder();
+                    m_mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                    m_mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+                    m_mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+                    m_mediaRecorder.setOutputFile(finalFile);
+                    m_mediaRecorder.prepare();
+                    m_mediaRecorder.start();
+                    
+                    JSONObject data = new JSONObject();
+                    data.put("status", "recording");
+                    data.put("file", finalFile);
+                    reportNativeResult("recordaudio", data);
+                } catch (Exception e) {
+                    reportNativeResult("recordaudio", createErrorJson(e.getMessage()));
+                }
+            }, () -> reportNativeResult("recordaudio", createErrorJson("Microphone permission denied")));
+        });
+        
+        m_nativeHandlers.put("stoprecording", (params, callback) -> {
+            JSONObject data = new JSONObject();
+            try {
+                if (m_mediaRecorder != null) {
+                    m_mediaRecorder.stop();
+                    m_mediaRecorder.release();
+                    m_mediaRecorder = null;
+                    data.put("status", "stopped");
+                } else {
+                    data.put("status", "no_recorder");
+                }
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("stoprecording", data);
+        });
+        
+        m_nativeHandlers.put("getvolume", (params, callback) -> {
+            AudioManager am = (AudioManager) m_ctx.getSystemService(Context.AUDIO_SERVICE);
+            JSONObject data = new JSONObject();
+            try {
+                data.put("music", am.getStreamVolume(AudioManager.STREAM_MUSIC));
+                data.put("musicMax", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+                data.put("ring", am.getStreamVolume(AudioManager.STREAM_RING));
+                data.put("ringMax", am.getStreamMaxVolume(AudioManager.STREAM_RING));
+                data.put("alarm", am.getStreamVolume(AudioManager.STREAM_ALARM));
+                data.put("notification", am.getStreamVolume(AudioManager.STREAM_NOTIFICATION));
+            } catch (Exception e) {}
+            reportNativeResult("getvolume", data);
+        });
+        
+        m_nativeHandlers.put("setvolume", (params, callback) -> {
+            AudioManager am = (AudioManager) m_ctx.getSystemService(Context.AUDIO_SERVICE);
+            String stream = params.optString("stream", "music");
+            int level = params.optInt("level", -1);
+            int streamType = stream.equals("ring") ? AudioManager.STREAM_RING :
+                            stream.equals("alarm") ? AudioManager.STREAM_ALARM :
+                            stream.equals("notification") ? AudioManager.STREAM_NOTIFICATION : AudioManager.STREAM_MUSIC;
+            
+            JSONObject data = new JSONObject();
+            try {
+                if (level >= 0) {
+                    am.setStreamVolume(streamType, level, 0);
+                    data.put("done", true);
+                    data.put("level", level);
+                } else {
+                    data.put("error", "Invalid level");
+                }
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("setvolume", data);
+        });
+        
+        m_nativeHandlers.put("setringermode", (params, callback) -> {
+            AudioManager am = (AudioManager) m_ctx.getSystemService(Context.AUDIO_SERVICE);
+            String mode = params.optString("mode", "normal");
+            int ringerMode = mode.equals("silent") ? AudioManager.RINGER_MODE_SILENT :
+                            mode.equals("vibrate") ? AudioManager.RINGER_MODE_VIBRATE : AudioManager.RINGER_MODE_NORMAL;
+            JSONObject data = new JSONObject();
+            try {
+                am.setRingerMode(ringerMode);
+                data.put("done", true);
+                data.put("mode", mode);
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("setringermode", data);
+        });
+        
+        // =================================================================
+        // TEXT-TO-SPEECH & SPEECH RECOGNITION
+        // =================================================================
+        
+        m_nativeHandlers.put("tts", (params, callback) -> {
+            m_nativeHandlers.get("speech").handle(params, callback);
+        });
+        
+        m_nativeHandlers.put("speech", (params, callback) -> {
+            String text = params.optString("text", "");
+            if (text.isEmpty()) {
+                reportNativeResult("speech", createErrorJson("Text required"));
+                return;
+            }
+            if (!m_ttsReady) {
+                reportNativeResult("speech", createErrorJson("TTS not ready"));
+                return;
+            }
+            
+            String utteranceId = UUID.randomUUID().toString();
+            m_tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String id) {}
+                @Override public void onDone(String id) {
+                    JSONObject data = new JSONObject();
+                    try { data.put("done", true); } catch (Exception e) {}
+                    reportNativeResult("speech", data);
+                }
+                @Override public void onError(String id) {
+                    reportNativeResult("speech", createErrorJson("TTS error"));
+                }
+            });
+            m_tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId);
+        });
+        
+        m_nativeHandlers.put("speechrecognition", (params, callback) -> {
+            requestPermission(new String[]{Manifest.permission.RECORD_AUDIO}, () -> {
+                m_mainHandler.post(() -> {
+                    try {
+                        if (m_speechRecognizer != null) {
+                            m_speechRecognizer.destroy();
+                        }
+                        m_speechRecognizer = SpeechRecognizer.createSpeechRecognizer(m_ctx);
+                        m_speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                            @Override public void onReadyForSpeech(Bundle params) {}
+                            @Override public void onBeginningOfSpeech() {}
+                            @Override public void onRmsChanged(float rmsdB) {}
+                            @Override public void onBufferReceived(byte[] buffer) {}
+                            @Override public void onEndOfSpeech() {}
+                            @Override public void onError(int error) {
+                                reportNativeResult("speechrecognition", createErrorJson("Recognition error: " + error));
+                            }
+                            @Override public void onResults(Bundle results) {
+                                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                                JSONObject data = new JSONObject();
+                                try {
+                                    data.put("text", matches != null && !matches.isEmpty() ? matches.get(0) : "");
+                                    JSONArray alternatives = new JSONArray();
+                                    if (matches != null) {
+                                        for (String m : matches) alternatives.put(m);
+                                    }
+                                    data.put("alternatives", alternatives);
+                                } catch (Exception e) {}
+                                reportNativeResult("speechrecognition", data);
+                            }
+                            @Override public void onPartialResults(Bundle partialResults) {}
+                            @Override public void onEvent(int eventType, Bundle params) {}
+                        });
+                        
+                        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+                        m_speechRecognizer.startListening(intent);
+                    } catch (Exception e) {
+                        reportNativeResult("speechrecognition", createErrorJson(e.getMessage()));
+                    }
+                });
+            }, () -> reportNativeResult("speechrecognition", createErrorJson("Microphone permission denied")));
+        });
+        
+        // =================================================================
+        // COMMUNICATION - SMS, Phone, Email
+        // =================================================================
+        
+        m_nativeHandlers.put("sendsms", (params, callback) -> {
+            String phone = params.optString("phone", "");
+            String message = params.optString("message", "");
+            
+            requestPermission(new String[]{Manifest.permission.SEND_SMS}, () -> {
+                try {
+                    SmsManager sms = SmsManager.getDefault();
+                    sms.sendTextMessage(phone, null, message, null, null);
+                    JSONObject data = new JSONObject();
+                    data.put("sent", true);
+                    data.put("phone", phone);
+                    reportNativeResult("sendsms", data);
+                } catch (Exception e) {
+                    reportNativeResult("sendsms", createErrorJson(e.getMessage()));
+                }
+            }, () -> reportNativeResult("sendsms", createErrorJson("SMS permission denied")));
+        });
+        
+        m_nativeHandlers.put("phonecall", (params, callback) -> {
+            String number = params.optString("number", "");
+            requestPermission(new String[]{Manifest.permission.CALL_PHONE}, () -> {
+                try {
+                    Intent callIntent = new Intent(Intent.ACTION_CALL);
+                    callIntent.setData(Uri.parse("tel:" + number));
+                    m_activity.startActivity(callIntent);
+                    JSONObject data = new JSONObject();
+                    data.put("calling", true);
+                    data.put("number", number);
+                    reportNativeResult("phonecall", data);
+                } catch (Exception e) {
+                    reportNativeResult("phonecall", createErrorJson(e.getMessage()));
+                }
+            }, () -> reportNativeResult("phonecall", createErrorJson("Call permission denied")));
+        });
+        
+        m_nativeHandlers.put("opendial", (params, callback) -> {
+            String number = params.optString("number", "");
+            try {
+                Intent dialIntent = new Intent(Intent.ACTION_DIAL);
+                dialIntent.setData(Uri.parse("tel:" + number));
+                m_activity.startActivity(dialIntent);
+                JSONObject data = new JSONObject();
+                data.put("opened", true);
+                reportNativeResult("opendial", data);
+            } catch (Exception e) {
+                reportNativeResult("opendial", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("sendemail", (params, callback) -> {
+            String recipient = params.optString("recipient", "");
+            String subject = params.optString("subject", "");
+            String body = params.optString("body", "");
+            try {
+                Intent emailIntent = new Intent(Intent.ACTION_SENDTO);
+                emailIntent.setData(Uri.parse("mailto:"));
+                emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{recipient});
+                emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                emailIntent.putExtra(Intent.EXTRA_TEXT, body);
+                m_activity.startActivity(Intent.createChooser(emailIntent, "Send email"));
+                JSONObject data = new JSONObject();
+                data.put("sent", true);
+                reportNativeResult("sendemail", data);
+            } catch (Exception e) {
+                reportNativeResult("sendemail", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        // =================================================================
+        // SYSTEM - Clipboard, Vibration, Flashlight, Notifications
+        // =================================================================
+        
+        m_nativeHandlers.put("clipboard_get", (params, callback) -> {
+            m_mainHandler.post(() -> {
+                ClipboardManager clipboard = (ClipboardManager) m_ctx.getSystemService(Context.CLIPBOARD_SERVICE);
+                JSONObject data = new JSONObject();
+                try {
+                    ClipData clip = clipboard.getPrimaryClip();
+                    if (clip != null && clip.getItemCount() > 0) {
+                        data.put("text", clip.getItemAt(0).getText().toString());
+                        data.put("hasText", true);
+                    } else {
+                        data.put("text", "");
+                        data.put("hasText", false);
+                    }
+                } catch (Exception e) {
+                    data = createErrorJson(e.getMessage());
+                }
+                reportNativeResult("clipboard_get", data);
+            });
+        });
+        
+        m_nativeHandlers.put("clipboard_set", (params, callback) -> {
+            String text = params.optString("text", "");
+            m_mainHandler.post(() -> {
+                ClipboardManager clipboard = (ClipboardManager) m_ctx.getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText("text", text);
+                clipboard.setPrimaryClip(clip);
+                JSONObject data = new JSONObject();
+                try { data.put("done", true); } catch (Exception e) {}
+                reportNativeResult("clipboard_set", data);
+            });
+        });
+        
+        m_nativeHandlers.put("vibrate", (params, callback) -> {
+            long duration = params.optLong("duration", 500);
+            String patternStr = params.optString("pattern", "");
+            
+            Vibrator vibrator = (Vibrator) m_ctx.getSystemService(Context.VIBRATOR_SERVICE);
+            JSONObject data = new JSONObject();
+            try {
+                if (!patternStr.isEmpty()) {
+                    // Parse pattern like "100,200,100,200"
+                    String[] parts = patternStr.split(",");
+                    long[] pattern = new long[parts.length];
+                    for (int i = 0; i < parts.length; i++) {
+                        pattern[i] = Long.parseLong(parts[i].trim());
+                    }
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1));
+                    } else {
+                        vibrator.vibrate(pattern, -1);
+                    }
+                } else {
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else {
+                        vibrator.vibrate(duration);
+                    }
+                }
+                data.put("done", true);
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("vibrate", data);
+        });
+        
+        m_nativeHandlers.put("flashlight", (params, callback) -> {
+            boolean on = params.optBoolean("on", true);
+            JSONObject data = new JSONObject();
+            try {
+                if (Build.VERSION.SDK_INT >= 23) {
+                    String cameraId = m_cameraManager.getCameraIdList()[0];
+                    m_cameraManager.setTorchMode(cameraId, on);
+                    data.put("on", on);
+                } else {
+                    data.put("error", "Requires API 23+");
+                }
+            } catch (CameraAccessException e) {
+                data = createErrorJson(e.getMessage());
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("flashlight", data);
+        });
+        
+        m_nativeHandlers.put("notification", (params, callback) -> {
+            String title = params.optString("title", "Notification");
+            String message = params.optString("message", "");
+            int id = params.optInt("id", (int) System.currentTimeMillis());
+            
+            m_mainHandler.post(() -> {
+                try {
+                    NotificationManager nm = (NotificationManager) m_ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                    String channelId = "php_native_channel";
+                    
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        NotificationChannel channel = new NotificationChannel(channelId, "PHP Native", NotificationManager.IMPORTANCE_DEFAULT);
+                        nm.createNotificationChannel(channel);
+                    }
+                    
+                    Notification.Builder builder;
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        builder = new Notification.Builder(m_ctx, channelId);
+                    } else {
+                        builder = new Notification.Builder(m_ctx);
+                    }
+                    builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+                        .setContentTitle(title)
+                        .setContentText(message)
+                        .setAutoCancel(true);
+                    
+                    nm.notify(id, builder.build());
+                    
+                    JSONObject data = new JSONObject();
+                    data.put("shown", true);
+                    data.put("id", id);
+                    reportNativeResult("notification", data);
+                } catch (Exception e) {
+                    reportNativeResult("notification", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        m_nativeHandlers.put("cancelnotification", (params, callback) -> {
+            int id = params.optInt("id", 0);
+            NotificationManager nm = (NotificationManager) m_ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            nm.cancel(id);
+            JSONObject data = new JSONObject();
+            try { data.put("done", true); } catch (Exception e) {}
+            reportNativeResult("cancelnotification", data);
+        });
+        
+        m_nativeHandlers.put("keepscreenon", (params, callback) -> {
+            boolean keep = params.optBoolean("keep", true);
+            m_mainHandler.post(() -> {
+                try {
+                    if (keep) {
+                        m_activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    } else {
+                        m_activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    }
+                    JSONObject data = new JSONObject();
+                    data.put("done", true);
+                    data.put("keep", keep);
+                    reportNativeResult("keepscreenon", data);
+                } catch (Exception e) {
+                    reportNativeResult("keepscreenon", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        m_nativeHandlers.put("setbrightness", (params, callback) -> {
+            float level = (float) params.optDouble("level", 0.5);
+            m_mainHandler.post(() -> {
+                try {
+                    WindowManager.LayoutParams lp = m_activity.getWindow().getAttributes();
+                    lp.screenBrightness = level;
+                    m_activity.getWindow().setAttributes(lp);
+                    JSONObject data = new JSONObject();
+                    data.put("done", true);
+                    data.put("level", level);
+                    reportNativeResult("setbrightness", data);
+                } catch (Exception e) {
+                    reportNativeResult("setbrightness", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        // =================================================================
+        // FILE SYSTEM
+        // =================================================================
+        
+        m_nativeHandlers.put("readfile", (params, callback) -> {
+            String path = params.optString("path", "");
+            try {
+                File file = new File(path);
+                StringBuilder content = new StringBuilder();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line).append("\n");
+                }
+                reader.close();
+                JSONObject data = new JSONObject();
+                data.put("content", content.toString());
+                data.put("size", file.length());
+                data.put("modified", file.lastModified());
+                reportNativeResult("readfile", data);
+            } catch (Exception e) {
+                reportNativeResult("readfile", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("writefile", (params, callback) -> {
+            String path = params.optString("path", "");
+            String content = params.optString("content", "");
+            boolean append = params.optBoolean("append", false);
+            try {
+                File file = new File(path);
+                file.getParentFile().mkdirs();
+                BufferedWriter writer = new BufferedWriter(new FileWriter(file, append));
+                writer.write(content);
+                writer.close();
+                JSONObject data = new JSONObject();
+                data.put("success", true);
+                data.put("path", path);
+                data.put("size", file.length());
+                reportNativeResult("writefile", data);
+            } catch (Exception e) {
+                reportNativeResult("writefile", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("deletefile", (params, callback) -> {
+            String path = params.optString("path", "");
+            JSONObject data = new JSONObject();
+            try {
+                File file = new File(path);
+                boolean deleted = file.delete();
+                data.put("deleted", deleted);
+                data.put("path", path);
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("deletefile", data);
+        });
+        
+        m_nativeHandlers.put("fileexists", (params, callback) -> {
+            String path = params.optString("path", "");
+            JSONObject data = new JSONObject();
+            try {
+                File file = new File(path);
+                data.put("exists", file.exists());
+                data.put("isFile", file.isFile());
+                data.put("isDirectory", file.isDirectory());
+                if (file.exists()) {
+                    data.put("size", file.length());
+                    data.put("modified", file.lastModified());
+                }
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("fileexists", data);
+        });
+        
+        m_nativeHandlers.put("listdir", (params, callback) -> {
+            String path = params.optString("path", "");
+            JSONObject data = new JSONObject();
+            try {
+                File dir = new File(path);
+                JSONArray files = new JSONArray();
+                File[] list = dir.listFiles();
+                if (list != null) {
+                    for (File f : list) {
+                        JSONObject fileInfo = new JSONObject();
+                        fileInfo.put("name", f.getName());
+                        fileInfo.put("path", f.getAbsolutePath());
+                        fileInfo.put("isDir", f.isDirectory());
+                        fileInfo.put("size", f.length());
+                        fileInfo.put("modified", f.lastModified());
+                        files.put(fileInfo);
+                    }
+                }
+                data.put("files", files);
+                data.put("path", path);
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("listdir", data);
+        });
+        
+        m_nativeHandlers.put("mkdir", (params, callback) -> {
+            String path = params.optString("path", "");
+            JSONObject data = new JSONObject();
+            try {
+                File dir = new File(path);
+                boolean created = dir.mkdirs();
+                data.put("created", created || dir.exists());
+                data.put("path", path);
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("mkdir", data);
+        });
+        
+        m_nativeHandlers.put("zipfile", (params, callback) -> {
+            String sourcePath = params.optString("source", "");
+            String destPath = params.optString("dest", sourcePath + ".zip");
+            
+            try {
+                File sourceFile = new File(sourcePath);
+                ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(destPath));
+                zos.putNextEntry(new ZipEntry(sourceFile.getName()));
+                FileInputStream fis = new FileInputStream(sourceFile);
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = fis.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+                fis.close();
+                zos.closeEntry();
+                zos.close();
+                
+                JSONObject data = new JSONObject();
+                data.put("success", true);
+                data.put("zipPath", destPath);
+                data.put("size", new File(destPath).length());
+                reportNativeResult("zipfile", data);
+            } catch (Exception e) {
+                reportNativeResult("zipfile", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("zipfolder", (params, callback) -> {
+            String sourcePath = params.optString("source", "");
+            String destPath = params.optString("dest", sourcePath + ".zip");
+            
+            try {
+                File sourceDir = new File(sourcePath);
+                final int[] fileCount = {0};
+                ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(destPath));
+                zipDirectory(sourceDir, sourceDir.getName(), zos, fileCount);
+                zos.close();
+                
+                JSONObject data = new JSONObject();
+                data.put("success", true);
+                data.put("zipPath", destPath);
+                data.put("fileCount", fileCount[0]);
+                data.put("size", new File(destPath).length());
+                reportNativeResult("zipfolder", data);
+            } catch (Exception e) {
+                reportNativeResult("zipfolder", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("unzip", (params, callback) -> {
+            String zipPath = params.optString("source", "");
+            String destPath = params.optString("dest", "");
+            if (destPath.isEmpty()) {
+                destPath = new File(zipPath).getParent();
+            }
+            
+            try {
+                File destDir = new File(destPath);
+                destDir.mkdirs();
+                JSONArray extractedFiles = new JSONArray();
+                
+                ZipInputStream zis = new ZipInputStream(new FileInputStream(zipPath));
+                ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    File outFile = new File(destDir, entry.getName());
+                    if (entry.isDirectory()) {
+                        outFile.mkdirs();
+                    } else {
+                        outFile.getParentFile().mkdirs();
+                        FileOutputStream fos = new FileOutputStream(outFile);
+                        byte[] buffer = new byte[1024];
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                        fos.close();
+                        extractedFiles.put(outFile.getAbsolutePath());
+                    }
+                    zis.closeEntry();
+                }
+                zis.close();
+                
+                JSONObject data = new JSONObject();
+                data.put("success", true);
+                data.put("destPath", destPath);
+                data.put("files", extractedFiles);
+                reportNativeResult("unzip", data);
+            } catch (Exception e) {
+                reportNativeResult("unzip", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        // =================================================================
+        // INTENTS - Open Apps, URLs, Share
+        // =================================================================
+        
+        m_nativeHandlers.put("openapp", (params, callback) -> {
+            String packageName = params.optString("package", "");
+            try {
+                Intent launchIntent = m_ctx.getPackageManager().getLaunchIntentForPackage(packageName);
+                if (launchIntent != null) {
+                    m_activity.startActivity(launchIntent);
+                    JSONObject data = new JSONObject();
+                    data.put("opened", true);
+                    data.put("package", packageName);
+                    reportNativeResult("openapp", data);
+                } else {
+                    reportNativeResult("openapp", createErrorJson("App not found: " + packageName));
+                }
+            } catch (Exception e) {
+                reportNativeResult("openapp", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("openurl", (params, callback) -> {
+            String url = params.optString("url", "");
+            try {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                m_activity.startActivity(browserIntent);
+                JSONObject data = new JSONObject();
+                data.put("opened", true);
+                reportNativeResult("openurl", data);
+            } catch (Exception e) {
+                reportNativeResult("openurl", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("opensettings", (params, callback) -> {
+            String setting = params.optString("setting", "");
+            try {
+                Intent intent;
+                switch (setting) {
+                    case "wifi": intent = new Intent(Settings.ACTION_WIFI_SETTINGS); break;
+                    case "bluetooth": intent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS); break;
+                    case "location": intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS); break;
+                    case "app": 
+                        intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.parse("package:" + m_ctx.getPackageName()));
+                        break;
+                    default: intent = new Intent(Settings.ACTION_SETTINGS);
+                }
+                m_activity.startActivity(intent);
+                JSONObject data = new JSONObject();
+                data.put("opened", true);
+                reportNativeResult("opensettings", data);
+            } catch (Exception e) {
+                reportNativeResult("opensettings", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("share", (params, callback) -> {
+            String text = params.optString("text", "");
+            String subject = params.optString("subject", "");
+            try {
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("text/plain");
+                shareIntent.putExtra(Intent.EXTRA_TEXT, text);
+                if (!subject.isEmpty()) {
+                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                }
+                m_activity.startActivity(Intent.createChooser(shareIntent, "Share"));
+                JSONObject data = new JSONObject();
+                data.put("shared", true);
+                reportNativeResult("share", data);
+            } catch (Exception e) {
+                reportNativeResult("share", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("sendintent", (params, callback) -> {
+            String action = params.optString("action", "");
+            String data = params.optString("data", "");
+            String type = params.optString("type", "");
+            JSONObject extras = params.optJSONObject("extras");
+            
+            try {
+                Intent intent = new Intent(action);
+                if (!data.isEmpty()) {
+                    intent.setData(Uri.parse(data));
+                }
+                if (!type.isEmpty()) {
+                    intent.setType(type);
+                }
+                if (extras != null) {
+                    Iterator<String> keys = extras.keys();
+                    while (keys.hasNext()) {
+                        String key = keys.next();
+                        intent.putExtra(key, extras.optString(key));
+                    }
+                }
+                m_activity.startActivity(intent);
+                JSONObject result = new JSONObject();
+                result.put("sent", true);
+                reportNativeResult("sendintent", result);
+            } catch (Exception e) {
+                reportNativeResult("sendintent", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        // =================================================================
+        // CRYPTO - Hash, Encrypt, Decrypt
+        // =================================================================
+        
+        m_nativeHandlers.put("hash", (params, callback) -> {
+            String text = params.optString("text", "");
+            String algorithm = params.optString("algorithm", "SHA-256");
+            try {
+                MessageDigest digest = MessageDigest.getInstance(algorithm);
+                byte[] hash = digest.digest(text.getBytes("UTF-8"));
+                StringBuilder hexString = new StringBuilder();
+                for (byte b : hash) {
+                    hexString.append(String.format("%02x", b));
+                }
+                JSONObject data = new JSONObject();
+                data.put("result", hexString.toString());
+                data.put("algorithm", algorithm);
+                reportNativeResult("hash", data);
+            } catch (Exception e) {
+                reportNativeResult("hash", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("encrypt", (params, callback) -> {
+            String text = params.optString("text", "");
+            String password = params.optString("password", "");
+            try {
+                // Derive key from password using SHA-256
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] keyBytes = digest.digest(password.getBytes("UTF-8"));
+                SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
+                
+                Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                byte[] iv = new byte[16];
+                new SecureRandom().nextBytes(iv);
+                cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+                
+                byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
+                
+                // Combine IV + encrypted data
+                byte[] combined = new byte[iv.length + encrypted.length];
+                System.arraycopy(iv, 0, combined, 0, iv.length);
+                System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
+                
+                JSONObject data = new JSONObject();
+                data.put("result", Base64.encodeToString(combined, Base64.NO_WRAP));
+                reportNativeResult("encrypt", data);
+            } catch (Exception e) {
+                reportNativeResult("encrypt", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("decrypt", (params, callback) -> {
+            String encrypted = params.optString("text", "");
+            String password = params.optString("password", "");
+            try {
+                byte[] combined = Base64.decode(encrypted, Base64.NO_WRAP);
+                
+                // Extract IV and encrypted data
+                byte[] iv = new byte[16];
+                byte[] encryptedBytes = new byte[combined.length - 16];
+                System.arraycopy(combined, 0, iv, 0, 16);
+                System.arraycopy(combined, 16, encryptedBytes, 0, encryptedBytes.length);
+                
+                // Derive key from password
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] keyBytes = digest.digest(password.getBytes("UTF-8"));
+                SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
+                
+                Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+                
+                byte[] decrypted = cipher.doFinal(encryptedBytes);
+                
+                JSONObject data = new JSONObject();
+                data.put("result", new String(decrypted, "UTF-8"));
+                reportNativeResult("decrypt", data);
+            } catch (Exception e) {
+                reportNativeResult("decrypt", createErrorJson(e.getMessage()));
+            }
+        });
+        
+        m_nativeHandlers.put("base64encode", (params, callback) -> {
+            String text = params.optString("text", "");
+            JSONObject data = new JSONObject();
+            try {
+                data.put("result", Base64.encodeToString(text.getBytes("UTF-8"), Base64.NO_WRAP));
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("base64encode", data);
+        });
+        
+        m_nativeHandlers.put("base64decode", (params, callback) -> {
+            String text = params.optString("text", "");
+            JSONObject data = new JSONObject();
+            try {
+                data.put("result", new String(Base64.decode(text, Base64.NO_WRAP), "UTF-8"));
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("base64decode", data);
+        });
+        
+        m_nativeHandlers.put("randombytes", (params, callback) -> {
+            int length = params.optInt("length", 16);
+            JSONObject data = new JSONObject();
+            try {
+                byte[] bytes = new byte[length];
+                new SecureRandom().nextBytes(bytes);
+                data.put("result", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                data.put("length", length);
+            } catch (Exception e) {
+                data = createErrorJson(e.getMessage());
+            }
+            reportNativeResult("randombytes", data);
+        });
+        
+        // =================================================================
+        // CAMERA - Take Photo, Record Video, Pick Image
+        // =================================================================
+        
+        m_nativeHandlers.put("takephoto", (params, callback) -> {
+            requestPermission(new String[]{Manifest.permission.CAMERA}, () -> {
+                m_mainHandler.post(() -> {
+                    try {
+                        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                        // Store callback for onActivityResult
+                        m_pendingSensorCallbacks.put("takephoto_result", callback);
+                        m_activity.startActivityForResult(takePictureIntent, 1001);
+                    } catch (Exception e) {
+                        reportNativeResult("takephoto", createErrorJson(e.getMessage()));
+                    }
+                });
+            }, () -> reportNativeResult("takephoto", createErrorJson("Camera permission denied")));
+        });
+        
+        m_nativeHandlers.put("recordvideo", (params, callback) -> {
+            requestPermission(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, () -> {
+                m_mainHandler.post(() -> {
+                    try {
+                        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+                        int duration = params.optInt("duration", 0);
+                        if (duration > 0) {
+                            takeVideoIntent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, duration);
+                        }
+                        takeVideoIntent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
+                        m_pendingSensorCallbacks.put("recordvideo_result", callback);
+                        m_activity.startActivityForResult(takeVideoIntent, 1002);
+                    } catch (Exception e) {
+                        reportNativeResult("recordvideo", createErrorJson(e.getMessage()));
+                    }
+                });
+            }, () -> reportNativeResult("recordvideo", createErrorJson("Camera/audio permission denied")));
+        });
+        
+        m_nativeHandlers.put("pickimage", (params, callback) -> {
+            m_mainHandler.post(() -> {
+                try {
+                    Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                    m_pendingSensorCallbacks.put("pickimage_result", callback);
+                    m_activity.startActivityForResult(pickIntent, 1003);
+                } catch (Exception e) {
+                    reportNativeResult("pickimage", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        m_nativeHandlers.put("pickvideo", (params, callback) -> {
+            m_mainHandler.post(() -> {
+                try {
+                    Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+                    m_pendingSensorCallbacks.put("pickvideo_result", callback);
+                    m_activity.startActivityForResult(pickIntent, 1004);
+                } catch (Exception e) {
+                    reportNativeResult("pickvideo", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        Log.d(TAG, "Registered " + m_nativeHandlers.size() + " native handlers");
+    }
+    
+    // -------------------------------------------------------------------------
+    // Native Handler Helper Methods
+    // -------------------------------------------------------------------------
+    
+    /**
+     * Functional interface for sensor data parsing
+     */
+    @FunctionalInterface
+    private interface SensorDataParser {
+        JSONObject parse(SensorEvent event);
+    }
+    
+    /**
+     * Read a single value from a sensor and report result
+     */
+    private void readSensor(int sensorType, String resultType, SensorDataParser parser) {
+        Sensor sensor = m_sensorManager.getDefaultSensor(sensorType);
+        if (sensor == null) {
+            reportNativeResult(resultType, createErrorJson("Sensor not available"));
+            return;
+        }
+        
+        SensorEventListener listener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                m_sensorManager.unregisterListener(this);
+                JSONObject data = parser.parse(event);
+                reportNativeResult(resultType, data);
+            }
+            @Override
+            public void onAccuracyChanged(Sensor s, int accuracy) {}
+        };
+        
+        m_sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+    
+    /**
+     * Read step counter sensor
+     */
+    private void readStepCounter(String resultType) {
+        Sensor sensor = m_sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        if (sensor == null) {
+            reportNativeResult(resultType, createErrorJson("Step counter not available"));
+            return;
+        }
+        
+        SensorEventListener listener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                m_sensorManager.unregisterListener(this);
+                JSONObject data = new JSONObject();
+                try { data.put("steps", (long) event.values[0]); } catch (Exception e) {}
+                reportNativeResult(resultType, data);
+            }
+            @Override
+            public void onAccuracyChanged(Sensor s, int accuracy) {}
+        };
+        
+        m_sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+    
+    /**
+     * Read current location
+     */
+    private void readLocation(String resultType) {
+        try {
+            LocationListener listener = new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    m_locationManager.removeUpdates(this);
+                    JSONObject data = locationToJson(location);
+                    reportNativeResult(resultType, data);
+                }
+                @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+                @Override public void onProviderEnabled(String provider) {}
+                @Override public void onProviderDisabled(String provider) {}
+            };
+            
+            // Try GPS first, then network
+            if (m_locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                m_locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, Looper.getMainLooper());
+            } else if (m_locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                m_locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, Looper.getMainLooper());
+            } else {
+                reportNativeResult(resultType, createErrorJson("No location provider available"));
+            }
+        } catch (SecurityException e) {
+            reportNativeResult(resultType, createErrorJson("Location permission required"));
+        }
+    }
+    
+    /**
+     * Convert Location to JSON
+     */
+    private JSONObject locationToJson(Location loc) {
+        JSONObject data = new JSONObject();
+        try {
+            data.put("lat", loc.getLatitude());
+            data.put("lng", loc.getLongitude());
+            data.put("altitude", loc.getAltitude());
+            data.put("accuracy", loc.getAccuracy());
+            data.put("speed", loc.getSpeed());
+            data.put("bearing", loc.getBearing());
+            data.put("provider", loc.getProvider());
+            data.put("time", loc.getTime());
+        } catch (Exception e) {}
+        return data;
+    }
+    
+    /**
+     * Recursively zip a directory
+     */
+    private void zipDirectory(File dir, String baseName, ZipOutputStream zos, int[] fileCount) throws IOException {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        
+        for (File file : files) {
+            if (file.isDirectory()) {
+                zipDirectory(file, baseName + "/" + file.getName(), zos, fileCount);
+            } else {
+                zos.putNextEntry(new ZipEntry(baseName + "/" + file.getName()));
+                FileInputStream fis = new FileInputStream(file);
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = fis.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+                fis.close();
+                zos.closeEntry();
+                fileCount[0]++;
+            }
+        }
+    }
+    
+    /**
+     * Convert battery status int to string
+     */
+    private String batteryStatusToString(int status) {
+        switch (status) {
+            case BatteryManager.BATTERY_STATUS_CHARGING: return "charging";
+            case BatteryManager.BATTERY_STATUS_DISCHARGING: return "discharging";
+            case BatteryManager.BATTERY_STATUS_FULL: return "full";
+            case BatteryManager.BATTERY_STATUS_NOT_CHARGING: return "not_charging";
+            default: return "unknown";
+        }
+    }
+    
+    /**
+     * Convert battery health int to string
+     */
+    private String batteryHealthToString(int health) {
+        switch (health) {
+            case BatteryManager.BATTERY_HEALTH_GOOD: return "good";
+            case BatteryManager.BATTERY_HEALTH_OVERHEAT: return "overheat";
+            case BatteryManager.BATTERY_HEALTH_DEAD: return "dead";
+            case BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE: return "over_voltage";
+            case BatteryManager.BATTERY_HEALTH_COLD: return "cold";
+            default: return "unknown";
+        }
     }
 
     // -------------------------------------------------------------------------

@@ -102,7 +102,7 @@
                     <li><a href="#view-state">View State</a></li>
                     <li><a href="#dialogs-fn">Dialogs</a></li>
                     <li><a href="#animation-fn">Animation</a></li>
-                    <li><a href="#native-fn">Native/Sensors</a></li>
+                    <li><a href="#native-fn">Native (75 handlers)</a></li>
                     <li><a href="#appWithDrawer">appWithDrawer()</a></li>
                 </ul>
             </div>
@@ -780,98 +780,160 @@
                 <!-- ==================== NATIVE / SENSORS ==================== -->
                 <section id="native-sensors">
                     <h2 id="native-fn">Native / Sensor API</h2>
-                    <p class="section-desc">All native functions are asynchronous via DroidScript bridge. Each takes a callback method name.</p>
+                    <p class="section-desc">Two paths available: <strong>Pure Java handlers</strong> (75 handlers, recommended) or <strong>DroidScript bridge</strong> (legacy).</p>
+
+                    <div class="tip" style="margin: 20px 0;">
+                        <strong>Recommended:</strong> Use <code>native($type, $callback, $params)</code> for pure Java execution — faster and no JavaScript bridge.
+                    </div>
+
+                    <h3>Core Function</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">native() — Pure Java Handler</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="comment">// Call any of 75 native handlers directly in Java</span>
+<span class="keyword">return</span> <span class="function">native</span>(<span class="string">"battery"</span>, <span class="string">"onBattery"</span>);
+
+<span class="comment">// With parameters</span>
+<span class="keyword">return</span> <span class="function">native</span>(<span class="string">"http"</span>, <span class="string">"onResponse"</span>, [
+    <span class="string">"url"</span> => <span class="string">"https://api.example.com/data"</span>,
+    <span class="string">"method"</span> => <span class="string">"GET"</span>
+]);
+
+<span class="comment">// Callback receives result</span>
+<span class="keyword">function</span> <span class="function">onBattery</span>(<span class="variable">$params</span>) {
+    <span class="variable">$level</span> = <span class="variable">$params</span>[<span class="string">'level'</span>];
+    <span class="keyword">return</span> <span class="function">toast</span>(<span class="string">"Battery: {$level}%"</span>);
+}</code></pre>
+                    </div>
 
                     <h3>Motion Sensors</h3>
                     <table class="fn-table">
-                        <tr><th>Function</th><th>Callback Data</th></tr>
-                        <tr><td>readAccelerometer($cb)</td><td>x, y, z (m/s²)</td></tr>
-                        <tr><td>readGyroscope($cb)</td><td>x, y, z (rad/s)</td></tr>
-                        <tr><td>readGravity($cb)</td><td>x, y, z</td></tr>
-                        <tr><td>readOrientation($cb)</td><td>azimuth, pitch, roll</td></tr>
-                        <tr><td>readMagneticField($cb)</td><td>x, y, z (μT)</td></tr>
+                        <tr><th>Handler</th><th>Callback Data</th></tr>
+                        <tr><td><code>native("accelerometer", $cb)</code></td><td>x, y, z (m/s²)</td></tr>
+                        <tr><td><code>native("gyroscope", $cb)</code></td><td>x, y, z (rad/s)</td></tr>
+                        <tr><td><code>native("gravity", $cb)</code></td><td>x, y, z</td></tr>
+                        <tr><td><code>native("magneticfield", $cb)</code></td><td>x, y, z (μT)</td></tr>
+                        <tr><td><code>native("compass", $cb)</code></td><td>azimuth, pitch, roll</td></tr>
                     </table>
 
                     <h3>Environment Sensors</h3>
                     <table class="fn-table">
-                        <tr><th>Function</th><th>Callback Data</th></tr>
-                        <tr><td>readLight($cb)</td><td>lux</td></tr>
-                        <tr><td>readProximity($cb)</td><td>distance (cm)</td></tr>
-                        <tr><td>readPressure($cb)</td><td>hPa</td></tr>
-                        <tr><td>readHumidity($cb)</td><td>percent</td></tr>
-                        <tr><td>readTemperature($cb)</td><td>celsius</td></tr>
-                        <tr><td>readStepCounter($cb)</td><td>steps</td></tr>
+                        <tr><th>Handler</th><th>Callback Data</th></tr>
+                        <tr><td><code>native("light", $cb)</code></td><td>lux</td></tr>
+                        <tr><td><code>native("proximity", $cb)</code></td><td>distance (cm), near (bool)</td></tr>
+                        <tr><td><code>native("pressure", $cb)</code></td><td>hPa</td></tr>
+                        <tr><td><code>native("humidity", $cb)</code></td><td>percent</td></tr>
+                        <tr><td><code>native("temperature", $cb)</code></td><td>celsius</td></tr>
+                        <tr><td><code>native("stepcounter", $cb)</code></td><td>steps</td></tr>
                     </table>
 
-                    <h3>Device Info</h3>
+                    <h3>Location</h3>
                     <table class="fn-table">
-                        <tr><th>Function</th><th>Description</th></tr>
-                        <tr><td>readLocation($cb)</td><td>GPS coordinates</td></tr>
-                        <tr><td>checkLocationEnabled($cb)</td><td>Check GPS enabled</td></tr>
-                        <tr><td>readBattery($cb)</td><td>Battery level/charging</td></tr>
-                        <tr><td>readDeviceInfo($cb)</td><td>Model, manufacturer, SDK</td></tr>
-                        <tr><td>readScreenInfo($cb)</td><td>Width, height, density</td></tr>
+                        <tr><th>Handler</th><th>Description</th></tr>
+                        <tr><td><code>native("location", $cb)</code> / <code>native("gps", $cb)</code></td><td>Current GPS coordinates</td></tr>
+                        <tr><td><code>native("lastlocation", $cb)</code></td><td>Last known location (cached)</td></tr>
+                        <tr><td><code>native("locationenabled", $cb)</code></td><td>Check if GPS enabled</td></tr>
+                        <tr><td><code>native("geocode", $cb, ["address" => ...])</code></td><td>Address to coordinates</td></tr>
+                        <tr><td><code>native("reversegeocode", $cb, ["lat" => ..., "lng" => ...])</code></td><td>Coordinates to address</td></tr>
                     </table>
 
-                    <h3>Network</h3>
+                    <h3>Battery &amp; Power</h3>
                     <table class="fn-table">
-                        <tr><th>Function</th><th>Description</th></tr>
-                        <tr><td>readWifiInfo($cb) / scanWifi($cb)</td><td>WiFi info/scan</td></tr>
-                        <tr><td>readBluetoothInfo($cb) / discoverBluetooth($cb)</td><td>Bluetooth info/discover</td></tr>
-                        <tr><td>readNetworkInfo($cb)</td><td>Network connectivity</td></tr>
+                        <tr><th>Handler</th><th>Callback Data</th></tr>
+                        <tr><td><code>native("battery", $cb)</code></td><td>level, charging, status, health, plugged</td></tr>
+                        <tr><td><code>native("powersavemode", $cb)</code></td><td>enabled (bool)</td></tr>
                     </table>
 
-                    <h3>HTTP</h3>
+                    <h3>Camera &amp; Media</h3>
                     <div class="fn-group">
-                        <div class="fn-item"><span class="fn-item-name">httpRequest($url, $cb, $method, $body?, $headers?)</span><span class="fn-item-desc">Full HTTP request</span></div>
-                        <div class="fn-item"><span class="fn-item-name">httpGet($url, $cb)</span><span class="fn-item-desc">GET shortcut</span></div>
-                        <div class="fn-item"><span class="fn-item-name">httpPost($url, $cb, $body?)</span><span class="fn-item-desc">POST shortcut</span></div>
-                        <div class="fn-item"><span class="fn-item-name">downloadFile($url, $dest, $cb)</span><span class="fn-item-desc">Download file</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("takephoto", $cb)</span><span class="fn-item-desc">Capture photo via camera intent</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("recordvideo", $cb)</span><span class="fn-item-desc">Record video via camera intent</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("pickimage", $cb)</span><span class="fn-item-desc">Pick image from gallery</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("pickvideo", $cb)</span><span class="fn-item-desc">Pick video from gallery</span></div>
                     </div>
 
-                    <h3>Media</h3>
+                    <h3>Audio</h3>
                     <div class="fn-group">
-                        <div class="fn-item"><span class="fn-item-name">takePhoto($cb, $quality = 80)</span><span class="fn-item-desc">Camera capture</span></div>
-                        <div class="fn-item"><span class="fn-item-name">playAudio($file, $cb) / stopAudio($cb)</span><span class="fn-item-desc">Audio playback</span></div>
-                        <div class="fn-item"><span class="fn-item-name">recordAudio($file, $cb) / stopRecording($cb)</span><span class="fn-item-desc">Audio recording</span></div>
-                        <div class="fn-item"><span class="fn-item-name">textToSpeech($text, $cb, $pitch, $rate)</span><span class="fn-item-desc">Text-to-speech</span></div>
-                        <div class="fn-item"><span class="fn-item-name">speechRecognition($cb)</span><span class="fn-item-desc">Voice recognition</span></div>
-                    </div>
-
-                    <h3>Hardware</h3>
-                    <div class="fn-group">
-                        <div class="fn-item"><span class="fn-item-name">vibrate($pattern = "100,50,100")</span><span class="fn-item-desc">Vibration pattern</span></div>
-                        <div class="fn-item"><span class="fn-item-name">getVolume($cb, $stream) / setVolume($level, $stream)</span><span class="fn-item-desc">Volume control</span></div>
-                        <div class="fn-item"><span class="fn-item-name">setRingerMode($mode)</span><span class="fn-item-desc">normal/silent/vibrate</span></div>
-                        <div class="fn-item"><span class="fn-item-name">setScreenBrightness($level)</span><span class="fn-item-desc">Brightness (0.0-1.0)</span></div>
-                        <div class="fn-item"><span class="fn-item-name">preventScreenLock($prevent)</span><span class="fn-item-desc">Keep screen on</span></div>
-                        <div class="fn-item"><span class="fn-item-name">flashlight($on)</span><span class="fn-item-desc">Toggle flashlight</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("playaudio", $cb, ["file" => ...])</span><span class="fn-item-desc">Play audio file</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("pauseaudio", $cb)</span><span class="fn-item-desc">Pause playback</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("stopaudio", $cb)</span><span class="fn-item-desc">Stop playback</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("recordaudio", $cb, ["file" => ...])</span><span class="fn-item-desc">Start recording</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("stoprecording", $cb)</span><span class="fn-item-desc">Stop recording</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("getvolume", $cb, ["stream" => "music"])</span><span class="fn-item-desc">Get volume level</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("setvolume", $cb, ["level" => 10, "stream" => "music"])</span><span class="fn-item-desc">Set volume</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("setringermode", $cb, ["mode" => "normal"])</span><span class="fn-item-desc">normal/silent/vibrate</span></div>
                     </div>
 
                     <h3>Communication</h3>
                     <div class="fn-group">
-                        <div class="fn-item"><span class="fn-item-name">sendSms($phone, $msg, $cb)</span><span class="fn-item-desc">Send SMS</span></div>
-                        <div class="fn-item"><span class="fn-item-name">phoneCall($number)</span><span class="fn-item-desc">Make phone call</span></div>
-                        <div class="fn-item"><span class="fn-item-name">showNotification($title, $body, $cb)</span><span class="fn-item-desc">System notification</span></div>
-                        <div class="fn-item"><span class="fn-item-name">sendEmail($to, $subject, $body, $cb, $attach?)</span><span class="fn-item-desc">Compose email</span></div>
-                        <div class="fn-item"><span class="fn-item-name">scanQrCode($cb)</span><span class="fn-item-desc">QR code scanner</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("sendsms", $cb, ["phone" => ..., "message" => ...])</span><span class="fn-item-desc">Send SMS</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("phonecall", $cb, ["number" => ...])</span><span class="fn-item-desc">Make phone call</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("opendial", $cb, ["number" => ...])</span><span class="fn-item-desc">Open dialer</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("sendemail", $cb, ["to" => ..., "subject" => ...])</span><span class="fn-item-desc">Compose email</span></div>
                     </div>
 
-                    <h3>Encryption &amp; Files</h3>
+                    <h3>Network</h3>
                     <div class="fn-group">
-                        <div class="fn-item"><span class="fn-item-name">encryptText($text, $pw, $cb) / decryptText(...)</span><span class="fn-item-desc">AES encryption</span></div>
-                        <div class="fn-item"><span class="fn-item-name">hashText($text, $algo, $cb)</span><span class="fn-item-desc">Hash with any algorithm</span></div>
-                        <div class="fn-item"><span class="fn-item-name">readNativeFile($path, $cb)</span><span class="fn-item-desc">Read file content</span></div>
-                        <div class="fn-item"><span class="fn-item-name">writeNativeFile($path, $content, $cb)</span><span class="fn-item-desc">Write file</span></div>
-                        <div class="fn-item"><span class="fn-item-name">listNativeFolder($path, $cb)</span><span class="fn-item-desc">List directory</span></div>
-                        <div class="fn-item"><span class="fn-item-name">nativeFileExists($path, $cb)</span><span class="fn-item-desc">Check file exists</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("wifi", $cb)</span><span class="fn-item-desc">WiFi info (ssid, ip, rssi)</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("wifiscan", $cb)</span><span class="fn-item-desc">Scan available networks</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("bluetooth", $cb)</span><span class="fn-item-desc">Bluetooth info (enabled, paired)</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("networkinfo", $cb)</span><span class="fn-item-desc">Network connectivity</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("http", $cb, ["url" => ..., "method" => "GET"])</span><span class="fn-item-desc">HTTP request</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("download", $cb, ["url" => ..., "dest" => ...])</span><span class="fn-item-desc">Download file</span></div>
                     </div>
 
-                    <h3>Apps &amp; Intents</h3>
+                    <h3>System</h3>
                     <div class="fn-group">
-                        <div class="fn-item"><span class="fn-item-name">openApp($package, $cb)</span><span class="fn-item-desc">Launch app by package name</span></div>
-                        <div class="fn-item"><span class="fn-item-name">sendIntent($action, $cb, $type?, $uri?, $extras?)</span><span class="fn-item-desc">Send Android Intent</span></div>
-                        <div class="fn-item"><span class="fn-item-name">setClipboard($text) / getClipboard($cb)</span><span class="fn-item-desc">Clipboard access</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("clipboard_get", $cb)</span><span class="fn-item-desc">Get clipboard text</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("clipboard_set", $cb, ["text" => ...])</span><span class="fn-item-desc">Set clipboard text</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("vibrate", $cb, ["duration" => 200])</span><span class="fn-item-desc">Vibrate device</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("flashlight", $cb, ["on" => true])</span><span class="fn-item-desc">Toggle flashlight</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("notification", $cb, ["title" => ..., "message" => ...])</span><span class="fn-item-desc">Show notification</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("cancelnotification", $cb, ["id" => 1])</span><span class="fn-item-desc">Cancel notification</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("keepscreenon", $cb, ["on" => true])</span><span class="fn-item-desc">Prevent screen sleep</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("setbrightness", $cb, ["level" => 0.8])</span><span class="fn-item-desc">Set brightness (0.0-1.0)</span></div>
+                    </div>
+
+                    <h3>File System</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">native("readfile", $cb, ["path" => ...])</span><span class="fn-item-desc">Read file content</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("writefile", $cb, ["path" => ..., "content" => ...])</span><span class="fn-item-desc">Write file</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("deletefile", $cb, ["path" => ...])</span><span class="fn-item-desc">Delete file</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("fileexists", $cb, ["path" => ...])</span><span class="fn-item-desc">Check file exists</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("listdir", $cb, ["path" => ...])</span><span class="fn-item-desc">List directory</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("mkdir", $cb, ["path" => ...])</span><span class="fn-item-desc">Create directory</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("zipfile", $cb, ["src" => ..., "dest" => ...])</span><span class="fn-item-desc">Zip a file</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("zipfolder", $cb, ["src" => ..., "dest" => ...])</span><span class="fn-item-desc">Zip a folder</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("unzip", $cb, ["src" => ..., "dest" => ...])</span><span class="fn-item-desc">Extract zip</span></div>
+                    </div>
+
+                    <h3>Intents</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">native("openapp", $cb, ["package" => ...])</span><span class="fn-item-desc">Launch app by package</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("openurl", $cb, ["url" => ...])</span><span class="fn-item-desc">Open URL in browser</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("opensettings", $cb)</span><span class="fn-item-desc">Open device settings</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("share", $cb, ["text" => ..., "title" => ...])</span><span class="fn-item-desc">Share via Android sheet</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("sendintent", $cb, ["action" => ..., "uri" => ...])</span><span class="fn-item-desc">Send custom intent</span></div>
+                    </div>
+
+                    <h3>Crypto</h3>
+                    <div class="fn-group">
+                        <div class="fn-item"><span class="fn-item-name">native("hash", $cb, ["text" => ..., "algorithm" => "SHA256"])</span><span class="fn-item-desc">Hash text (MD5, SHA1, SHA256, SHA512)</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("encrypt", $cb, ["text" => ..., "password" => ...])</span><span class="fn-item-desc">AES encrypt</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("decrypt", $cb, ["text" => ..., "password" => ...])</span><span class="fn-item-desc">AES decrypt</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("base64encode", $cb, ["text" => ...])</span><span class="fn-item-desc">Base64 encode</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("base64decode", $cb, ["text" => ...])</span><span class="fn-item-desc">Base64 decode</span></div>
+                        <div class="fn-item"><span class="fn-item-name">native("randombytes", $cb, ["count" => 16])</span><span class="fn-item-desc">Generate random bytes</span></div>
+                    </div>
+
+                    <h3>Legacy DroidScript Bridge</h3>
+                    <p>Use <code class="inline-code">nativeCall($type, $params, $callback)</code> for custom JS handlers or legacy compatibility.</p>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">nativeCall() — DroidScript Bridge</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="comment">// Legacy path - routes through DroidScript JavaScript</span>
+<span class="keyword">return</span> <span class="function">nativeCall</span>(<span class="string">"location"</span>, [], <span class="string">"onLocation"</span>);
+
+<span class="comment">// Register custom JS handler in PhpNativePlugin.inc</span>
+<span class="comment">// php.RegisterNativeHandler("myCustom", function(params) { ... });</span></code></pre>
                     </div>
                 </section>
 

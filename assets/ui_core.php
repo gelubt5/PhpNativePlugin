@@ -2161,543 +2161,279 @@ function replaceChildren(string $parentId, array $children): array {
 //
 // Flow: PHP returns DS_SENSOR_CALL → Java injects JS → DroidScript reads sensor
 //       → JS calls _phpPlugin.OnSensorResult → Java calls your PHP callback
+//
+// For NATIVE_CALL (pure Java, no DroidScript):
+// Flow: PHP returns NATIVE_CALL → Java native handler executes → Java calls your PHP callback
 // =============================================================================
 
 /**
- * Generic DroidScript native call via the sensor bridge.
+ * Generic DroidScript native call via the sensor bridge (uses JavaScript/DroidScript).
  * 
  * @param string $type Sensor/native type identifier
  * @param string $callback PHP method to receive the result
  * @param array $params Additional parameters for the call
  * @return array Action array
  */
-function nativeCall(string $type, string $callback, array $params = []): array {
-    return array_merge([
-        "action" => "DS_SENSOR_CALL",
-        "sensor" => $type,
-        "callback" => $callback
-    ], $params);
-}
 
-// ---- Motion Sensors ----
 
 /**
- * Read accelerometer values.
- * Callback receives: ['x' => float, 'y' => float, 'z' => float]
+ * Native Android call (pure Java implementation, no DroidScript).
+ * This executes directly in Java without going through DroidScript JavaScript.
+ * Faster and more reliable for supported operations.
+ * 
+ * Supported types:
+ * - SENSORS: accelerometer, gyroscope, gravity, magneticfield, compass, orientation,
+ *            light, proximity, pressure, humidity, temperature, stepcounter
+ * - LOCATION: location, gps, lastlocation, locationenabled, geocode, reversegeocode
+ * - BATTERY: battery, powersavemode
+ * - DEVICE: deviceinfo, screeninfo
+ * - NETWORK: wifi, wifiscan, bluetooth, networkinfo, http, download
+ * - AUDIO: playaudio, pauseaudio, stopaudio, recordaudio, stoprecording,
+ *          getvolume, setvolume, setringermode
+ * - SPEECH: tts, speech, speechrecognition
+ * - COMMUNICATION: sendsms, phonecall, opendial, sendemail
+ * - SYSTEM: clipboard_get, clipboard_set, vibrate, flashlight, notification,
+ *           cancelnotification, keepscreenon, setbrightness
+ * - FILES: readfile, writefile, deletefile, fileexists, listdir, mkdir,
+ *          zipfile, zipfolder, unzip
+ * - INTENTS: openapp, openurl, opensettings, share, sendintent
+ * - CRYPTO: hash, encrypt, decrypt, base64encode, base64decode, randombytes
+ * - CAMERA: takephoto, recordvideo, pickimage, pickvideo
+ * 
+ * @param string $type Native call type
+ * @param string $callback PHP method to receive the result
+ * @param array $params Parameters for the call
+ * @return array Action array for NATIVE_CALL
  */
-function readAccelerometer(string $callback): array {
-    return nativeCall("accelerometer", $callback);
+function native(string $type, string $callback, array $params = []): array {
+    return [
+        "action" => "NATIVE_CALL",
+        "type" => $type,
+        "callback" => $callback,
+        "params" => $params
+    ];
 }
 
-/**
- * Read gyroscope values (rotation rate).
- * Callback receives: ['x' => float, 'y' => float, 'z' => float]
- */
-function readGyroscope(string $callback): array {
-    return nativeCall("gyroscope", $callback);
+// Alias for clarity
+function nativeCallDirect(string $type, string $callback, array $params = []): array {
+    return native($type, $callback, $params);
 }
 
-/**
- * Read gravity sensor values.
- * Callback receives: ['x' => float, 'y' => float, 'z' => float]
- */
-function readGravity(string $callback): array {
-    return nativeCall("gravity", $callback);
-}
+
+// =============================================================================
+// NATIVE CALL CONVENIENCE FUNCTIONS (Pure Java - No DroidScript)
+// These use the NATIVE_CALL action which executes directly in Java.
+// Faster and more reliable than the DroidScript-based nativeCall().
+// =============================================================================
+
+// ---- HTTP ----
 
 /**
- * Read orientation/compass (azimuth, pitch, roll).
- * Callback receives: ['azimuth' => float, 'pitch' => float, 'roll' => float]
+ * Make an HTTP request (native Java).
+ * @param string $url Request URL
+ * @param string $callback PHP callback method
+ * @param string $method HTTP method (GET, POST, PUT, DELETE, PATCH)
+ * @param array $options Additional options: body, headers, timeout
+ * @return array NATIVE_CALL action
  */
-function readOrientation(string $callback): array {
-    return nativeCall("compass", $callback);
-}
-
-/**
- * Read magnetic field sensor.
- * Callback receives: ['x' => float, 'y' => float, 'z' => float]
- */
-function readMagneticField(string $callback): array {
-    return nativeCall("magneticfield", $callback);
-}
-
-// ---- Environment Sensors ----
-
-/**
- * Read ambient light sensor (lux).
- * Callback receives: ['light' => float]
- */
-function readLight(string $callback): array {
-    return nativeCall("light", $callback);
-}
-
-/**
- * Read proximity sensor.
- * Callback receives: ['distance' => float, 'near' => bool]
- */
-function readProximity(string $callback): array {
-    return nativeCall("proximity", $callback);
+function httpRequest(string $url, string $callback, string $method = 'GET', array $options = []): array {
+    return native("http", $callback, array_merge(["url" => $url, "method" => $method], $options));
 }
 
 /**
- * Read barometric pressure sensor (hPa).
- * Callback receives: ['pressure' => float]
+ * Download a file (native Java via DownloadManager).
+ * @param string $url URL to download
+ * @param string $callback PHP callback method
+ * @param string $dest Destination path (optional)
+ * @param string $title Notification title
+ * @return array NATIVE_CALL action
  */
-function readPressure(string $callback): array {
-    return nativeCall("pressure", $callback);
+function downloadFile(string $url, string $callback, string $dest = '', string $title = 'Download'): array {
+    return native("download", $callback, ["url" => $url, "dest" => $dest, "title" => $title]);
+}
+
+// ---- Zip/Unzip ----
+
+/**
+ * Zip a single file.
+ * Callback receives: {success, zipPath, size}
+ */
+function zipFile(string $source, string $callback, string $dest = ''): array {
+    return native("zipfile", $callback, ["source" => $source, "dest" => $dest]);
 }
 
 /**
- * Read relative humidity sensor (%).
- * Callback receives: ['humidity' => float]
+ * Zip a folder recursively.
+ * Callback receives: {success, zipPath, fileCount, size}
  */
-function readHumidity(string $callback): array {
-    return nativeCall("humidity", $callback);
+function zipFolder(string $source, string $callback, string $dest = ''): array {
+    return native("zipfolder", $callback, ["source" => $source, "dest" => $dest]);
 }
 
 /**
- * Read ambient temperature sensor (°C).
- * Callback receives: ['temperature' => float]
+ * Unzip a file.
+ * Callback receives: {success, destPath, files[]}
  */
-function readTemperature(string $callback): array {
-    return nativeCall("temperature", $callback);
+function unzipFile(string $source, string $callback, string $dest = ''): array {
+    return native("unzip", $callback, ["source" => $source, "dest" => $dest]);
+}
+
+// ---- Geocoding ----
+
+/**
+ * Convert address to coordinates.
+ * Callback receives: {lat, lng, address} or {error}
+ */
+function geocode(string $address, string $callback): array {
+    return native("geocode", $callback, ["address" => $address]);
 }
 
 /**
- * Read step counter since last reboot.
- * Callback receives: ['steps' => int]
+ * Convert coordinates to address.
+ * Callback receives: {address, city, country, postalCode} or {error}
  */
-function readStepCounter(string $callback): array {
-    return nativeCall("stepcounter", $callback);
+function reverseGeocode(float $lat, float $lng, string $callback): array {
+    return native("reversegeocode", $callback, ["lat" => $lat, "lng" => $lng]);
 }
 
-// ---- Location ----
+// ---- Camera ----
 
 /**
- * Read GPS/network location.
- * Callback receives: ['lat' => float, 'lng' => float, 'altitude' => float, 'speed' => float, 'bearing' => float]
+ * Take a photo using device camera.
+ * Callback receives: {file, uri} or {error}
  */
-function readLocation(string $callback): array {
-    return nativeCall("location", $callback);
-}
-
-/**
- * Check if location services are enabled.
- * Callback receives: ['enabled' => bool]
- */
-function checkLocationEnabled(string $callback): array {
-    return nativeCall("locationenabled", $callback);
-}
-
-// ---- Battery & Power ----
-
-/**
- * Read battery status.
- * Callback receives: ['level' => int, 'charging' => bool, 'chargeType' => string]
- */
-function readBattery(string $callback): array {
-    return nativeCall("battery", $callback);
-}
-
-// ---- Device Info ----
-
-/**
- * Get device information.
- * Callback receives: ['model' => string, 'osVersion' => int, 'apiLevel' => int,
- *   'deviceId' => string, 'isTablet' => bool, 'language' => string,
- *   'country' => string, 'appName' => string, 'packageName' => string, 'freeSpace' => float]
- */
-function readDeviceInfo(string $callback): array {
-    return nativeCall("deviceinfo", $callback);
+function takePhoto(string $callback): array {
+    return native("takephoto", $callback);
 }
 
 /**
- * Get screen dimensions and density.
- * Callback receives: ['width' => int, 'height' => int, 'density' => float,
- *   'rotation' => int, 'orientation' => string]
+ * Record video using device camera.
+ * @param string $callback PHP callback method
+ * @param int $duration Max duration in seconds (0 = unlimited)
+ * Callback receives: {file, uri, duration} or {error}
  */
-function readScreenInfo(string $callback): array {
-    return nativeCall("screeninfo", $callback);
-}
-
-// ---- Network / Connectivity ----
-
-/**
- * Get WiFi info (SSID, IP, signal).
- * Callback receives: ['ssid' => string, 'ip' => string, 'connected' => bool, 'rssi' => int]
- */
-function readWifiInfo(string $callback): array {
-    return nativeCall("wifi", $callback);
+function recordVideo(string $callback, int $duration = 0): array {
+    return native("recordvideo", $callback, ["duration" => $duration]);
 }
 
 /**
- * Scan for nearby WiFi networks.
- * Callback receives: ['networks' => array]
+ * Pick an image from gallery.
+ * Callback receives: {uri} or {error}
  */
-function scanWifi(string $callback): array {
-    return nativeCall("wifiscan", $callback);
+function pickImage(string $callback): array {
+    return native("pickimage", $callback);
 }
 
 /**
- * Get Bluetooth status and paired devices.
- * Callback receives: ['enabled' => bool, 'paired' => array]
+ * Pick a video from gallery.
+ * Callback receives: {uri} or {error}
  */
-function readBluetoothInfo(string $callback): array {
-    return nativeCall("bluetooth", $callback);
+function pickVideo(string $callback): array {
+    return native("pickvideo", $callback);
+}
+
+// ---- Crypto ----
+
+/**
+ * Generate cryptographically secure random bytes.
+ * Callback receives: {result (base64), length}
+ */
+function randomBytes(int $length, string $callback): array {
+    return native("randombytes", $callback, ["length" => $length]);
 }
 
 /**
- * Discover nearby Bluetooth devices.
- * Callback receives: ['devices' => array]
+ * Encode string to Base64.
+ * Callback receives: {result}
  */
-function discoverBluetooth(string $callback): array {
-    return nativeCall("btdiscover", $callback);
+function base64Encode(string $text, string $callback): array {
+    return native("base64encode", $callback, ["text" => $text]);
 }
 
 /**
- * Get network connectivity info.
- * Callback receives: ['connected' => bool, 'type' => string, 'ip' => string, 'mac' => string]
+ * Decode Base64 string.
+ * Callback receives: {result}
  */
-function readNetworkInfo(string $callback): array {
-    return nativeCall("networkinfo", $callback);
+function base64Decode(string $text, string $callback): array {
+    return native("base64decode", $callback, ["text" => $text]);
 }
 
-// ---- HTTP Requests ----
+// ---- Settings ----
 
 /**
- * Make an HTTP request via DroidScript.
- * Callback receives: ['status' => int, 'response' => string]
+ * Open device settings page.
+ * @param string $setting One of: wifi, bluetooth, location, app, or empty for main settings
+ * @param string $callback PHP callback method
  */
-function httpRequest(string $url, string $callback, string $method = "GET", ?string $body = null, ?string $headers = null): array {
-    return nativeCall("http", $callback, [
-        "url" => $url,
-        "httpMethod" => $method,
-        "body" => $body,
-        "headers" => $headers
-    ]);
-}
-
-function httpGet(string $url, string $callback): array {
-    return httpRequest($url, $callback, "GET");
-}
-
-function httpPost(string $url, string $callback, ?string $body = null): array {
-    return httpRequest($url, $callback, "POST", $body);
+function openSettings(string $setting = '', string $callback = 'handle_settings'): array {
+    return native("opensettings", $callback, ["setting" => $setting]);
 }
 
 /**
- * Download a file from URL.
- * Callback receives: ['file' => string, 'success' => bool]
+ * Keep screen on or allow it to sleep.
+ * Callback receives: {done, keep}
  */
-function downloadFile(string $url, string $destPath, string $callback): array {
-    return nativeCall("download", $callback, [
-        "url" => $url,
-        "dest" => $destPath
-    ]);
+function keepScreenOn(bool $keep, string $callback = 'handle_screenon'): array {
+    return native("keepscreenon", $callback, ["keep" => $keep]);
 }
-
-// ---- Camera & Media ----
-
-/**
- * Take a photo with the device camera.
- * Opens the image chooser with Camera and Internal storage options.
- * Callback receives: ['file' => string] on success, ['error' => 'cancelled'] on cancel
- * Note: The quality parameter is currently ignored.
- */
-function takePhoto(string $callback, int $quality = 80): array {
-    return nativeCall("camera", $callback, ["quality" => (string)$quality]);
-}
-
-/**
- * Play an audio file.
- * Callback receives: ['status' => 'playing', 'file' => string]
- */
-function playAudio(string $file, string $callback): array {
-    return nativeCall("playaudio", $callback, ["file" => $file]);
-}
-
-/**
- * Stop audio playback.
- * Callback receives: ['status' => 'stopped']
- */
-function stopAudio(string $callback = "handle_stopaudio"): array {
-    return nativeCall("stopaudio", $callback);
-}
-
-/**
- * Start recording audio.
- * Callback receives: ['status' => 'recording', 'file' => string]
- */
-function recordAudio(string $file, string $callback): array {
-    return nativeCall("recordaudio", $callback, ["file" => $file]);
-}
-
-/**
- * Stop recording audio.
- * Callback receives: ['status' => 'stopped', 'file' => string]
- */
-function stopRecording(string $callback = "handle_stoprecording"): array {
-    return nativeCall("stoprecording", $callback);
-}
-
-/**
- * Play a system ringtone.
- * @param string $type "notification", "alarm", or "ringtone"
- */
-function playRingtone(string $type = "notification"): array {
-    return nativeCall("ringtone", "handle_ringtone", ["ringtoneType" => $type]);
-}
-
-// ---- Text-to-Speech & Speech Recognition ----
-
-/**
- * Speak text aloud using TTS.
- * Callback receives: ['done' => true]
- */
-function textToSpeech(string $text, string $callback = "handle_tts", float $pitch = 1.0, float $rate = 1.0): array {
-    return nativeCall("speech", $callback, [
-        "text" => $text,
-        "pitch" => $pitch,
-        "rate" => $rate
-    ]);
-}
-
-/**
- * Start speech recognition (speech to text).
- * Callback receives: ['text' => string]
- */
-function speechRecognition(string $callback): array {
-    return nativeCall("speechrecognition", $callback);
-}
-
-// ---- Vibration ----
-
-/**
- * Vibrate the device.
- * @param string $pattern Comma-separated vibration pattern in ms: "on,off,on,off..."
- */
-function vibrate(string $pattern = "100,50,100"): array {
-    return nativeCall("vibrate", "handle_vibrate", ["pattern" => $pattern]);
-}
-
-// ---- Volume & Audio ----
-
-/**
- * Get current volume level.
- * Callback receives: ['volume' => int, 'max' => int, 'stream' => string]
- */
-function getVolume(string $callback, string $stream = "music"): array {
-    return nativeCall("getvolume", $callback, ["stream" => $stream]);
-}
-
-/**
- * Set volume level (0-15 typically).
- */
-function setVolume(int $level, string $stream = "music"): array {
-    return nativeCall("setvolume", "handle_setvolume", [
-        "level" => $level,
-        "stream" => $stream
-    ]);
-}
-
-/**
- * Set ringer mode.
- * @param string $mode "normal", "vibrate", or "silent"
- */
-function setRingerMode(string $mode): array {
-    return nativeCall("setringermode", "handle_setringermode", ["mode" => $mode]);
-}
-
-// ---- Screen ----
 
 /**
  * Set screen brightness (0.0 to 1.0).
+ * Callback receives: {done, level}
  */
-function setScreenBrightness(float $level): array {
-    return nativeCall("setbrightness", "handle_setbrightness", ["level" => $level]);
-}
-
-/**
- * Prevent/allow the screen from locking.
- */
-function preventScreenLock(bool $prevent = true): array {
-    return nativeCall("preventscreenlock", "handle_preventscreenlock", ["prevent" => $prevent]);
-}
-
-// ---- Clipboard ----
-
-/**
- * Copy text to clipboard.
- */
-function setClipboard(string $text): array {
-    return nativeCall("clipboard_set", "handle_clipboard", ["text" => $text]);
-}
-
-/**
- * Get text from clipboard.
- * Callback receives: ['text' => string]
- */
-function getClipboard(string $callback): array {
-    return nativeCall("clipboard_get", $callback);
-}
-
-// ---- SMS & Phone ----
-
-/**
- * Send an SMS message.
- * Callback receives: ['sent' => bool, 'phone' => string]
- */
-function sendSms(string $phone, string $message, string $callback = "handle_sms"): array {
-    return nativeCall("sms", $callback, [
-        "phone" => $phone,
-        "message" => $message
-    ]);
-}
-
-/**
- * Make a phone call.
- */
-function phoneCall(string $number): array {
-    return nativeCall("phonecall", "handle_phonecall", ["number" => $number]);
+function setScreenBrightness(float $level, string $callback = 'handle_brightness'): array {
+    return native("setbrightness", $callback, ["level" => $level]);
 }
 
 // ---- Notifications ----
 
 /**
  * Show a system notification.
- * Callback receives: ['shown' => true]
+ * Callback receives: {shown, id}
  */
-function showNotification(string $title, string $body, string $callback = "handle_notification"): array {
-    return nativeCall("notification", $callback, [
+function showNotification(string $title, string $message, string $callback = 'handle_notification', int $id = 0): array {
+    return native("notification", $callback, [
         "title" => $title,
-        "body" => $body
-    ]);
-}
-
-// ---- Barcode / QR Code ----
-
-/**
- * Scan a barcode or QR code using the camera.
- * Callback receives: ['code' => string]
- */
-function scanQrCode(string $callback): array {
-    return nativeCall("barcode", $callback);
-}
-
-// ---- Encryption / Hashing ----
-
-/**
- * Encrypt text with a password (AES).
- * Callback receives: ['result' => string]
- */
-function encryptText(string $text, string $password, string $callback): array {
-    return nativeCall("encrypt", $callback, [
-        "text" => $text,
-        "password" => $password
+        "message" => $message,
+        "id" => $id ?: time()
     ]);
 }
 
 /**
- * Decrypt text with a password (AES).
- * Callback receives: ['result' => string]
+ * Cancel a notification by ID.
+ * Callback receives: {done}
  */
-function decryptText(string $text, string $password, string $callback): array {
-    return nativeCall("decrypt", $callback, [
-        "text" => $text,
-        "password" => $password
-    ]);
+function cancelNotification(int $id, string $callback = 'handle_cancel_notification'): array {
+    return native("cancelnotification", $callback, ["id" => $id]);
 }
 
+// ---- Share ----
+
 /**
- * Hash text with the given algorithm.
- * @param string $algorithm "MD5", "SHA1", "SHA256", "SHA512"
- * Callback receives: ['result' => string]
+ * Share text content via native share sheet.
+ * Callback receives: {shared}
  */
-function hashText(string $text, string $algorithm, string $callback): array {
-    return nativeCall("hash", $callback, [
-        "text" => $text,
-        "algorithm" => $algorithm
-    ]);
+function shareTextNative(string $text, string $callback = 'handle_share', string $subject = ''): array {
+    return native("sharetext", $callback, ["text" => $text, "subject" => $subject]);
 }
 
-// ---- Flashlight ----
+// ---- Power ----
 
 /**
- * Toggle the camera flashlight on/off.
+ * Check if device is in power save mode.
+ * Callback receives: {enabled}
  */
-function flashlight(bool $on = true): array {
-    return nativeCall("flashlight", "handle_flashlight", ["on" => $on]);
+function isPowerSaveMode(string $callback): array {
+    return native("powersavemode", $callback);
 }
 
-// ---- Email ----
+// ---- Last Known Location ----
 
 /**
- * Send an email (opens email intent).
+ * Get last known location (faster than requesting new location).
+ * Callback receives same as readLocation() or {error}
  */
-function sendEmail(string $recipient, string $subject, string $body, string $callback = "handle_email", ?string $attachment = null): array {
-    return nativeCall("sendemail", $callback, [
-        "recipient" => $recipient,
-        "subject" => $subject,
-        "body" => $body,
-        "attachment" => $attachment
-    ]);
-}
-
-// ---- File System (via DroidScript) ----
-
-/**
- * Read a file from device storage.
- * Callback receives: ['content' => string, 'path' => string]
- */
-function readNativeFile(string $path, string $callback): array {
-    return nativeCall("readfile", $callback, ["path" => $path]);
-}
-
-/**
- * Write content to a file on device storage.
- * Callback receives: ['success' => bool, 'path' => string]
- */
-function writeNativeFile(string $path, string $content, string $callback = "handle_writefile"): array {
-    return nativeCall("writefile", $callback, [
-        "path" => $path,
-        "content" => $content
-    ]);
-}
-
-/**
- * List files in a device folder.
- * Callback receives: ['files' => array, 'path' => string]
- */
-function listNativeFolder(string $path, string $callback): array {
-    return nativeCall("listfolder", $callback, ["path" => $path]);
-}
-
-/**
- * Check if a file exists on device storage.
- * Callback receives: ['exists' => bool, 'path' => string]
- */
-function nativeFileExists(string $path, string $callback): array {
-    return nativeCall("fileexists", $callback, ["path" => $path]);
-}
-
-// ---- Intent / App Launch ----
-
-/**
- * Open another app by package name.
- */
-function openApp(string $packageName, string $callback = "handle_openapp"): array {
-    return nativeCall("openapp", $callback, ["package" => $packageName]);
-}
-
-/**
- * Send an Android intent.
- */
-function sendIntent(string $action, string $callback, ?string $type = null, ?string $uri = null, ?string $extras = null): array {
-    return nativeCall("intent", $callback, [
-        "intentAction" => $action,
-        "type" => $type,
-        "uri" => $uri,
-        "extras" => $extras
-    ]);
+function getLastLocation(string $callback): array {
+    return native("lastlocation", $callback);
 }
 ?>

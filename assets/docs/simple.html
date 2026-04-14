@@ -101,7 +101,18 @@
                 </ul>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-heading">Sensors</div>
+                <div class="sidebar-heading">Native (Pure Java)</div>
+                <ul class="sidebar-items">
+                    <li><a href="#native-fn">native()</a></li>
+                    <li><a href="#native-sensors">Sensors</a></li>
+                    <li><a href="#native-location">Location</a></li>
+                    <li><a href="#native-media">Camera/Media</a></li>
+                    <li><a href="#native-files">Files/Zip</a></li>
+                    <li><a href="#native-crypto">Crypto</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-heading">Sensors (Legacy)</div>
                 <ul class="sidebar-items">
                     <li><a href="#gps">gps()</a></li>
                     <li><a href="#battery">battery()</a></li>
@@ -162,7 +173,7 @@
             <div class="container">
                 <h1>simple.php</h1>
                 <p class="subtitle">Beginner-friendly helper functions for quick Android app development.</p>
-                <p><code class="inline-code">require_once 'simple.php';</code> — 225+ functions covering UI, sensors, HTTP, media, hardware, and more.</p>
+                <p><code class="inline-code">require_once 'simple.php';</code> — 225+ functions covering UI, 75 native Java handlers, HTTP, media, hardware, and more.</p>
 
                 <!-- ==================== PAGE BUILDERS ==================== -->
                 <section id="page-builders">
@@ -618,10 +629,149 @@
                     </div>
                 </section>
 
-                <!-- ==================== SENSORS ==================== -->
+                <!-- ==================== NATIVE (PURE JAVA) ==================== -->
+                <section id="native">
+                    <h2>Native API (Pure Java)</h2>
+                    <p class="section-desc">Direct access to 75 native Android handlers via pure Java — no DroidScript JavaScript bridge needed. Faster and recommended for all new code.</p>
+
+                    <div class="tip" style="margin: 15px 0;">
+                        <strong>Recommended:</strong> Use <code>native($type, $callback, $params)</code> instead of the legacy sensor functions below.
+                    </div>
+
+                    <h3 id="native-fn">native()</h3>
+                    <div class="method-sig">
+                        <span class="return-type">array</span> <span class="method-name">native</span>(<span class="keyword">string</span> <span class="param">$type</span>, <span class="keyword">string</span> <span class="param">$callback</span>, <span class="keyword">array</span> <span class="param">$params</span> = []) <span class="tag tag-async">async</span>
+                    </div>
+                    <p>Call any of the 75 native Java handlers. Results are sent to your callback method.</p>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-title">native() Examples</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><code><span class="comment">// Get battery (no params)</span>
+<span class="keyword">return</span> <span class="function">native</span>(<span class="string">"battery"</span>, <span class="string">"onBattery"</span>);
+
+<span class="comment">// HTTP request (with params)</span>
+<span class="keyword">return</span> <span class="function">native</span>(<span class="string">"http"</span>, <span class="string">"onResponse"</span>, [
+    <span class="string">"url"</span> => <span class="string">"https://api.example.com/data"</span>,
+    <span class="string">"method"</span> => <span class="string">"GET"</span>
+]);
+
+<span class="comment">// Zip a folder</span>
+<span class="keyword">return</span> <span class="function">native</span>(<span class="string">"zipfolder"</span>, <span class="string">"onZipped"</span>, [
+    <span class="string">"src"</span> => <span class="string">"/sdcard/MyFolder"</span>,
+    <span class="string">"dest"</span> => <span class="string">"/sdcard/backup.zip"</span>
+]);
+
+<span class="comment">// Callback handler</span>
+<span class="keyword">function</span> <span class="function">onBattery</span>(<span class="variable">$p</span>) {
+    <span class="keyword">return</span> <span class="function">toast</span>(<span class="string">"Battery: "</span> . <span class="variable">$p</span>[<span class="string">'level'</span>] . <span class="string">"%"</span>);
+}</code></pre>
+                    </div>
+
+                    <h3 id="native-sensors">Sensor Handlers</h3>
+                    <table class="fn-table">
+                        <tr><th>Type</th><th>Callback Data</th></tr>
+                        <tr><td><code>accelerometer</code></td><td>x, y, z (m/s²)</td></tr>
+                        <tr><td><code>gyroscope</code></td><td>x, y, z (rad/s)</td></tr>
+                        <tr><td><code>gravity</code></td><td>x, y, z</td></tr>
+                        <tr><td><code>magneticfield</code></td><td>x, y, z (μT)</td></tr>
+                        <tr><td><code>compass</code></td><td>azimuth, pitch, roll</td></tr>
+                        <tr><td><code>light</code></td><td>lux</td></tr>
+                        <tr><td><code>proximity</code></td><td>distance, near (bool)</td></tr>
+                        <tr><td><code>pressure</code></td><td>hPa</td></tr>
+                        <tr><td><code>humidity</code></td><td>percent</td></tr>
+                        <tr><td><code>temperature</code></td><td>celsius</td></tr>
+                        <tr><td><code>stepcounter</code></td><td>steps</td></tr>
+                        <tr><td><code>battery</code></td><td>level, charging, status, health</td></tr>
+                    </table>
+
+                    <h3 id="native-location">Location Handlers</h3>
+                    <table class="fn-table">
+                        <tr><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>location</code> / <code>gps</code></td><td>Current GPS coordinates</td></tr>
+                        <tr><td><code>lastlocation</code></td><td>Last known (cached) location</td></tr>
+                        <tr><td><code>locationenabled</code></td><td>Check if GPS enabled</td></tr>
+                        <tr><td><code>geocode</code> <small>(params: address)</small></td><td>Address to coordinates</td></tr>
+                        <tr><td><code>reversegeocode</code> <small>(params: lat, lng)</small></td><td>Coordinates to address</td></tr>
+                    </table>
+
+                    <h3 id="native-media">Camera &amp; Audio Handlers</h3>
+                    <table class="fn-table">
+                        <tr><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>takephoto</code></td><td>Capture photo via camera</td></tr>
+                        <tr><td><code>recordvideo</code></td><td>Record video</td></tr>
+                        <tr><td><code>pickimage</code></td><td>Pick image from gallery</td></tr>
+                        <tr><td><code>pickvideo</code></td><td>Pick video from gallery</td></tr>
+                        <tr><td><code>playaudio</code> <small>(params: file)</small></td><td>Play audio file</td></tr>
+                        <tr><td><code>pauseaudio</code> / <code>stopaudio</code></td><td>Control playback</td></tr>
+                        <tr><td><code>recordaudio</code> <small>(params: file)</small></td><td>Start recording</td></tr>
+                        <tr><td><code>stoprecording</code></td><td>Stop recording</td></tr>
+                    </table>
+
+                    <h3 id="native-files">File System &amp; Zip</h3>
+                    <table class="fn-table">
+                        <tr><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>readfile</code> <small>(params: path)</small></td><td>Read file content</td></tr>
+                        <tr><td><code>writefile</code> <small>(params: path, content)</small></td><td>Write file</td></tr>
+                        <tr><td><code>deletefile</code> <small>(params: path)</small></td><td>Delete file</td></tr>
+                        <tr><td><code>fileexists</code> <small>(params: path)</small></td><td>Check file exists</td></tr>
+                        <tr><td><code>listdir</code> <small>(params: path)</small></td><td>List directory</td></tr>
+                        <tr><td><code>mkdir</code> <small>(params: path)</small></td><td>Create directory</td></tr>
+                        <tr><td><code>zipfile</code> <small>(params: src, dest)</small></td><td>Zip a file</td></tr>
+                        <tr><td><code>zipfolder</code> <small>(params: src, dest)</small></td><td>Zip a folder</td></tr>
+                        <tr><td><code>unzip</code> <small>(params: src, dest)</small></td><td>Extract zip</td></tr>
+                    </table>
+
+                    <h3 id="native-crypto">Crypto &amp; Encoding</h3>
+                    <table class="fn-table">
+                        <tr><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>hash</code> <small>(params: text, algorithm)</small></td><td>Hash (MD5, SHA1, SHA256, SHA512)</td></tr>
+                        <tr><td><code>encrypt</code> <small>(params: text, password)</small></td><td>AES encrypt</td></tr>
+                        <tr><td><code>decrypt</code> <small>(params: text, password)</small></td><td>AES decrypt</td></tr>
+                        <tr><td><code>base64encode</code> <small>(params: text)</small></td><td>Base64 encode</td></tr>
+                        <tr><td><code>base64decode</code> <small>(params: text)</small></td><td>Base64 decode</td></tr>
+                        <tr><td><code>randombytes</code> <small>(params: count)</small></td><td>Generate random bytes</td></tr>
+                    </table>
+
+                    <h3>Other Native Handlers</h3>
+                    <table class="fn-table">
+                        <tr><th>Category</th><th>Handlers</th></tr>
+                        <tr><td>Network</td><td><code>wifi</code>, <code>wifiscan</code>, <code>bluetooth</code>, <code>networkinfo</code>, <code>http</code>, <code>download</code></td></tr>
+                        <tr><td>System</td><td><code>clipboard_get</code>, <code>clipboard_set</code>, <code>vibrate</code>, <code>flashlight</code>, <code>notification</code>, <code>cancelnotification</code>, <code>keepscreenon</code>, <code>setbrightness</code></td></tr>
+                        <tr><td>Communication</td><td><code>sendsms</code>, <code>phonecall</code>, <code>opendial</code>, <code>sendemail</code></td></tr>
+                        <tr><td>Intents</td><td><code>openapp</code>, <code>openurl</code>, <code>opensettings</code>, <code>share</code>, <code>sendintent</code></td></tr>
+                        <tr><td>Audio</td><td><code>getvolume</code>, <code>setvolume</code>, <code>setringermode</code></td></tr>
+                        <tr><td>Power</td><td><code>powersavemode</code></td></tr>
+                    </table>
+
+                    <h3>Convenience Wrappers</h3>
+                    <p>Pre-built functions that call <code>native()</code> with the right parameters:</p>
+                    <table class="fn-table">
+                        <tr><th>Function</th><th>Description</th></tr>
+                        <tr><td><code>httpRequest($url, $cb, $method, $body?, $headers?)</code></td><td>Full HTTP request</td></tr>
+                        <tr><td><code>downloadFile($url, $dest, $cb)</code></td><td>Download file</td></tr>
+                        <tr><td><code>zipFile($src, $dest, $cb)</code></td><td>Zip a file</td></tr>
+                        <tr><td><code>zipFolder($src, $dest, $cb)</code></td><td>Zip a folder</td></tr>
+                        <tr><td><code>unzipFile($src, $dest, $cb)</code></td><td>Extract zip</td></tr>
+                        <tr><td><code>geocode($address, $cb)</code></td><td>Address → coordinates</td></tr>
+                        <tr><td><code>reverseGeocode($lat, $lng, $cb)</code></td><td>Coordinates → address</td></tr>
+                        <tr><td><code>takePhoto($cb)</code> / <code>recordVideo($cb)</code></td><td>Camera capture</td></tr>
+                        <tr><td><code>pickImage($cb)</code> / <code>pickVideo($cb)</code></td><td>Gallery picker</td></tr>
+                        <tr><td><code>randomBytes($count, $cb)</code></td><td>Secure random</td></tr>
+                        <tr><td><code>base64Encode/Decode($text, $cb)</code></td><td>Base64 conversion</td></tr>
+                        <tr><td><code>openSettings($cb)</code></td><td>Open device settings</td></tr>
+                        <tr><td><code>keepScreenOn($on, $cb)</code></td><td>Prevent screen sleep</td></tr>
+                        <tr><td><code>setScreenBrightness($level, $cb)</code></td><td>Set brightness</td></tr>
+                        <tr><td><code>showNotification($title, $msg, $cb)</code></td><td>Show notification</td></tr>
+                        <tr><td><code>shareTextNative($text, $cb)</code></td><td>Share via native API</td></tr>
+                        <tr><td><code>isPowerSaveMode($cb)</code></td><td>Check power save</td></tr>
+                        <tr><td><code>getLastLocation($cb)</code></td><td>Cached GPS</td></tr>
+                    </table>
+                </section>
+
+                <!-- ==================== SENSORS (LEGACY) ==================== -->
                 <section id="sensors">
-                    <h2>Sensors</h2>
-                    <p class="section-desc">All sensor functions are asynchronous — they trigger a DroidScript sensor read and call your PHP callback with the results.</p>
+                    <h2>Sensors (Legacy DroidScript)</h2>
+                    <p class="section-desc">Legacy sensor functions that route through DroidScript JavaScript bridge. Use <code>native()</code> above for better performance.</p>
 
                     <h3 id="gps">gps()</h3>
                     <div class="method-sig">

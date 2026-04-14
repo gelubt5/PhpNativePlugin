@@ -7,7 +7,7 @@
  * 
  * Architecture Flow:
  * 1. User action → Java calls PHP method
- * 2. PHP returns UI JSON or DS_SENSOR_CALL action
+ * 2. PHP returns UI JSON or nativeCall() action
  * 3. For sensors: Java injects JS into DroidScript
  * 4. Sensor result → Java → PHP → UI Update
  */
@@ -97,51 +97,35 @@ class MyApp {
 
     // =========================================================================
     // Sensor Request Methods
-    // These return DS_SENSOR_CALL which tells Java to inject JS into DroidScript
+    // Use nativeCall() — all DroidScript logic lives in the .inc JS file
     // =========================================================================
 
     /**
      * Request GPS location through DroidScript
      */
     public function requestLocation($params) {
-        return [
-            "action" => "DS_SENSOR_CALL",
-            "sensor" => "location",
-            "callback" => "handle_gps"
-        ];
+        return nativeCall("location", "handle_gps");
     }
 
     /**
      * Request battery status through DroidScript
      */
     public function requestBattery($params) {
-        return [
-            "action" => "DS_SENSOR_CALL",
-            "sensor" => "battery",
-            "callback" => "handle_battery"
-        ];
+        return nativeCall("battery", "handle_battery");
     }
 
     /**
      * Request barcode scan through DroidScript
      */
     public function requestBarcode($params) {
-        return [
-            "action" => "DS_SENSOR_CALL",
-            "sensor" => "barcode",
-            "callback" => "handle_barcode"
-        ];
+        return nativeCall("barcode", "handle_barcode");
     }
 
     /**
      * Request compass/orientation through DroidScript
      */
     public function requestCompass($params) {
-        return [
-            "action" => "DS_SENSOR_CALL",
-            "sensor" => "compass",
-            "callback" => "handle_compass"
-        ];
+        return nativeCall("compass", "handle_compass");
     }
 
     // =========================================================================

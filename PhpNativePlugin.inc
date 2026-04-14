@@ -42,6 +42,65 @@ function PhpNativePlugin(options) {
     this._onError = null;
     
     // =========================================================================
+    // Native Call Handler Registry
+    // All sensor/native DroidScript logic lives here in JS.
+    // PHP only receives results via callbacks.
+    // Users can register custom handlers with RegisterNativeHandler().
+    // =========================================================================
+    
+    this._nativeHandlers = {};
+    
+    /**
+     * Execute a native call by type. Looks up the handler in the registry
+     * and executes it with the given params. Results are sent back to PHP
+     * via OnSensorResult().
+     * @param {string} type The native call type (e.g., "location", "battery", "http")
+     * @param {string} paramsJson JSON string of parameters
+     */
+    this.NativeCall = function(type, paramsJson) {
+        var handler = self._nativeHandlers[type.toLowerCase()];
+        if (handler) {
+            var params = {};
+            try { if (paramsJson) params = JSON.parse(paramsJson); } catch(e) {}
+            try {
+                handler(params);
+            } catch(e) {
+                self.OnSensorResult(type, JSON.stringify({error: e.message}));
+            }
+        } else {
+            self.OnSensorResult(type, JSON.stringify({error: "Unknown native call type: " + type}));
+        }
+    };
+    
+    /**
+     * Register a custom native call handler.
+     * Use this to extend the plugin with your own sensor/native integrations.
+     * 
+     * The handler function receives a params object and should call
+     * self.OnSensorResult(type, JSON.stringify(data)) when done.
+     * 
+     * @param {string} type Unique name for the native call
+     * @param {function} handler Function(params) that performs the native operation
+     * 
+     * @example
+     * // Register a custom "myGps" handler
+     * php.RegisterNativeHandler("myGps", function(params) {
+     *     var loc = app.CreateLocator('GPS');
+     *     loc.SetOnChange(function(data) {
+     *         _phpPlugin.OnSensorResult('myGps', JSON.stringify({lat: data.latitude}));
+     *         loc.Stop();
+     *     });
+     *     loc.Start();
+     * });
+     * 
+     * // Then from PHP: return nativeCall("myGps", [], "onMyGps");
+     */
+    this.RegisterNativeHandler = function(type, handler) {
+        self._nativeHandlers[type.toLowerCase()] = handler;
+    };
+    
+    
+    // =========================================================================
     // Core API
     // =========================================================================
     
@@ -315,9 +374,10 @@ function PhpNativePlugin(options) {
     }
     
     // =========================================================================
-    // Sensor Bridge (The "Puppeteer" Mechanism)
-    // These methods request sensor data through DroidScript. The results
-    // are automatically forwarded to PHP for processing.
+    // Sensor / Native Call Bridge
+    // Convenience methods that request sensor data through the native handler
+    // registry. Results are automatically forwarded to PHP for processing.
+    // For custom handlers, use RegisterNativeHandler() and nativeCall() from PHP.
     // =========================================================================
     
     /**
@@ -415,8 +475,6 @@ function PhpNativePlugin(options) {
      * @param {string} text Text to speak
      */
     this.Speak = function(text) {
-        // We need to call PHP first to let it decide what to say
-        // or inject directly
         this.plg.Send("InjectSensorCall", "speech", "handle_speech");
     }
     

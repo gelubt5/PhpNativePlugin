@@ -1,18 +1,28 @@
 # PhpNativePlugin for DroidScript
 
-A sophisticated hybrid architecture plugin that enables **PHP 8** to act as the application brain while **Java** renders native Android UI and **DroidScript** provides hardware/sensor access.
+A sophisticated hybrid architecture plugin that enables **PHP 8** to act as the application brain while **Java** renders native Android UI **and handles all native functionality directly**.
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│     PHP 8       │◄───►│   Java Plugin   │◄───►│   DroidScript   │
-│   "Brain"       │     │   "Executor"    │     │   "Hardware"    │
-│                 │     │                 │     │                 │
-│ Business Logic  │     │ Native UI       │     │ Sensors (GPS,   │
-│ Data Processing │     │ Reflection      │     │  Camera, etc.)  │
-│ UI Decisions    │     │ View Overlays   │     │ Permissions     │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌─────────────────────────────────────────┐
+│     PHP 8       │◄───►│           Java Plugin                   │
+│   "Brain"       │     │         "Full Native"                   │
+│                 │     │                                         │
+│ Business Logic  │     │ Native UI Rendering + All Native APIs:  │
+│ Data Processing │     │ • Sensors (75 handlers)                 │
+│ UI Decisions    │     │ • Camera, Audio, Media                  │
+│                 │     │ • SMS, Phone, Notifications             │
+│                 │     │ • WiFi, Bluetooth, Network              │
+│                 │     │ • Clipboard, Flashlight, Vibrate        │
+│                 │     │ • Files, Zip, Crypto, HTTP              │
+└─────────────────┘     └─────────────────────────────────────────┘
+                                     │
+                                     ▼ (legacy only)
+                        ┌─────────────────────────┐
+                        │  DroidScript (optional) │
+                        │  Custom JS handlers     │
+                        └─────────────────────────┘
 ```
 
 ## Files
@@ -98,7 +108,17 @@ function OnError(msg) {
 }
 ```
 
-### Sensor Access (The "Puppeteer" Mechanism)
+### Sensor Access (Two Methods)
+
+**Method 1: Pure Java via `native()` (Recommended)**
+```php
+// Uses pure Java handlers - faster, no DroidScript
+return native("battery", "onBattery");
+return native("http", "onResponse", ["url" => "https://api.example.com"]);
+return native("takephoto", "onPhoto");
+```
+
+**Method 2: DroidScript via `nativeCall()` (Legacy)**
 ```javascript
 // Request GPS - result goes to PHP handle_gps()
 php.RequestLocation("handle_gps");
@@ -118,11 +138,19 @@ class MyApp {
             (new TextView())->text("Hello from PHP!"),
             (new Button())
                 ->text("Get Location")
-                ->action("requestLocation")
+                ->action("requestLocation"),
+            (new Button())
+                ->text("Get Battery")
+                ->action("requestBattery"),
         ]))->padding(40);
     }
 
-    // Request sensor through DroidScript
+    // METHOD 1: Pure Java native call (recommended)
+    public function requestBattery($params) {
+        return native("battery", "handle_battery");
+    }
+
+    // METHOD 2: DroidScript sensor call (legacy)
     public function requestLocation($params) {
         return [
             "action" => "DS_SENSOR_CALL",
@@ -131,7 +159,22 @@ class MyApp {
         ];
     }
 
-    // Handle sensor result
+    // Handle battery result (from Java)
+    public function handle_battery($params) {
+        $level = $params['level'];
+        $charging = $params['charging'] ? "Yes" : "No";
+        
+        return [
+            "action" => "update",
+            "target" => "status",
+            "attributes" => [
+                "text" => "Battery: $level%, Charging: $charging",
+                "textColor" => "#4CAF50"
+            ]
+        ];
+    }
+
+    // Handle location result (from DroidScript)
     public function handle_gps($params) {
         $lat = $params['lat'];
         $lng = $params['lng'];
@@ -153,11 +196,29 @@ class MyApp {
 1. **Initialization**: DroidScript loads plugin → Java extracts PHP binary
 2. **First Render**: Java calls PHP `index()` → PHP returns UI JSON → Java renders native Views
 3. **User Interaction**: Button click → Java calls PHP method → PHP returns action
-4. **Sensor Request**: PHP returns `DS_SENSOR_CALL` → Java injects JS into DroidScript
-5. **Sensor Callback**: DroidScript gets data → Java forwards to PHP → PHP processes
+4. **Native Request (Java)**: PHP returns `NATIVE_CALL` → Java executes directly in Java → Result sent to PHP callback
+5. **Sensor Request (Legacy)**: PHP returns `DS_SENSOR_CALL` → Java injects JS into DroidScript → Result forwarded to PHP
 6. **UI Update**: PHP returns update JSON → Java modifies native views
 
-## Available Sensors
+## Available Native Handlers (75 total)
+
+### Pure Java Handlers (via `native()`)
+
+| Category | Handlers |
+|----------|----------|
+| **Sensors** | `accelerometer`, `gyroscope`, `gravity`, `magneticfield`, `compass`, `light`, `proximity`, `pressure`, `humidity`, `temperature`, `stepcounter` |
+| **Location** | `location`, `gps`, `lastlocation`, `locationenabled`, `geocode`, `reversegeocode` |
+| **Battery** | `battery`, `powersavemode` |
+| **Camera/Media** | `takephoto`, `recordvideo`, `pickimage`, `pickvideo` |
+| **Audio** | `playaudio`, `pauseaudio`, `stopaudio`, `recordaudio`, `stoprecording`, `getvolume`, `setvolume`, `setringermode` |
+| **Communication** | `sendsms`, `phonecall`, `opendial`, `sendemail` |
+| **Network** | `wifi`, `wifiscan`, `bluetooth`, `networkinfo`, `http`, `download` |
+| **System** | `clipboard_get`, `clipboard_set`, `vibrate`, `flashlight`, `notification`, `cancelnotification`, `keepscreenon`, `setbrightness` |
+| **File System** | `readfile`, `writefile`, `deletefile`, `fileexists`, `listdir`, `mkdir`, `zipfile`, `zipfolder`, `unzip` |
+| **Intents** | `openapp`, `openurl`, `opensettings`, `share`, `sendintent` |
+| **Crypto** | `hash`, `encrypt`, `decrypt`, `base64encode`, `base64decode`, `randombytes` |
+
+### DroidScript Sensors (Legacy via `nativeCall()`)
 
 | Method | Sensor | PHP Data |
 |--------|--------|----------|
@@ -175,9 +236,11 @@ class MyApp {
 
 - ✅ Edit PHP to add features - no APK recompilation
 - ✅ Native Android UI performance (not WebView)
-- ✅ Full access to DroidScript sensor APIs
+- ✅ **75 pure Java native handlers** - no JavaScript bridge needed
 - ✅ PHP 8 OOP for business logic
-- ✅ Automatic JavaScript injection for hardware
+- ✅ Full sensor, camera, audio, SMS, network access
+- ✅ File operations, zip/unzip, encryption
+- ✅ Legacy DroidScript support for custom handlers
 
 ## License
 

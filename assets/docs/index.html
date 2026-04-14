@@ -105,7 +105,7 @@
 <span class="t-dim">└───────┬─────────┘</span>
         <span class="t-dim">│</span> JSON over stdin/stdout
 <span class="t-dim">┌───────▼─────────┐</span>
-<span class="t-dim">│</span> <span class="t-cls">PhpNativePlugin</span> <span class="t-dim">│</span>   Java ↔ DroidScript bridge
+<span class="t-dim">│</span> <span class="t-cls">PhpNativePlugin</span> <span class="t-dim">│</span>   Java plugin with 75 native handlers
 <span class="t-dim">└───────┬─────────┘</span>
         <span class="t-dim">│</span> renders native Android Views
 <span class="t-dim">┌───────▼─────────┐</span>
@@ -121,6 +121,7 @@
                         <li><strong>Render</strong> — The plugin converts the tree into native Android views on the UI thread.</li>
                         <li><strong>Events</strong> — Button clicks call PHP methods (e.g., <code class="inline-code">onTap($params)</code>) with event data.</li>
                         <li><strong>Actions</strong> — Event handlers return action arrays (toast, updateView, animate…) that the plugin executes.</li>
+                        <li><strong>Native</strong> — Use <code class="inline-code">native($type, $callback)</code> for pure Java sensor/hardware access (75 handlers).</li>
                         <li><strong>State</strong> — Read view state synchronously with <code class="inline-code">getViewProperty()</code> or <code class="inline-code">_getText()</code>.</li>
                     </ol>
                 </section>
@@ -148,7 +149,7 @@
                         <a href="ui_core.html" class="card-link">
                             <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:20px;">
                                 <h3 style="margin:0 0 6px 0;color:var(--accent);">ui_core.php</h3>
-                                <p style="margin:0;color:var(--text-muted);font-size:0.88rem;">OOP fluent API — 30+ component classes, action helpers, layouts, navigation, lists, and full native bridge.</p>
+                                <p style="margin:0;color:var(--text-muted);font-size:0.88rem;">OOP fluent API — 30+ component classes, 75 native handlers, layouts, navigation, lists.</p>
                             </div>
                         </a>
                     </div>
