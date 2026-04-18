@@ -42,28 +42,29 @@ require_once 'ui_core.php';
  *       button("Start", "onStart")
  *   ]);
  */
-function page(string $title, array $content, array $options = []) {
+function page(string $title, array $content, array $options = [])
+{
     $padding = $options['padding'] ?? 30;
     $titleColor = $options['titleColor'] ?? '#4ec9b0';
     $titleSize = $options['titleSize'] ?? 24;
-    
+
     $elements = [
         (new TextView())
-            ->text($title)
-            ->textSize($titleSize)
-            ->textColor($titleColor)
-            ->gravity("center")
-            ->padding(10),
+        ->text($title)
+        ->textSize($titleSize)
+        ->textColor($titleColor)
+        ->gravity("center")
+        ->padding(10),
     ];
-    
+
     // Add separator
     $elements[] = spacer(10);
-    
+
     // Add content
     foreach ($content as $item) {
         $elements[] = $item;
     }
-    
+
     return (new VerticalLayout($elements))
         ->padding($padding)
         ->gravity("center");
@@ -76,19 +77,20 @@ function page(string $title, array $content, array $options = []) {
  * @param array $content Array of UI elements
  * @return VerticalLayout
  */
-function card(string $title, array $content) {
+function card(string $title, array $content)
+{
     $elements = [
         (new TextView())
-            ->text($title)
-            ->textSize(16)
-            ->textColor('#888888')
-            ->padding(5),
+        ->text($title)
+        ->textSize(16)
+        ->textColor('#888888')
+        ->padding(5),
     ];
-    
+
     foreach ($content as $item) {
         $elements[] = $item;
     }
-    
+
     return (new VerticalLayout($elements))
         ->padding(15)
         ->backgroundColor('#1e1e1e')
@@ -111,16 +113,23 @@ function card(string $title, array $content) {
  *   label("Hello World")
  *   label("Big Title", ['size' => 32, 'bold' => true])
  */
-function label(string $text, array $style = []) {
+function label(string $text, array $style = [])
+{
     $tv = (new TextView())->text($text);
-    
-    if (isset($style['size'])) $tv->textSize($style['size']);
-    if (isset($style['color'])) $tv->textColor($style['color']);
-    if (isset($style['bold'])) $tv->textStyle("bold");
-    if (isset($style['center'])) $tv->gravity("center");
-    if (isset($style['id'])) $tv->id($style['id']);
-    if (isset($style['padding'])) $tv->padding($style['padding']);
-    
+
+    if (isset($style['size']))
+        $tv->textSize($style['size']);
+    if (isset($style['color']))
+        $tv->textColor($style['color']);
+    if (isset($style['bold']))
+        $tv->textStyle("bold");
+    if (isset($style['center']))
+        $tv->gravity("center");
+    if (isset($style['id']))
+        $tv->id($style['id']);
+    if (isset($style['padding']))
+        $tv->padding($style['padding']);
+
     return $tv;
 }
 
@@ -136,16 +145,20 @@ function label(string $text, array $style = []) {
  *   button("Save", "onSave")
  *   button("Delete", "onDelete", ['color' => '#f44336'])
  */
-function button(string $text, string $action, array $style = []) {
+function button(string $text, string $action, array $style = [])
+{
     $btn = (new Button())
         ->text($text)
         ->action($action)
         ->textAllCaps(false);
-    
-    if (isset($style['color'])) $btn->backgroundColor($style['color']);
-    if (isset($style['textColor'])) $btn->textColor($style['textColor']);
-    if (isset($style['id'])) $btn->id($style['id']);
-    
+
+    if (isset($style['color']))
+        $btn->backgroundColor($style['color']);
+    if (isset($style['textColor']))
+        $btn->textColor($style['textColor']);
+    if (isset($style['id']))
+        $btn->id($style['id']);
+
     return $btn;
 }
 
@@ -161,11 +174,12 @@ function button(string $text, string $action, array $style = []) {
  *   input("email", "Enter your email")
  *   input("pass", "Password", ['password' => true])
  */
-function input(string $id, string $hint = "", array $options = []) {
+function input(string $id, string $hint = "", array $options = [])
+{
     $et = (new EditText())
         ->id($id)
         ->hint($hint);
-    
+
     if (isset($options['password']) && $options['password']) {
         $et->inputType("textPassword");
     }
@@ -179,7 +193,7 @@ function input(string $id, string $hint = "", array $options = []) {
     if (isset($options['text'])) {
         $et->text($options['text']);
     }
-    
+
     return $et;
 }
 
@@ -194,15 +208,16 @@ function input(string $id, string $hint = "", array $options = []) {
  * Example:
  *   checkbox("agree", "I agree to terms", "onAgreeChange")
  */
-function checkbox(string $id, string $text, ?string $onChange = null) {
+function checkbox(string $id, string $text, ?string $onChange = null)
+{
     $cb = (new CheckBox())
         ->id($id)
         ->text($text);
-    
+
     if ($onChange) {
         $cb->onCheckedChange($onChange);
     }
-    
+
     return $cb;
 }
 
@@ -218,16 +233,17 @@ function checkbox(string $id, string $text, ?string $onChange = null) {
  * Example:
  *   toggle("dark_mode", "Dark Mode", false, "onDarkModeToggle")
  */
-function toggle(string $id, string $text, bool $checked = false, ?string $onChange = null) {
+function toggle(string $id, string $text, bool $checked = false, ?string $onChange = null)
+{
     $sw = (new SwitchView())
         ->id($id)
         ->text($text)
         ->checked($checked);
-    
+
     if ($onChange) {
         $sw->onCheckedChange($onChange);
     }
-    
+
     return $sw;
 }
 
@@ -242,17 +258,18 @@ function toggle(string $id, string $text, bool $checked = false, ?string $onChan
  * @param string|null $onChange Method to call when toggled
  * @return ToggleButton
  */
-function toggleButton(string $id, string $textOn = "ON", string $textOff = "OFF", bool $checked = false, ?string $onChange = null) {
+function toggleButton(string $id, string $textOn = "ON", string $textOff = "OFF", bool $checked = false, ?string $onChange = null)
+{
     $tb = (new ToggleButton())
         ->id($id)
         ->textOn($textOn)
         ->textOff($textOff)
         ->checked($checked);
-    
+
     if ($onChange) {
         $tb->onCheckedChange($onChange);
     }
-    
+
     return $tb;
 }
 
@@ -272,7 +289,8 @@ function toggleButton(string $id, string $textOn = "ON", string $textOff = "OFF"
  *       ["id" => "blue", "text" => "Blue"],
  *   ], "onColorChange", "red")
  */
-function radioGroup(string $id, array $options, ?string $onChange = null, ?string $selected = null) {
+function radioGroup(string $id, array $options, ?string $onChange = null, ?string $selected = null)
+{
     $buttons = [];
     foreach ($options as $index => $option) {
         if (is_string($option)) {
@@ -282,7 +300,8 @@ function radioGroup(string $id, array $options, ?string $onChange = null, ?strin
             if ($selected !== null && $selected == $id . "_" . $index) {
                 $rb->checked(true);
             }
-        } else {
+        }
+        else {
             $optId = $option['id'] ?? $id . "_" . $index;
             $rb = (new RadioButton())
                 ->id($optId)
@@ -293,12 +312,12 @@ function radioGroup(string $id, array $options, ?string $onChange = null, ?strin
         }
         $buttons[] = $rb;
     }
-    
+
     $group = (new RadioGroup($buttons))->id($id);
     if ($onChange) {
         $group->onCheckedChange($onChange);
     }
-    
+
     return $group;
 }
 
@@ -314,17 +333,18 @@ function radioGroup(string $id, array $options, ?string $onChange = null, ?strin
  * Example:
  *   rating("product_rating", 3.5, 5, "onRatingChange")
  */
-function rating(string $id, float $rating = 0, int $numStars = 5, ?string $onChange = null) {
+function rating(string $id, float $rating = 0, int $numStars = 5, ?string $onChange = null)
+{
     $rb = (new RatingBar())
         ->id($id)
         ->numStars($numStars)
         ->rating($rating)
         ->stepSize(0.5);
-    
+
     if ($onChange) {
         $rb->onRatingBarChange($onChange);
     }
-    
+
     return $rb;
 }
 
@@ -340,16 +360,17 @@ function rating(string $id, float $rating = 0, int $numStars = 5, ?string $onCha
  * Example:
  *   seekbar("volume", 50, 100, "onVolumeChange")
  */
-function seekbar(string $id, int $progress = 0, int $max = 100, ?string $onChange = null) {
+function seekbar(string $id, int $progress = 0, int $max = 100, ?string $onChange = null)
+{
     $sb = (new SeekBar())
         ->id($id)
         ->progress($progress)
         ->max($max);
-    
+
     if ($onChange) {
         $sb->onSeekBarChange($onChange);
     }
-    
+
     return $sb;
 }
 
@@ -364,7 +385,8 @@ function seekbar(string $id, int $progress = 0, int $max = 100, ?string $onChang
  * Example:
  *   progress("download", 45)
  */
-function progress(string $id, int $progress = 0, int $max = 100) {
+function progress(string $id, int $progress = 0, int $max = 100)
+{
     return (new ProgressBar())
         ->id($id)
         ->progress($progress)
@@ -383,16 +405,17 @@ function progress(string $id, int $progress = 0, int $max = 100) {
  * Example:
  *   spinner("country", ["USA", "UK", "Canada"], "onCountryChange")
  */
-function spinner(string $id, array $items, ?string $onChange = null, int $selectedIndex = 0) {
+function spinner(string $id, array $items, ?string $onChange = null, int $selectedIndex = 0)
+{
     $sp = (new Spinner())
         ->id($id)
         ->items($items)
         ->selectedPosition($selectedIndex);
-    
+
     if ($onChange) {
         $sp->onItemSelected($onChange);
     }
-    
+
     return $sp;
 }
 
@@ -409,17 +432,18 @@ function spinner(string $id, array $items, ?string $onChange = null, int $select
  * Example:
  *   numberPicker("age", 1, 120, 25, "onAgeChange")
  */
-function numberPicker(string $id, int $min = 0, int $max = 100, int $value = 0, ?string $onChange = null) {
+function numberPicker(string $id, int $min = 0, int $max = 100, int $value = 0, ?string $onChange = null)
+{
     $np = (new NumberPicker())
         ->id($id)
         ->minValue($min)
         ->maxValue($max)
         ->value($value);
-    
+
     if ($onChange) {
         $np->onValueChange($onChange);
     }
-    
+
     return $np;
 }
 
@@ -435,17 +459,18 @@ function numberPicker(string $id, int $min = 0, int $max = 100, int $value = 0, 
  * Example:
  *   autoComplete("city", "Enter city", ["New York", "London", "Tokyo"])
  */
-function autoComplete(string $id, string $hint, array $suggestions, ?string $onChange = null) {
+function autoComplete(string $id, string $hint, array $suggestions, ?string $onChange = null)
+{
     $ac = (new AutoCompleteTextView())
         ->id($id)
         ->hint($hint)
         ->suggestions($suggestions)
         ->completionThreshold(1);
-    
+
     if ($onChange) {
         $ac->onItemClick($onChange);
     }
-    
+
     return $ac;
 }
 
@@ -461,19 +486,20 @@ function autoComplete(string $id, string $hint, array $suggestions, ?string $onC
  * Example:
  *   searchBar("search", "Search products...", "onSearch", "onSearchType")
  */
-function searchBar(string $id, string $hint = "Search...", ?string $onSearch = null, ?string $onTextChange = null) {
+function searchBar(string $id, string $hint = "Search...", ?string $onSearch = null, ?string $onTextChange = null)
+{
     $sv = (new SearchView())
         ->id($id)
         ->queryHint($hint)
         ->iconifiedByDefault(false);
-    
+
     if ($onSearch) {
         $sv->onQueryTextSubmit($onSearch);
     }
     if ($onTextChange) {
         $sv->onQueryTextChange($onTextChange);
     }
-    
+
     return $sv;
 }
 
@@ -488,19 +514,24 @@ function searchBar(string $id, string $hint = "Search...", ?string $onSearch = n
  * Example:
  *   textField("email", "Email Address", ['helperText' => 'Required', 'inputType' => 'textEmailAddress'])
  */
-function textField(string $id, string $hint, array $options = []) {
+function textField(string $id, string $hint, array $options = [])
+{
     $til = (new TextInputLayout())
         ->id($id)
         ->hint($hint);
-    
-    if (isset($options['helperText'])) $til->helperText($options['helperText']);
-    if (isset($options['error'])) $til->errorText($options['error']);
+
+    if (isset($options['helperText']))
+        $til->helperText($options['helperText']);
+    if (isset($options['error']))
+        $til->errorText($options['error']);
     if (isset($options['counter']) && $options['counter']) {
         $til->counterEnabled(true);
-        if (isset($options['maxLength'])) $til->counterMaxLength($options['maxLength']);
+        if (isset($options['maxLength']))
+            $til->counterMaxLength($options['maxLength']);
     }
-    if (isset($options['inputType'])) $til->inputType($options['inputType']);
-    
+    if (isset($options['inputType']))
+        $til->inputType($options['inputType']);
+
     return $til;
 }
 
@@ -516,15 +547,18 @@ function textField(string $id, string $hint, array $options = []) {
  * Example:
  *   fab("add_btn", "add", "onAddItem")
  */
-function fab(string $id, string $icon, string $action, array $style = []) {
+function fab(string $id, string $icon, string $action, array $style = [])
+{
     $f = (new FloatingActionButton())
         ->id($id)
         ->icon($icon)
         ->action($action);
-    
-    if (isset($style['color'])) $f->backgroundColor($style['color']);
-    if (isset($style['iconColor'])) $f->iconColor($style['iconColor']);
-    
+
+    if (isset($style['color']))
+        $f->backgroundColor($style['color']);
+    if (isset($style['iconColor']))
+        $f->iconColor($style['iconColor']);
+
     return $f;
 }
 
@@ -539,14 +573,19 @@ function fab(string $id, string $icon, string $action, array $style = []) {
  * Example:
  *   chip("Android", "onChipClick")
  */
-function chip(string $text, ?string $action = null, array $style = []) {
+function chip(string $text, ?string $action = null, array $style = [])
+{
     $c = (new Chip())->text($text);
-    
-    if ($action) $c->action($action);
-    if (isset($style['color'])) $c->backgroundColor($style['color']);
-    if (isset($style['textColor'])) $c->textColor($style['textColor']);
-    if (isset($style['id'])) $c->id($style['id']);
-    
+
+    if ($action)
+        $c->action($action);
+    if (isset($style['color']))
+        $c->backgroundColor($style['color']);
+    if (isset($style['textColor']))
+        $c->textColor($style['textColor']);
+    if (isset($style['id']))
+        $c->id($style['id']);
+
     return $c;
 }
 
@@ -561,17 +600,19 @@ function chip(string $text, ?string $action = null, array $style = []) {
  *   chipGroup(["PHP", "Java", "Python"])
  *   chipGroup([chip("Tag1"), chip("Tag2")])
  */
-function chipGroup(array $chips, ?string $onSelect = null) {
+function chipGroup(array $chips, ?string $onSelect = null)
+{
     $children = [];
     foreach ($chips as $c) {
         if (is_string($c)) {
             $ch = chip($c, $onSelect);
             $children[] = $ch;
-        } else {
+        }
+        else {
             $children[] = $c;
         }
     }
-    
+
     return new ChipGroup($children);
 }
 
@@ -587,25 +628,27 @@ function chipGroup(array $chips, ?string $onSelect = null) {
  * Example:
  *   tabs("my_tabs", ["Home", "Search", "Profile"], "onTabChange")
  */
-function tabs(string $id, array $tabs, ?string $onSelect = null, int $selected = 0) {
+function tabs(string $id, array $tabs, ?string $onSelect = null, int $selected = 0)
+{
     $tabItems = [];
     foreach ($tabs as $tab) {
         if (is_string($tab)) {
             $tabItems[] = ["text" => $tab];
-        } else {
+        }
+        else {
             $tabItems[] = $tab;
         }
     }
-    
+
     $tl = (new TabLayout())
         ->id($id)
         ->tabs($tabItems)
         ->selectedTab($selected);
-    
+
     if ($onSelect) {
         $tl->onTabSelected($onSelect);
     }
-    
+
     return $tl;
 }
 
@@ -623,15 +666,17 @@ function tabs(string $id, array $tabs, ?string $onSelect = null, int $selected =
  *       button("Action", "onAction"),
  *   ], ['corners' => 16, 'elevation' => 8])
  */
-function materialCard(array $content, array $style = []) {
+function materialCard(array $content, array $style = [])
+{
     $card = (new CardView($content))
         ->cornerRadius($style['corners'] ?? 12)
         ->elevation($style['elevation'] ?? 4)
         ->padding($style['padding'] ?? 16)
         ->margin($style['margin'] ?? 8);
-    
-    if (isset($style['background'])) $card->backgroundColor($style['background']);
-    
+
+    if (isset($style['background']))
+        $card->backgroundColor($style['background']);
+
     return $card;
 }
 
@@ -648,7 +693,8 @@ function materialCard(array $content, array $style = []) {
  *       button("3", "onClick"), button("4", "onClick"),
  *   ], 2)
  */
-function grid(array $children, int $columns = 2) {
+function grid(array $children, int $columns = 2)
+{
     $layout = (new GridLayout($children))->columnCount($columns);
     return $layout;
 }
@@ -667,34 +713,36 @@ function grid(array $children, int $columns = 2) {
  *       ["Bob", "25", "London"],
  *   ], ['headerBg' => '#1976D2', 'headerColor' => '#fff'])
  */
-function table(array $rows, array $style = []) {
+function table(array $rows, array $style = [])
+{
     $tableRows = [];
     foreach ($rows as $rowIndex => $row) {
         $cells = [];
         foreach ($row as $cell) {
             if ($cell instanceof Component) {
                 $cells[] = $cell;
-            } else {
+            }
+            else {
                 $tv = (new TextView())
-                    ->text((string) $cell)
+                    ->text((string)$cell)
                     ->padding(8);
-                
+
                 // Style header row differently
                 if ($rowIndex === 0 && isset($style['headerColor'])) {
                     $tv->textColor($style['headerColor'])->textStyle("bold");
                 }
-                
+
                 $cells[] = $tv;
             }
         }
-        
+
         $tr = new TableRow($cells);
         if ($rowIndex === 0 && isset($style['headerBg'])) {
             $tr->backgroundColor($style['headerBg']);
         }
         $tableRows[] = $tr;
     }
-    
+
     return (new TableLayout($tableRows))->stretchColumns("*");
 }
 
@@ -706,15 +754,19 @@ function table(array $rows, array $style = []) {
  * @param array $options ['autoPlay' => false, 'width' => -1, 'height' => 200]
  * @return VideoView
  */
-function video(string $id, string $uri, array $options = []) {
+function video(string $id, string $uri, array $options = [])
+{
     $vv = (new VideoView())
         ->id($id)
         ->videoUri($uri);
-    
-    if (isset($options['autoPlay'])) $vv->autoPlay($options['autoPlay']);
-    if (isset($options['width'])) $vv->width($options['width']);
-    if (isset($options['height'])) $vv->height($options['height']);
-    
+
+    if (isset($options['autoPlay']))
+        $vv->autoPlay($options['autoPlay']);
+    if (isset($options['width']))
+        $vv->width($options['width']);
+    if (isset($options['height']))
+        $vv->height($options['height']);
+
     return $vv;
 }
 
@@ -729,16 +781,18 @@ function video(string $id, string $uri, array $options = []) {
  * Example:
  *   webView("browser", "https://example.com")
  */
-function webView(string $id, string $url, array $options = []) {
+function webView(string $id, string $url, array $options = [])
+{
     $wv = (new WebView())
         ->id($id)
         ->loadUrl($url);
-    
-    if (isset($options['height'])) $wv->height($options['height']);
+
+    if (isset($options['height']))
+        $wv->height($options['height']);
     if (isset($options['javaScriptEnabled'])) {
         $wv->settings(["javaScriptEnabled" => $options['javaScriptEnabled']]);
     }
-    
+
     return $wv;
 }
 
@@ -749,9 +803,11 @@ function webView(string $id, string $url, array $options = []) {
  * @param string|null $onChange Method to call when date changes
  * @return CalendarView
  */
-function calendar(string $id, ?string $onChange = null) {
+function calendar(string $id, ?string $onChange = null)
+{
     $cv = (new CalendarView())->id($id);
-    if ($onChange) $cv->onDateChange($onChange);
+    if ($onChange)
+        $cv->onDateChange($onChange);
     return $cv;
 }
 
@@ -761,7 +817,8 @@ function calendar(string $id, ?string $onChange = null) {
  * @param array $content Array of child components
  * @return ScrollView
  */
-function scrollView(array $content) {
+function scrollView(array $content)
+{
     return new ScrollView([
         new VerticalLayout($content)
     ]);
@@ -773,7 +830,8 @@ function scrollView(array $content) {
  * @param array $content Array of child components 
  * @return HorizontalScrollView
  */
-function horizontalScroll(array $content) {
+function horizontalScroll(array $content)
+{
     return new HorizontalScrollView([
         (new HorizontalLayout($content))
     ]);
@@ -791,7 +849,8 @@ function horizontalScroll(array $content) {
  *       label("Overlay Text", ['center' => true]),
  *   ])
  */
-function stack(array $content) {
+function stack(array $content)
+{
     return new StackLayout($content);
 }
 
@@ -802,14 +861,19 @@ function stack(array $content) {
  * @param array $options Optional: ['width' => 200, 'height' => 200, 'fit' => 'center']
  * @return ImageView
  */
-function image(string $src, array $options = []) {
+function image(string $src, array $options = [])
+{
     $iv = (new ImageView())->src($src);
-    
-    if (isset($options['width'])) $iv->width($options['width']);
-    if (isset($options['height'])) $iv->height($options['height']);
-    if (isset($options['fit'])) $iv->scaleType($options['fit']);
-    if (isset($options['id'])) $iv->id($options['id']);
-    
+
+    if (isset($options['width']))
+        $iv->width($options['width']);
+    if (isset($options['height']))
+        $iv->height($options['height']);
+    if (isset($options['fit']))
+        $iv->scaleType($options['fit']);
+    if (isset($options['id']))
+        $iv->id($options['id']);
+
     return $iv;
 }
 
@@ -819,7 +883,8 @@ function image(string $src, array $options = []) {
  * @param int $height Height in dp
  * @return TextView
  */
-function spacer(int $height = 20) {
+function spacer(int $height = 20)
+{
     return (new TextView())
         ->text("")
         ->height($height);
@@ -831,7 +896,8 @@ function spacer(int $height = 20) {
  * @param string $color Line color
  * @return TextView
  */
-function divider(string $color = '#333333') {
+function divider(string $color = '#333333')
+{
     return (new TextView())
         ->text("")
         ->height(1)
@@ -845,7 +911,8 @@ function divider(string $color = '#333333') {
  * @param array $elements Elements to place in row
  * @return VerticalLayout (with horizontal orientation flag)
  */
-function row(array $elements) {
+function row(array $elements)
+{
     return (new VerticalLayout($elements))
         ->orientation("horizontal");
 }
@@ -863,7 +930,8 @@ function row(array $elements) {
  * Example:
  *   return toast("Saved successfully!");
  */
-function toast(string $message) {
+function toast(string $message)
+{
     return [
         "action" => "TOAST",
         "message" => $message
@@ -880,7 +948,8 @@ function toast(string $message) {
  * Example:
  *   return alert("Something went wrong!", "Error");
  */
-function alert(string $message, string $title = "Alert") {
+function alert(string $message, string $title = "Alert")
+{
     return [
         "action" => "ALERT",
         "title" => $title,
@@ -899,10 +968,12 @@ function alert(string $message, string $title = "Alert") {
  * Example:
  *   return setText("my_label", "Updated!");
  */
-function setText(string $id, string $text, ?string $color = null) {
+function setText(string $id, string $text, ?string $color = null)
+{
     $attrs = ["text" => $text];
-    if ($color) $attrs["textColor"] = $color;
-    
+    if ($color)
+        $attrs["textColor"] = $color;
+
     return updateView($id, $attrs);
 }
 
@@ -916,7 +987,8 @@ function setText(string $id, string $text, ?string $color = null) {
  * Example:
  *   return goTo("showDetails", ["id" => 123]);
  */
-function goToScreen(string $screen, array $data = []) {
+function goToScreen(string $screen, array $data = [])
+{
     return [
         "action" => "NAVIGATE",
         "screen" => $screen,
@@ -933,7 +1005,8 @@ function goToScreen(string $screen, array $data = []) {
  * Example:
  *   return goBack();
  */
-function goBack() {
+function goBack()
+{
     return [
         "action" => "GO_BACK"
     ];
@@ -944,15 +1017,13 @@ function goBack() {
 // =============================================================================
 
 /**
-// =============================================================================
-// DIALOGS & POPUPS - Rich dialog builders
-// =============================================================================
-
-// Note: snackbar(), dialog(), listDialog(), datePickerDialog(), timePickerDialog(),
-// inputDialog(), bottomSheet(), dismissDialog() are already available from ui_core.php.
-// These wrappers provide simpler, more intuitive names.
-
-/**
+ // =============================================================================
+ // DIALOGS & POPUPS - Rich dialog builders
+ // =============================================================================
+ // Note: snackbar(), dialog(), listDialog(), datePickerDialog(), timePickerDialog(),
+ // inputDialog(), bottomSheet(), dismissDialog() are already available from ui_core.php.
+ // These wrappers provide simpler, more intuitive names.
+ /**
  * Show a confirmation dialog with Yes/No buttons
  * 
  * @param string $title Dialog title
@@ -966,7 +1037,8 @@ function goBack() {
  * Example:
  *   return confirm("Delete?", "This cannot be undone.", "doDelete");
  */
-function confirm(string $title, string $message, string $onConfirm, ?string $onCancel = null, string $confirmText = "Yes", string $cancelText = "No") {
+function confirm(string $title, string $message, string $onConfirm, ?string $onCancel = null, string $confirmText = "Yes", string $cancelText = "No")
+{
     return dialog($title, $message, $onConfirm, $onCancel, $confirmText, $cancelText);
 }
 
@@ -981,7 +1053,8 @@ function confirm(string $title, string $message, string $onConfirm, ?string $onC
  * Example:
  *   return selectDialog("Pick a color", ["Red", "Green", "Blue"], "onColorPick");
  */
-function selectDialog(string $title, array $items, string $onSelect) {
+function selectDialog(string $title, array $items, string $onSelect)
+{
     return listDialog($title, $items, $onSelect);
 }
 
@@ -995,7 +1068,8 @@ function selectDialog(string $title, array $items, string $onSelect) {
  * Example:
  *   return pickDate("onDatePicked");
  */
-function pickDate(string $callback, ?string $initialDate = null) {
+function pickDate(string $callback, ?string $initialDate = null)
+{
     return datePickerDialog($callback, $initialDate);
 }
 
@@ -1009,7 +1083,8 @@ function pickDate(string $callback, ?string $initialDate = null) {
  * Example:
  *   return pickTime("onTimePicked");
  */
-function pickTime(string $callback, bool $is24Hour = false) {
+function pickTime(string $callback, bool $is24Hour = false)
+{
     return timePickerDialog($callback, $is24Hour);
 }
 
@@ -1025,7 +1100,8 @@ function pickTime(string $callback, bool $is24Hour = false) {
  * Example:
  *   return prompt("Enter Name", "Your name...", "onNameEntered");
  */
-function prompt(string $title, string $hint, string $callback, string $defaultValue = "") {
+function prompt(string $title, string $hint, string $callback, string $defaultValue = "")
+{
     return inputDialog($title, $hint, $callback, $defaultValue);
 }
 
@@ -1043,7 +1119,8 @@ function prompt(string $title, string $hint, string $callback, string $defaultVa
  *       button("Option B", "onPickB"),
  *   ], "Options");
  */
-function showBottomSheet(array $content, ?string $title = null) {
+function showBottomSheet(array $content, ?string $title = null)
+{
     $children = $content;
     if ($title) {
         array_unshift($children, label($title, ['bold' => true, 'size' => 20, 'padding' => 8]));
@@ -1056,7 +1133,8 @@ function showBottomSheet(array $content, ?string $title = null) {
  * Close any open dialog/bottom sheet
  * @return array
  */
-function closeDialog() {
+function closeDialog()
+{
     return dismissDialog();
 }
 
@@ -1080,7 +1158,8 @@ function closeDialog() {
  * Example:
  *   return animateView("my_view", "alpha", 0.5, 500);
  */
-function animateView(string $id, string $property, float $toValue, int $duration = 300, string $interpolator = "decelerate") {
+function animateView(string $id, string $property, float $toValue, int $duration = 300, string $interpolator = "decelerate")
+{
     return animate($id, [$property => $toValue], $duration, $interpolator);
 }
 
@@ -1091,7 +1170,8 @@ function animateView(string $id, string $property, float $toValue, int $duration
  * @param int $duration Duration in ms
  * @return array
  */
-function fadeIn(string $id, int $duration = 300) {
+function fadeIn(string $id, int $duration = 300)
+{
     return animate($id, ["alpha" => 1.0], $duration);
 }
 
@@ -1102,7 +1182,8 @@ function fadeIn(string $id, int $duration = 300) {
  * @param int $duration Duration in ms
  * @return array
  */
-function fadeOut(string $id, int $duration = 300) {
+function fadeOut(string $id, int $duration = 300)
+{
     return animate($id, ["alpha" => 0.0], $duration);
 }
 
@@ -1114,7 +1195,8 @@ function fadeOut(string $id, int $duration = 300) {
  * @param int $duration Duration in ms
  * @return array
  */
-function slideX(string $id, float $toX, int $duration = 300) {
+function slideX(string $id, float $toX, int $duration = 300)
+{
     return animate($id, ["translationX" => $toX], $duration);
 }
 
@@ -1126,7 +1208,8 @@ function slideX(string $id, float $toX, int $duration = 300) {
  * @param int $duration Duration in ms
  * @return array
  */
-function slideY(string $id, float $toY, int $duration = 300) {
+function slideY(string $id, float $toY, int $duration = 300)
+{
     return animate($id, ["translationY" => $toY], $duration);
 }
 
@@ -1138,7 +1221,8 @@ function slideY(string $id, float $toY, int $duration = 300) {
  * @param int $duration Duration in ms
  * @return array
  */
-function scaleView(string $id, float $scale, int $duration = 300) {
+function scaleView(string $id, float $scale, int $duration = 300)
+{
     return animate($id, ["scaleX" => $scale, "scaleY" => $scale], $duration);
 }
 
@@ -1150,7 +1234,8 @@ function scaleView(string $id, float $scale, int $duration = 300) {
  * @param int $duration Duration in ms
  * @return array
  */
-function rotateView(string $id, float $degrees, int $duration = 300) {
+function rotateView(string $id, float $degrees, int $duration = 300)
+{
     return animate($id, ["rotation" => $degrees], $duration);
 }
 
@@ -1161,7 +1246,8 @@ function rotateView(string $id, float $degrees, int $duration = 300) {
  * @param int $duration Duration in ms
  * @return array
  */
-function bounce(string $id, int $duration = 400) {
+function bounce(string $id, int $duration = 400)
+{
     return animateSet([
         animate($id, ["scaleX" => 1.3, "scaleY" => 1.3], $duration / 2, "overshoot"),
         animate($id, ["scaleX" => 1.0, "scaleY" => 1.0], $duration / 2, "decelerate"),
@@ -1175,7 +1261,8 @@ function bounce(string $id, int $duration = 400) {
  * @param int $duration Duration in ms
  * @return array
  */
-function shake(string $id, int $duration = 400) {
+function shake(string $id, int $duration = 400)
+{
     $step = (int)($duration / 7);
     return animateSet([
         animate($id, ["translationX" => -15], $step, "linear"),
@@ -1202,7 +1289,8 @@ function shake(string $id, int $duration = 400) {
  * Example:
  *   return copyText("Hello world!");
  */
-function copyText(string $text, string $label = "Copied") {
+function copyText(string $text, string $label = "Copied")
+{
     return copyToClipboard($text, $label);
 }
 
@@ -1216,7 +1304,8 @@ function copyText(string $text, string $label = "Copied") {
  * Example:
  *   return shareText("Check out this app!", "Share via");
  */
-function shareText(string $text, string $title = "Share") {
+function shareText(string $text, string $title = "Share")
+{
     return share($text, $title);
 }
 
@@ -1229,7 +1318,8 @@ function shareText(string $text, string $title = "Share") {
  * Example:
  *   return openBrowser("https://example.com");
  */
-function openBrowser(string $url) {
+function openBrowser(string $url)
+{
     return openUrl($url);
 }
 
@@ -1243,7 +1333,8 @@ function openBrowser(string $url) {
  * @param string $id ID of the view to remove
  * @return array
  */
-function removeComponent(string $id) {
+function removeComponent(string $id)
+{
     return removeView($id);
 }
 
@@ -1255,7 +1346,8 @@ function removeComponent(string $id) {
  * @param int $index Position to insert at (-1 = end)
  * @return array
  */
-function addComponent(string $parentId, Component $child, int $index = -1) {
+function addComponent(string $parentId, Component $child, int $index = -1)
+{
     return addView($parentId, $child, $index);
 }
 
@@ -1266,7 +1358,8 @@ function addComponent(string $parentId, Component $child, int $index = -1) {
  * @param array $children New children components
  * @return array
  */
-function replaceContent(string $parentId, array $children) {
+function replaceContent(string $parentId, array $children)
+{
     return replaceChildren($parentId, $children);
 }
 
@@ -1279,7 +1372,8 @@ function replaceContent(string $parentId, array $children) {
  * @param bool $smooth Use smooth scrolling
  * @return array
  */
-function scrollToPosition(string $id, int $x = 0, int $y = 0, bool $smooth = true) {
+function scrollToPosition(string $id, int $x = 0, int $y = 0, bool $smooth = true)
+{
     return scrollTo($id, $x, $smooth);
 }
 
@@ -1322,26 +1416,7 @@ function scrollToPosition(string $id, int $x = 0, int $y = 0, bool $smooth = tru
  *   // Custom native call (handler registered in JS)
  *   function doCustom($p) { return nativeCall("myCustomSensor", ["param1" => "value"], "onResult"); }
  */
-function nativeCall(string $type, array $params = [], string $callback = '_noop') {
-    $result = [
-        "action" => "DS_SENSOR_CALL",
-        "sensor" => $type,
-        "callback" => $callback
-    ];
-    if (!empty($params)) {
-        $result["params"] = $params;
-    }
-    return $result;
-}
 
-
-/**
- * Internal no-op callback for fire-and-forget sensor calls.
- * Used when no response handling is needed.
- */
-function _noop($p) {
-    return null;
-}
 
 // =============================================================================
 // DATA - Get values from views
@@ -1360,8 +1435,9 @@ function _noop($p) {
  *   function onSubmit($p) { return getText("name_input", "processName"); }
  *   function processName($p) { $name = $p['value']; ... }
  */
-function getText(string $id, string $callback) {
-    return getViewProperty($id, "text", $callback);
+function getText(string $id)
+{
+    return getViewProperty($id, "text");
 }
 
 /**
@@ -1373,7 +1449,8 @@ function getText(string $id, string $callback) {
  * 
  * Your callback receives: ['value' => true/false]
  */
-function getChecked(string $id, string $callback) {
+function getChecked(string $id, string $callback)
+{
     return getViewProperty($id, "checked", $callback);
 }
 
@@ -1397,8 +1474,9 @@ function getChecked(string $id, string $callback) {
  *   return get("my_input", "text", "onGotText");
  *   function onGotText($p) { $text = $p['value']; }
  */
-function get(string $id, string $property, string $callback) {
-    return getViewProperty($id, $property, $callback);
+function get(string $id, string $property)
+{
+    return getViewProperty($id, $property);
 }
 
 /**
@@ -1424,7 +1502,8 @@ function get(string $id, string $property, string $callback) {
  *   return set("my_button", "backgroundColor", "#4CAF50");
  *   return set("my_input", "enabled", false);
  */
-function set(string $id, string $property, $value) {
+function set(string $id, string $property, $value)
+{
     return updateView($id, [$property => $value]);
 }
 
@@ -1442,7 +1521,8 @@ function set(string $id, string $property, $value) {
  *       "textSize" => 24
  *   ]);
  */
-function update(string $id, array $properties) {
+function update(string $id, array $properties)
+{
     return updateView($id, $properties);
 }
 
@@ -1476,7 +1556,8 @@ function update(string $id, array $properties) {
  *   return setColor("my_label", "#ff0000");
  *   return setColor("my_label", Colors::DANGER);
  */
-function setColor(string $id, string $color) {
+function setColor(string $id, string $color)
+{
     return set($id, "textColor", $color);
 }
 
@@ -1490,7 +1571,8 @@ function setColor(string $id, string $color) {
  * Example:
  *   return setSize("my_label", 24);
  */
-function setSize(string $id, int $size) {
+function setSize(string $id, int $size)
+{
     return set($id, "textSize", $size);
 }
 
@@ -1504,7 +1586,8 @@ function setSize(string $id, int $size) {
  * Example:
  *   return setBackground("my_card", "#1e1e1e");
  */
-function setBackground(string $id, string $color) {
+function setBackground(string $id, string $color)
+{
     return set($id, "backgroundColor", $color);
 }
 
@@ -1517,7 +1600,8 @@ function setBackground(string $id, string $color) {
  * Example:
  *   return show("hidden_panel");
  */
-function show(string $id) {
+function show(string $id)
+{
     return set($id, "visibility", "visible");
 }
 
@@ -1530,7 +1614,8 @@ function show(string $id) {
  * Example:
  *   return hide("loading_spinner");
  */
-function hide(string $id) {
+function hide(string $id)
+{
     return set($id, "visibility", "gone");
 }
 
@@ -1540,7 +1625,8 @@ function hide(string $id) {
  * @param string $id View ID
  * @return array
  */
-function invisible(string $id) {
+function invisible(string $id)
+{
     return set($id, "visibility", "invisible");
 }
 
@@ -1553,7 +1639,8 @@ function invisible(string $id) {
  * Example:
  *   return enable("submit_button");
  */
-function enable(string $id) {
+function enable(string $id)
+{
     return set($id, "enabled", true);
 }
 
@@ -1566,7 +1653,8 @@ function enable(string $id) {
  * Example:
  *   return disable("submit_button");
  */
-function disable(string $id) {
+function disable(string $id)
+{
     return set($id, "enabled", false);
 }
 
@@ -1580,7 +1668,8 @@ function disable(string $id) {
  * Example:
  *   return setAlpha("my_image", 0.5);  // 50% transparent
  */
-function setAlpha(string $id, float $alpha) {
+function setAlpha(string $id, float $alpha)
+{
     return set($id, "alpha", max(0.0, min(1.0, $alpha)));
 }
 
@@ -1594,7 +1683,8 @@ function setAlpha(string $id, float $alpha) {
  * Example:
  *   return setChecked("my_checkbox", true);
  */
-function setChecked(string $id, bool $checked) {
+function setChecked(string $id, bool $checked)
+{
     return set($id, "checked", $checked);
 }
 
@@ -1608,7 +1698,8 @@ function setChecked(string $id, bool $checked) {
  * Example:
  *   return setImage("profile_pic", "https://example.com/avatar.png");
  */
-function setImage(string $id, string $src) {
+function setImage(string $id, string $src)
+{
     return set($id, "src", $src);
 }
 
@@ -1622,7 +1713,8 @@ function setImage(string $id, string $src) {
  * Example:
  *   return setHint("email_input", "Enter your email");
  */
-function setHint(string $id, string $hint) {
+function setHint(string $id, string $hint)
+{
     return set($id, "hint", $hint);
 }
 
@@ -1635,7 +1727,8 @@ function setHint(string $id, string $hint) {
  * Example:
  *   return clear("my_input");
  */
-function clear(string $id) {
+function clear(string $id)
+{
     return set($id, "text", "");
 }
 
@@ -1649,7 +1742,8 @@ function clear(string $id) {
  * @param string $callback Method to receive the value
  * @return array
  */
-function getTextValue(string $id, string $callback) {
+function getTextValue(string $id, string $callback)
+{
     return get($id, "text", $callback);
 }
 
@@ -1659,7 +1753,8 @@ function getTextValue(string $id, string $callback) {
  * @param string $callback Method to receive the value
  * @return array
  */
-function getColor(string $id, string $callback) {
+function getColor(string $id, string $callback)
+{
     return get($id, "textColor", $callback);
 }
 
@@ -1669,7 +1764,8 @@ function getColor(string $id, string $callback) {
  * @param string $callback Method to receive the value
  * @return array
  */
-function getTextSize(string $id, string $callback) {
+function getTextSize(string $id, string $callback)
+{
     return get($id, "textSize", $callback);
 }
 
@@ -1679,7 +1775,8 @@ function getTextSize(string $id, string $callback) {
  * @param string $callback Method to receive the value
  * @return array
  */
-function getBackground(string $id, string $callback) {
+function getBackground(string $id, string $callback)
+{
     return get($id, "backgroundColor", $callback);
 }
 
@@ -1689,7 +1786,8 @@ function getBackground(string $id, string $callback) {
  * @param string $callback Method to receive: "visible", "invisible", or "gone"
  * @return array
  */
-function getVisibility(string $id, string $callback) {
+function getVisibility(string $id, string $callback)
+{
     return get($id, "visibility", $callback);
 }
 
@@ -1699,7 +1797,8 @@ function getVisibility(string $id, string $callback) {
  * @param string $callback Method to receive true/false
  * @return array
  */
-function getEnabled(string $id, string $callback) {
+function getEnabled(string $id, string $callback)
+{
     return get($id, "enabled", $callback);
 }
 
@@ -1709,7 +1808,8 @@ function getEnabled(string $id, string $callback) {
  * @param string $callback Method to receive value 0.0-1.0
  * @return array
  */
-function getAlpha(string $id, string $callback) {
+function getAlpha(string $id, string $callback)
+{
     return get($id, "alpha", $callback);
 }
 
@@ -1719,7 +1819,8 @@ function getAlpha(string $id, string $callback) {
  * @param string $callback Method to receive true/false
  * @return array
  */
-function getCheckedState(string $id, string $callback) {
+function getCheckedState(string $id, string $callback)
+{
     return get($id, "checked", $callback);
 }
 
@@ -1729,7 +1830,8 @@ function getCheckedState(string $id, string $callback) {
  * @param string $callback Method to receive the hint text
  * @return array
  */
-function getHint(string $id, string $callback) {
+function getHint(string $id, string $callback)
+{
     return get($id, "hint", $callback);
 }
 
@@ -1739,7 +1841,8 @@ function getHint(string $id, string $callback) {
  * @param string $callback Method to receive the source
  * @return array
  */
-function getImageSrc(string $id, string $callback) {
+function getImageSrc(string $id, string $callback)
+{
     return get($id, "src", $callback);
 }
 
@@ -1749,7 +1852,8 @@ function getImageSrc(string $id, string $callback) {
  * @param string $callback Method to receive the width
  * @return array
  */
-function getWidth(string $id, string $callback) {
+function getWidth(string $id, string $callback)
+{
     return get($id, "width", $callback);
 }
 
@@ -1759,7 +1863,8 @@ function getWidth(string $id, string $callback) {
  * @param string $callback Method to receive the height
  * @return array
  */
-function getHeight(string $id, string $callback) {
+function getHeight(string $id, string $callback)
+{
     return get($id, "height", $callback);
 }
 
@@ -1769,7 +1874,8 @@ function getHeight(string $id, string $callback) {
  * @param string $callback Method to receive the padding
  * @return array
  */
-function getPadding(string $id, string $callback) {
+function getPadding(string $id, string $callback)
+{
     return get($id, "padding", $callback);
 }
 
@@ -1779,7 +1885,8 @@ function getPadding(string $id, string $callback) {
  * @param string $callback Method to receive the margin
  * @return array
  */
-function getMargin(string $id, string $callback) {
+function getMargin(string $id, string $callback)
+{
     return get($id, "margin", $callback);
 }
 
@@ -1789,7 +1896,8 @@ function getMargin(string $id, string $callback) {
  * @param string $callback Method to receive the progress value
  * @return array
  */
-function getProgress(string $id, string $callback) {
+function getProgress(string $id, string $callback)
+{
     return get($id, "progress", $callback);
 }
 
@@ -1799,7 +1907,8 @@ function getProgress(string $id, string $callback) {
  * @param string $callback Method to receive the max value
  * @return array
  */
-function getMax(string $id, string $callback) {
+function getMax(string $id, string $callback)
+{
     return get($id, "max", $callback);
 }
 
@@ -1809,7 +1918,8 @@ function getMax(string $id, string $callback) {
  * @param string $callback Method to receive the rotation in degrees
  * @return array
  */
-function getRotation(string $id, string $callback) {
+function getRotation(string $id, string $callback)
+{
     return get($id, "rotation", $callback);
 }
 
@@ -1819,7 +1929,8 @@ function getRotation(string $id, string $callback) {
  * @param string $callback Method to receive the scale value
  * @return array
  */
-function getScaleX(string $id, string $callback) {
+function getScaleX(string $id, string $callback)
+{
     return get($id, "scaleX", $callback);
 }
 
@@ -1829,7 +1940,8 @@ function getScaleX(string $id, string $callback) {
  * @param string $callback Method to receive the scale value
  * @return array
  */
-function getScaleY(string $id, string $callback) {
+function getScaleY(string $id, string $callback)
+{
     return get($id, "scaleY", $callback);
 }
 
@@ -1839,7 +1951,8 @@ function getScaleY(string $id, string $callback) {
  * @param string $callback Method to receive the translation value
  * @return array
  */
-function getTranslationX(string $id, string $callback) {
+function getTranslationX(string $id, string $callback)
+{
     return get($id, "translationX", $callback);
 }
 
@@ -1849,7 +1962,8 @@ function getTranslationX(string $id, string $callback) {
  * @param string $callback Method to receive the translation value
  * @return array
  */
-function getTranslationY(string $id, string $callback) {
+function getTranslationY(string $id, string $callback)
+{
     return get($id, "translationY", $callback);
 }
 
@@ -1859,7 +1973,8 @@ function getTranslationY(string $id, string $callback) {
  * @param string $callback Method to receive true/false
  * @return array
  */
-function getSelected(string $id, string $callback) {
+function getSelected(string $id, string $callback)
+{
     return get($id, "selected", $callback);
 }
 
@@ -1869,7 +1984,8 @@ function getSelected(string $id, string $callback) {
  * @param string $callback Method to receive true/false
  * @return array
  */
-function getFocused(string $id, string $callback) {
+function getFocused(string $id, string $callback)
+{
     return get($id, "focused", $callback);
 }
 
@@ -1879,8 +1995,9 @@ function getFocused(string $id, string $callback) {
  * @param string $callback Method to receive the tag value
  * @return array
  */
-function getTag(string $id, string $callback) {
-    return get($id, "tag", $callback);
+function getTag(string $id)
+{
+    return get($id, "tag");
 }
 
 // =============================================================================
@@ -1893,7 +2010,8 @@ function getTag(string $id, string $callback) {
  * @param string $style "bold" | "italic" | "bold_italic" | "normal"
  * @return array
  */
-function setTextStyle(string $id, string $style) {
+function setTextStyle(string $id, string $style)
+{
     return set($id, "textStyle", $style);
 }
 
@@ -1903,7 +2021,8 @@ function setTextStyle(string $id, string $style) {
  * @param string $gravity "left" | "center" | "right" | "top" | "bottom"
  * @return array
  */
-function setGravity(string $id, string $gravity) {
+function setGravity(string $id, string $gravity)
+{
     return set($id, "gravity", $gravity);
 }
 
@@ -1913,7 +2032,8 @@ function setGravity(string $id, string $gravity) {
  * @param int|string $width Width in dp, or "match_parent" | "wrap_content"
  * @return array
  */
-function setWidth(string $id, $width) {
+function setWidth(string $id, $width)
+{
     return set($id, "width", $width);
 }
 
@@ -1923,7 +2043,8 @@ function setWidth(string $id, $width) {
  * @param int|string $height Height in dp, or "match_parent" | "wrap_content"
  * @return array
  */
-function setHeight(string $id, $height) {
+function setHeight(string $id, $height)
+{
     return set($id, "height", $height);
 }
 
@@ -1934,7 +2055,8 @@ function setHeight(string $id, $height) {
  * @param int|string $height Height
  * @return array
  */
-function setDimensions(string $id, $width, $height) {
+function setDimensions(string $id, $width, $height)
+{
     return update($id, ["width" => $width, "height" => $height]);
 }
 
@@ -1944,7 +2066,8 @@ function setDimensions(string $id, $width, $height) {
  * @param int $padding Padding in dp
  * @return array
  */
-function setPadding(string $id, int $padding) {
+function setPadding(string $id, int $padding)
+{
     return set($id, "padding", $padding);
 }
 
@@ -1957,7 +2080,8 @@ function setPadding(string $id, int $padding) {
  * @param int $bottom Bottom padding
  * @return array
  */
-function setPaddingAll(string $id, int $left, int $top, int $right, int $bottom) {
+function setPaddingAll(string $id, int $left, int $top, int $right, int $bottom)
+{
     return update($id, [
         "paddingLeft" => $left,
         "paddingTop" => $top,
@@ -1972,7 +2096,8 @@ function setPaddingAll(string $id, int $left, int $top, int $right, int $bottom)
  * @param int $margin Margin in dp
  * @return array
  */
-function setMargin(string $id, int $margin) {
+function setMargin(string $id, int $margin)
+{
     return set($id, "margin", $margin);
 }
 
@@ -1985,7 +2110,8 @@ function setMargin(string $id, int $margin) {
  * @param int $bottom Bottom margin
  * @return array
  */
-function setMarginAll(string $id, int $left, int $top, int $right, int $bottom) {
+function setMarginAll(string $id, int $left, int $top, int $right, int $bottom)
+{
     return update($id, [
         "marginLeft" => $left,
         "marginTop" => $top,
@@ -2000,7 +2126,8 @@ function setMarginAll(string $id, int $left, int $top, int $right, int $bottom) 
  * @param int $radius Radius in dp
  * @return array
  */
-function setCornerRadius(string $id, int $radius) {
+function setCornerRadius(string $id, int $radius)
+{
     return set($id, "cornerRadius", $radius);
 }
 
@@ -2010,7 +2137,8 @@ function setCornerRadius(string $id, int $radius) {
  * @param int $elevation Elevation in dp
  * @return array
  */
-function setElevation(string $id, int $elevation) {
+function setElevation(string $id, int $elevation)
+{
     return set($id, "elevation", $elevation);
 }
 
@@ -2020,7 +2148,8 @@ function setElevation(string $id, int $elevation) {
  * @param float $degrees Rotation in degrees (0-360)
  * @return array
  */
-function setRotation(string $id, float $degrees) {
+function setRotation(string $id, float $degrees)
+{
     return set($id, "rotation", $degrees);
 }
 
@@ -2030,7 +2159,8 @@ function setRotation(string $id, float $degrees) {
  * @param float $degrees Rotation in degrees
  * @return array
  */
-function setRotationX(string $id, float $degrees) {
+function setRotationX(string $id, float $degrees)
+{
     return set($id, "rotationX", $degrees);
 }
 
@@ -2040,7 +2170,8 @@ function setRotationX(string $id, float $degrees) {
  * @param float $degrees Rotation in degrees
  * @return array
  */
-function setRotationY(string $id, float $degrees) {
+function setRotationY(string $id, float $degrees)
+{
     return set($id, "rotationY", $degrees);
 }
 
@@ -2050,7 +2181,8 @@ function setRotationY(string $id, float $degrees) {
  * @param float $scale Scale factor (1.0 = normal, 2.0 = double size)
  * @return array
  */
-function setScale(string $id, float $scale) {
+function setScale(string $id, float $scale)
+{
     return update($id, ["scaleX" => $scale, "scaleY" => $scale]);
 }
 
@@ -2060,7 +2192,8 @@ function setScale(string $id, float $scale) {
  * @param float $scale Scale factor
  * @return array
  */
-function setScaleX(string $id, float $scale) {
+function setScaleX(string $id, float $scale)
+{
     return set($id, "scaleX", $scale);
 }
 
@@ -2070,7 +2203,8 @@ function setScaleX(string $id, float $scale) {
  * @param float $scale Scale factor
  * @return array
  */
-function setScaleY(string $id, float $scale) {
+function setScaleY(string $id, float $scale)
+{
     return set($id, "scaleY", $scale);
 }
 
@@ -2080,7 +2214,8 @@ function setScaleY(string $id, float $scale) {
  * @param float $translation Translation in dp
  * @return array
  */
-function setTranslationX(string $id, float $translation) {
+function setTranslationX(string $id, float $translation)
+{
     return set($id, "translationX", $translation);
 }
 
@@ -2090,7 +2225,8 @@ function setTranslationX(string $id, float $translation) {
  * @param float $translation Translation in dp
  * @return array
  */
-function setTranslationY(string $id, float $translation) {
+function setTranslationY(string $id, float $translation)
+{
     return set($id, "translationY", $translation);
 }
 
@@ -2101,7 +2237,8 @@ function setTranslationY(string $id, float $translation) {
  * @param float $y Y translation
  * @return array
  */
-function setPosition(string $id, float $x, float $y) {
+function setPosition(string $id, float $x, float $y)
+{
     return update($id, ["translationX" => $x, "translationY" => $y]);
 }
 
@@ -2111,7 +2248,8 @@ function setPosition(string $id, float $x, float $y) {
  * @param int $progress Current progress value
  * @return array
  */
-function setProgress(string $id, int $progress) {
+function setProgress(string $id, int $progress)
+{
     return set($id, "progress", $progress);
 }
 
@@ -2121,7 +2259,8 @@ function setProgress(string $id, int $progress) {
  * @param int $max Maximum value
  * @return array
  */
-function setMax(string $id, int $max) {
+function setMax(string $id, int $max)
+{
     return set($id, "max", $max);
 }
 
@@ -2132,7 +2271,8 @@ function setMax(string $id, int $max) {
  * @param int $max Maximum value
  * @return array
  */
-function setProgressWithMax(string $id, int $progress, int $max) {
+function setProgressWithMax(string $id, int $progress, int $max)
+{
     return update($id, ["progress" => $progress, "max" => $max]);
 }
 
@@ -2142,7 +2282,8 @@ function setProgressWithMax(string $id, int $progress, int $max) {
  * @param int $lines Minimum number of lines
  * @return array
  */
-function setMinLines(string $id, int $lines) {
+function setMinLines(string $id, int $lines)
+{
     return set($id, "minLines", $lines);
 }
 
@@ -2152,7 +2293,8 @@ function setMinLines(string $id, int $lines) {
  * @param int $lines Maximum number of lines
  * @return array
  */
-function setMaxLines(string $id, int $lines) {
+function setMaxLines(string $id, int $lines)
+{
     return set($id, "maxLines", $lines);
 }
 
@@ -2162,7 +2304,8 @@ function setMaxLines(string $id, int $lines) {
  * @param bool $singleLine Whether single line only
  * @return array
  */
-function setSingleLine(string $id, bool $singleLine = true) {
+function setSingleLine(string $id, bool $singleLine = true)
+{
     return set($id, "singleLine", $singleLine);
 }
 
@@ -2172,7 +2315,8 @@ function setSingleLine(string $id, bool $singleLine = true) {
  * @param string $type "text" | "textPassword" | "number" | "phone" | "textMultiLine" | "textEmailAddress"
  * @return array
  */
-function setInputType(string $id, string $type) {
+function setInputType(string $id, string $type)
+{
     return set($id, "inputType", $type);
 }
 
@@ -2182,7 +2326,8 @@ function setInputType(string $id, string $type) {
  * @param string $type "center" | "centerCrop" | "centerInside" | "fitCenter" | "fitXY"
  * @return array
  */
-function setScaleType(string $id, string $type) {
+function setScaleType(string $id, string $type)
+{
     return set($id, "scaleType", $type);
 }
 
@@ -2192,7 +2337,8 @@ function setScaleType(string $id, string $type) {
  * @param bool $clickable Whether view is clickable
  * @return array
  */
-function setClickable(string $id, bool $clickable) {
+function setClickable(string $id, bool $clickable)
+{
     return set($id, "clickable", $clickable);
 }
 
@@ -2202,7 +2348,8 @@ function setClickable(string $id, bool $clickable) {
  * @param bool $focusable Whether view can receive focus
  * @return array
  */
-function setFocusable(string $id, bool $focusable) {
+function setFocusable(string $id, bool $focusable)
+{
     return set($id, "focusable", $focusable);
 }
 
@@ -2212,7 +2359,8 @@ function setFocusable(string $id, bool $focusable) {
  * @param bool $selected Whether view is selected
  * @return array
  */
-function setSelected(string $id, bool $selected) {
+function setSelected(string $id, bool $selected)
+{
     return set($id, "selected", $selected);
 }
 
@@ -2222,7 +2370,8 @@ function setSelected(string $id, bool $selected) {
  * @param mixed $tag Tag value to store
  * @return array
  */
-function setTag(string $id, $tag) {
+function setTag(string $id, $tag)
+{
     return set($id, "tag", $tag);
 }
 
@@ -2232,7 +2381,8 @@ function setTag(string $id, $tag) {
  * @param bool $allCaps Whether text should be all uppercase
  * @return array
  */
-function setAllCaps(string $id, bool $allCaps) {
+function setAllCaps(string $id, bool $allCaps)
+{
     return set($id, "textAllCaps", $allCaps);
 }
 
@@ -2242,7 +2392,8 @@ function setAllCaps(string $id, bool $allCaps) {
  * @param float $spacing Letter spacing (0.0 normal, 0.1 = slight spacing)
  * @return array
  */
-function setLetterSpacing(string $id, float $spacing) {
+function setLetterSpacing(string $id, float $spacing)
+{
     return set($id, "letterSpacing", $spacing);
 }
 
@@ -2252,7 +2403,8 @@ function setLetterSpacing(string $id, float $spacing) {
  * @param float $multiplier Line height multiplier (1.0 = normal, 1.5 = 150%)
  * @return array
  */
-function setLineSpacing(string $id, float $multiplier) {
+function setLineSpacing(string $id, float $multiplier)
+{
     return set($id, "lineSpacingMultiplier", $multiplier);
 }
 
@@ -2262,7 +2414,8 @@ function setLineSpacing(string $id, float $multiplier) {
  * @param string $color Border color hex
  * @return array
  */
-function setBorderColor(string $id, string $color) {
+function setBorderColor(string $id, string $color)
+{
     return set($id, "strokeColor", $color);
 }
 
@@ -2272,7 +2425,8 @@ function setBorderColor(string $id, string $color) {
  * @param int $width Border width in dp
  * @return array
  */
-function setBorderWidth(string $id, int $width) {
+function setBorderWidth(string $id, int $width)
+{
     return set($id, "strokeWidth", $width);
 }
 
@@ -2283,7 +2437,8 @@ function setBorderWidth(string $id, int $width) {
  * @param int $width Border width in dp
  * @return array
  */
-function setBorder(string $id, string $color, int $width) {
+function setBorder(string $id, string $color, int $width)
+{
     return update($id, ["strokeColor" => $color, "strokeWidth" => $width]);
 }
 
@@ -2292,7 +2447,8 @@ function setBorder(string $id, string $color, int $width) {
  * @param string $id View ID
  * @return array
  */
-function focus(string $id) {
+function focus(string $id)
+{
     return set($id, "requestFocus", true);
 }
 
@@ -2301,7 +2457,8 @@ function focus(string $id) {
  * @param string $id View ID
  * @return array
  */
-function clearFocus(string $id) {
+function clearFocus(string $id)
+{
     return set($id, "clearFocus", true);
 }
 
@@ -2315,15 +2472,23 @@ function clearFocus(string $id) {
  * @param array $style ['text' => '', 'color' => '', 'size' => 16, 'bold' => true]
  * @return array
  */
-function styleText(string $id, array $style) {
+function styleText(string $id, array $style)
+{
     $props = [];
-    if (isset($style['text'])) $props['text'] = $style['text'];
-    if (isset($style['color'])) $props['textColor'] = $style['color'];
-    if (isset($style['size'])) $props['textSize'] = $style['size'];
-    if (isset($style['bold'])) $props['textStyle'] = $style['bold'] ? 'bold' : 'normal';
-    if (isset($style['italic'])) $props['textStyle'] = $style['italic'] ? 'italic' : 'normal';
-    if (isset($style['center'])) $props['gravity'] = 'center';
-    if (isset($style['caps'])) $props['textAllCaps'] = $style['caps'];
+    if (isset($style['text']))
+        $props['text'] = $style['text'];
+    if (isset($style['color']))
+        $props['textColor'] = $style['color'];
+    if (isset($style['size']))
+        $props['textSize'] = $style['size'];
+    if (isset($style['bold']))
+        $props['textStyle'] = $style['bold'] ? 'bold' : 'normal';
+    if (isset($style['italic']))
+        $props['textStyle'] = $style['italic'] ? 'italic' : 'normal';
+    if (isset($style['center']))
+        $props['gravity'] = 'center';
+    if (isset($style['caps']))
+        $props['textAllCaps'] = $style['caps'];
     return update($id, $props);
 }
 
@@ -2333,14 +2498,21 @@ function styleText(string $id, array $style) {
  * @param array $style ['background' => '#fff', 'corners' => 10, 'elevation' => 4]
  * @return array
  */
-function styleView(string $id, array $style) {
+function styleView(string $id, array $style)
+{
     $props = [];
-    if (isset($style['background'])) $props['backgroundColor'] = $style['background'];
-    if (isset($style['corners'])) $props['cornerRadius'] = $style['corners'];
-    if (isset($style['elevation'])) $props['elevation'] = $style['elevation'];
-    if (isset($style['alpha'])) $props['alpha'] = $style['alpha'];
-    if (isset($style['padding'])) $props['padding'] = $style['padding'];
-    if (isset($style['margin'])) $props['margin'] = $style['margin'];
+    if (isset($style['background']))
+        $props['backgroundColor'] = $style['background'];
+    if (isset($style['corners']))
+        $props['cornerRadius'] = $style['corners'];
+    if (isset($style['elevation']))
+        $props['elevation'] = $style['elevation'];
+    if (isset($style['alpha']))
+        $props['alpha'] = $style['alpha'];
+    if (isset($style['padding']))
+        $props['padding'] = $style['padding'];
+    if (isset($style['margin']))
+        $props['margin'] = $style['margin'];
     return update($id, $props);
 }
 
@@ -2350,17 +2522,23 @@ function styleView(string $id, array $style) {
  * @param array $transform ['x' => 0, 'y' => 0, 'rotation' => 0, 'scale' => 1.0]
  * @return array
  */
-function transform(string $id, array $transform) {
+function transform(string $id, array $transform)
+{
     $props = [];
-    if (isset($transform['x'])) $props['translationX'] = $transform['x'];
-    if (isset($transform['y'])) $props['translationY'] = $transform['y'];
-    if (isset($transform['rotation'])) $props['rotation'] = $transform['rotation'];
+    if (isset($transform['x']))
+        $props['translationX'] = $transform['x'];
+    if (isset($transform['y']))
+        $props['translationY'] = $transform['y'];
+    if (isset($transform['rotation']))
+        $props['rotation'] = $transform['rotation'];
     if (isset($transform['scale'])) {
         $props['scaleX'] = $transform['scale'];
         $props['scaleY'] = $transform['scale'];
     }
-    if (isset($transform['scaleX'])) $props['scaleX'] = $transform['scaleX'];
-    if (isset($transform['scaleY'])) $props['scaleY'] = $transform['scaleY'];
+    if (isset($transform['scaleX']))
+        $props['scaleX'] = $transform['scaleX'];
+    if (isset($transform['scaleY']))
+        $props['scaleY'] = $transform['scaleY'];
     return update($id, $props);
 }
 
@@ -2369,7 +2547,8 @@ function transform(string $id, array $transform) {
  * @param string $id View ID
  * @return array
  */
-function resetTransform(string $id) {
+function resetTransform(string $id)
+{
     return update($id, [
         "translationX" => 0,
         "translationY" => 0,
@@ -2384,7 +2563,8 @@ function resetTransform(string $id) {
 // COLORS - Pre-defined color palette
 // =============================================================================
 
-class Colors {
+class Colors
+{
     const PRIMARY = '#4ec9b0';
     const SUCCESS = '#4CAF50';
     const WARNING = '#FF9800';
@@ -2411,12 +2591,13 @@ class Colors {
  * @param array $options Optional customization
  * @return VerticalLayout
  */
-function loginForm(string $onLogin, array $options = []) {
+function loginForm(string $onLogin, array $options = [])
+{
     $title = $options['title'] ?? 'Login';
     $userLabel = $options['userLabel'] ?? 'Username';
     $passLabel = $options['passLabel'] ?? 'Password';
     $buttonText = $options['buttonText'] ?? 'Sign In';
-    
+
     return page($title, [
         input("username", $userLabel),
         spacer(10),
@@ -2433,7 +2614,8 @@ function loginForm(string $onLogin, array $options = []) {
  * @param string|null $onItemClick Method to call on item click
  * @return VerticalLayout
  */
-function simpleList(array $items, ?string $onItemClick = null) {
+function simpleList(array $items, ?string $onItemClick = null)
+{
     $elements = [];
     foreach ($items as $index => $item) {
         $lbl = label("• " . $item, ['padding' => 10]);
@@ -2454,7 +2636,8 @@ function simpleList(array $items, ?string $onItemClick = null) {
  * @param string $onNo Method for No button
  * @return VerticalLayout
  */
-function confirmDialog(string $message, string $onYes, string $onNo) {
+function confirmDialog(string $message, string $onYes, string $onNo)
+{
     return page("Confirm", [
         label($message, ['size' => 18, 'center' => true, 'padding' => 30]),
         spacer(20),
@@ -2473,7 +2656,8 @@ function confirmDialog(string $message, string $onYes, string $onNo) {
  * @param string $icon Emoji icon
  * @return TextView
  */
-function statusLabel(string $id, string $initialText = "Ready", string $icon = "ℹ️") {
+function statusLabel(string $id, string $initialText = "Ready", string $icon = "ℹ️")
+{
     return label("$icon $initialText", [
         'id' => $id,
         'size' => 16,
@@ -2498,13 +2682,14 @@ function statusLabel(string $id, string $initialText = "Ready", string $icon = "
  *       ['name' => 'Settings', 'content' => [toggle("dark", "Dark Mode")]],
  *   ]);
  */
-function tabbedPage(string $title, array $tabDefs, ?string $onTabChange = null) {
+function tabbedPage(string $title, array $tabDefs, ?string $onTabChange = null)
+{
     $tabNames = array_map(fn($t) => $t['name'], $tabDefs);
-    
+
     $content = [
         tabs("page_tabs", $tabNames, $onTabChange ?? ""),
     ];
-    
+
     // Show first tab's content by default
     if (!empty($tabDefs[0]['content'])) {
         $contentArea = (new VerticalLayout($tabDefs[0]['content']))
@@ -2512,7 +2697,7 @@ function tabbedPage(string $title, array $tabDefs, ?string $onTabChange = null) 
             ->padding(16);
         $content[] = $contentArea;
     }
-    
+
     return page($title, $content);
 }
 
@@ -2531,13 +2716,14 @@ function tabbedPage(string $title, array $tabDefs, ?string $onTabChange = null) 
  *       ['type' => 'slider', 'id' => 'font_size', 'label' => 'Font Size', 'max' => 30],
  *   ]);
  */
-function settingsPage(string $title, array $settings) {
+function settingsPage(string $title, array $settings)
+{
     $items = [];
     foreach ($settings as $s) {
         $type = $s['type'] ?? 'toggle';
-        
+
         $rowContent = [label($s['label'] ?? '', ['size' => 16])];
-        
+
         switch ($type) {
             case 'toggle':
                 $rowContent[] = toggle($s['id'], '', $s['value'] ?? false, $s['onChange'] ?? null);
@@ -2552,11 +2738,11 @@ function settingsPage(string $title, array $settings) {
                 $rowContent[] = input($s['id'], $s['hint'] ?? '', []);
                 break;
         }
-        
+
         $items[] = row($rowContent);
         $items[] = divider();
     }
-    
+
     return page($title, $items);
 }
 
@@ -2577,12 +2763,13 @@ function settingsPage(string $title, array $settings) {
  *       ['id' => 'agree', 'label' => 'I agree to terms', 'type' => 'checkbox'],
  *   ], "onRegister", "Register");
  */
-function formPage(string $title, array $fields, string $onSubmit, string $submitText = "Submit") {
+function formPage(string $title, array $fields, string $onSubmit, string $submitText = "Submit")
+{
     $elements = [];
-    
+
     foreach ($fields as $f) {
         $type = $f['type'] ?? 'text';
-        
+
         switch ($type) {
             case 'checkbox':
                 $elements[] = checkbox($f['id'], $f['label'], $f['onChange'] ?? null);
@@ -2604,17 +2791,18 @@ function formPage(string $title, array $fields, string $onSubmit, string $submit
             default:
                 if (isset($f['password']) && $f['password']) {
                     $elements[] = input($f['id'], $f['label'], ['password' => true]);
-                } else {
+                }
+                else {
                     $elements[] = input($f['id'], $f['label'], $f);
                 }
                 break;
         }
         $elements[] = spacer(8);
     }
-    
+
     $elements[] = spacer(16);
     $elements[] = button($submitText, $onSubmit, ['color' => Colors::PRIMARY]);
-    
+
     return page($title, $elements);
 }
 
@@ -2635,30 +2823,31 @@ function formPage(string $title, array $fields, string $onSubmit, string $submit
  *       ],
  *   ]);
  */
-function profilePage(array $profile) {
+function profilePage(array $profile)
+{
     $content = [];
-    
+
     if (isset($profile['image'])) {
         $content[] = (new ImageView())
             ->src($profile['image'])
             ->width(100)->height(100)
             ->scaleType("centerCrop");
     }
-    
+
     $content[] = spacer(16);
     $content[] = label($profile['name'] ?? 'User', ['bold' => true, 'size' => 24, 'center' => true]);
-    
+
     if (isset($profile['subtitle'])) {
         $content[] = label($profile['subtitle'], ['size' => 14, 'color' => Colors::TEXT_MUTED, 'center' => true]);
     }
-    
+
     $content[] = spacer(24);
-    
+
     foreach ($profile['actions'] ?? [] as $action) {
         $content[] = $action;
         $content[] = spacer(8);
     }
-    
+
     return page('', $content);
 }
 
@@ -2677,21 +2866,22 @@ function profilePage(array $profile) {
  *       'Total' => '$99.99',
  *   ], [button("Track", "onTrack")]);
  */
-function detailPage(string $title, array $details, array $actions = []) {
+function detailPage(string $title, array $details, array $actions = [])
+{
     $items = [];
     foreach ($details as $key => $value) {
         $items[] = row([
             label($key, ['size' => 14, 'color' => Colors::TEXT_MUTED, 'width' => 120]),
-            label((string) $value, ['size' => 16, 'bold' => true]),
+            label((string)$value, ['size' => 16, 'bold' => true]),
         ]);
         $items[] = divider();
     }
-    
+
     if (!empty($actions)) {
         $items[] = spacer(16);
         $items[] = row($actions);
     }
-    
+
     return page($title, $items);
 }
 
@@ -2713,32 +2903,33 @@ function detailPage(string $title, array $details, array $actions = []) {
  *       ]
  *   ]);
  */
-function mediaCard(array $data) {
+function mediaCard(array $data)
+{
     $content = [];
-    
+
     if (isset($data['image'])) {
         $content[] = (new ImageView())
             ->src($data['image'])
             ->width(-1)->height(200)
             ->scaleType("centerCrop");
     }
-    
+
     if (isset($data['title'])) {
         $content[] = label($data['title'], ['bold' => true, 'size' => 20, 'padding' => 12]);
     }
-    
+
     if (isset($data['subtitle'])) {
         $content[] = label($data['subtitle'], ['size' => 14, 'color' => Colors::TEXT_MUTED, 'paddingLeft' => 12]);
     }
-    
+
     if (isset($data['body'])) {
         $content[] = label($data['body'], ['size' => 16, 'padding' => 12]);
     }
-    
+
     if (!empty($data['actions'])) {
         $content[] = row($data['actions']);
     }
-    
+
     return materialCard($content, ['corners' => 16, 'elevation' => 4, 'padding' => 0]);
 }
 
@@ -2754,19 +2945,20 @@ function mediaCard(array $data) {
  * Example:
  *   return emptyState("No items yet", "📋", "Add Item", "onAddItem");
  */
-function emptyState(string $message, string $icon = "📭", ?string $actionText = null, ?string $actionMethod = null) {
+function emptyState(string $message, string $icon = "📭", ?string $actionText = null, ?string $actionMethod = null)
+{
     $content = [
         spacer(60),
         label($icon, ['size' => 48, 'center' => true]),
         spacer(16),
         label($message, ['size' => 18, 'color' => Colors::TEXT_MUTED, 'center' => true]),
     ];
-    
+
     if ($actionText && $actionMethod) {
         $content[] = spacer(24);
         $content[] = button($actionText, $actionMethod, ['color' => Colors::PRIMARY]);
     }
-    
+
     return (new VerticalLayout($content))
         ->gravity("center")
         ->width(-1)->height(-1);
@@ -2781,7 +2973,8 @@ function emptyState(string $message, string $icon = "📭", ?string $actionText 
  * Example:
  *   return loading("Please wait...");
  */
-function loading(string $message = "Loading...") {
+function loading(string $message = "Loading...")
+{
     return (new VerticalLayout([
         spacer(60),
         (new ProgressBar())->id("loading_spinner"),
@@ -2797,28 +2990,32 @@ function loading(string $message = "Loading...") {
 /**
  * Format a number with thousands separator
  */
-function formatNumber($num) {
+function formatNumber($num)
+{
     return number_format($num, 0, '.', ',');
 }
 
 /**
  * Format currency
  */
-function formatMoney($amount, $symbol = '$') {
+function formatMoney($amount, $symbol = '$')
+{
     return $symbol . number_format($amount, 2);
 }
 
 /**
  * Check if string is empty or whitespace only
  */
-function isEmpty($str) {
+function isEmpty($str)
+{
     return empty(trim($str ?? ''));
 }
 
 /**
  * Get compass direction from azimuth
  */
-function compassDirection($azimuth) {
+function compassDirection($azimuth)
+{
     $directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     return $directions[round($azimuth / 45) % 8];
 }
@@ -2833,21 +3030,22 @@ function compassDirection($azimuth) {
 // Global flag to prevent double execution (in case router.php also runs)
 $GLOBALS['_simple_php_did_output'] = false;
 
-function _simple_php_autorun() {
+function _simple_php_autorun()
+{
     // Prevent double execution
     if (!empty($GLOBALS['_simple_php_did_output'])) {
         return;
     }
-    
+
     // Only run in CLI mode
     if (php_sapi_name() !== 'cli') {
         return;
     }
-    
+
     // Suppress errors to keep output clean JSON
     error_reporting(0);
     ini_set('display_errors', 0);
-    
+
     // Parse --method argument
     global $argv;
     $method = 'index';
@@ -2857,31 +3055,34 @@ function _simple_php_autorun() {
             break;
         }
     }
-    
+
     // Find and instantiate App class (check both App and MyApp names)
     $appInstance = null;
     if (class_exists('App')) {
         $appInstance = new App();
-    } elseif (class_exists('MyApp')) {
+    }
+    elseif (class_exists('MyApp')) {
         $appInstance = new MyApp();
     }
-    
+
     if ($appInstance && method_exists($appInstance, $method)) {
         // Get parameters from env or global
         $params = [];
-        
+
         // Call method and output result
         $result = $appInstance->$method($params);
-        
+
         // Mark that we've produced output
         $GLOBALS['_simple_php_did_output'] = true;
-        
+
         // If result is a Component, render to JSON
         if ($result instanceof Component) {
             echo $result->toJson();
-        } elseif (is_array($result)) {
+        }
+        elseif (is_array($result)) {
             echo json_encode($result, JSON_UNESCAPED_UNICODE);
-        } elseif (is_string($result)) {
+        }
+        elseif (is_string($result)) {
             echo $result;
         }
     }

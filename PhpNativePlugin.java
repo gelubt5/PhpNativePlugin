@@ -103,6 +103,7 @@ import android.os.Environment;
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
 import android.media.AudioManager;
+import android.media.AudioAttributes;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.SpeechRecognizer;
@@ -132,6 +133,7 @@ import android.content.pm.PackageManager;
 import android.Manifest;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedWriter;
@@ -153,6 +155,10 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 import android.util.Base64;
+import android.content.ContentValues;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import java.io.ByteArrayOutputStream;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -161,9 +167,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -172,16 +186,80 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class PhpNativePlugin {
     public static final String TAG = "PhpNativePlugin";
     public static final float VERSION = 1.0f;
+    public static final String VERSION_STRING = "1.0.0";
+    
+    // Subprocess timeout in seconds
+    private static final long PHP_TIMEOUT_SECONDS = 30;
+    
+    // PHP Worker server configuration
+    // Port 0 means OS will assign an available port (avoids collisions with multiple plugin instances)
+    private static final int PHP_WORKER_CONNECT_TIMEOUT_MS = 5000;
+    private static final int PHP_WORKER_READ_TIMEOUT_MS = 30000;
+    private static final int PHP_WORKER_STARTUP_TIMEOUT_MS = 10000;
+    
+    // Activity result request codes
+    private static final int REQUEST_TAKE_PHOTO = 1001;
+    private static final int REQUEST_RECORD_VIDEO = 1002;
+    private static final int REQUEST_PICK_IMAGE = 1003;
+    private static final int REQUEST_PICK_VIDEO = 1004;
+    private static final int REQUEST_PICK_AUDIO = 1005;
+    private static final int REQUEST_PICK_FILE = 1006;
+    
+    // Permission request base code
+    private static final int PERMISSION_REQUEST_CODE = 2000;
 
     // Properties to skip during reflection-based property extraction
+    // Skips internal Android properties that are not useful for PHP, could have side effects,
+    // or expose sensitive data
     private static final Set<String> SKIP_PROPERTIES = new HashSet<>(Arrays.asList(
-    
+        // Security-sensitive
+        "password", "hint",
+        // May allocate resources or have side effects
+        "drawingCache", "drawingCacheBackgroundColor", "drawingCacheQuality",
+        "rootWindowInsets", "windowSystemUiVisibility", "systemUiVisibility",
+        // Internal/rarely useful
+        "applicationWindowToken", "windowToken", "windowId",
+        "accessibilityDelegate", "accessibilityNodeProvider",
+        "autofillHints", "autofillId", "autofillType", "autofillValue",
+        "clipBounds", "clipToOutline", "contentDescription",
+        "filterTouchesWhenObscured", "fitsSystemWindows",
+        "foreground", "foregroundGravity", "foregroundTintList", "foregroundTintMode",
+        "handler", "hasExplicitFocusable", "hasFocus", "hasNestedScrollingParent",
+        "hasOnClickListeners", "hasOnLongClickListeners", "hasOverlappingRendering",
+        "hasPointerCapture", "hasTransientState", "hasWindowFocus",
+        "importantForAccessibility", "importantForAutofill",
+        "keepScreenOn", "keyDispatcherState", "labelFor",
+        "layerType", "layoutDirection", "layoutParams",
+        "locationInWindow", "locationOnScreen", "matrix",
+        "measuredHeight", "measuredHeightAndState", "measuredState", "measuredWidth", "measuredWidthAndState",
+        "nextClusterForwardId", "nextFocusDownId", "nextFocusForwardId",
+        "nextFocusLeftId", "nextFocusRightId", "nextFocusUpId",
+        "outlineProvider", "overlay", "overScrollMode",
+        "paddingBottom", "paddingEnd", "paddingLeft", "paddingRight", "paddingStart", "paddingTop",
+        "parent", "parentForAccessibility", "pivotX", "pivotY",
+        "pointerIcon", "rawLayoutDirection", "resources",
+        "revealOnFocusHint", "rootSurfaceControl", "rootView",
+        "rotationX", "rotationY", "rotation",
+        "saveEnabled", "saveFromParentEnabled", "scaleX", "scaleY",
+        "scrollBarFadeDuration", "scrollBarSize", "scrollBarStyle",
+        "scrollIndicators", "scrollX", "scrollY",
+        "solidColor", "sourceLayoutResId", "stateListAnimator",
+        "tag", "textAlignment", "textDirection",
+        "tooltipText", "touchDelegate", "touchables",
+        "transitionAlpha", "transitionName",
+        "translationX", "translationY", "translationZ",
+        "uniqueDrawingId", "verticalFadingEdgeLength", "verticalScrollbarPosition",
+        "verticalScrollbarThumbDrawable", "verticalScrollbarTrackDrawable", "verticalScrollbarWidth",
+        "viewTreeObserver", "windowAttachCount", "windowVisibility",
+        "x", "y", "z"
     ));
 
     // Reflection handles to DroidScript host
@@ -198,15 +276,28 @@ public class PhpNativePlugin {
     private String m_appName;       // Current app name
     private boolean m_phpReady = false;
     private String m_phpPath;
-      private String m_entryFile; // Default PHP entry file
+    private String m_entryFile; // Default PHP entry file
+    
+    // PHP Worker (long-running server for performance)
+    private Process m_phpWorkerProcess;
+    private String m_phpWorkerSecret;       // HMAC shared secret for authentication
+    private File m_phpWorkerSecretFile;     // Exact path where secret was written (for cleanup)
+    private int m_phpWorkerPort = 0;        // Dynamically assigned port (0 until worker reports READY)
+    private boolean m_phpWorkerReady = false;
+    private final AtomicInteger m_phpRequestId = new AtomicInteger(0);
+    private final Object m_phpWorkerLock = new Object(); // Synchronization for worker state
+    
+    // Maximum response size from PHP worker (16 MiB, matching PHP side)
+    private static final int MAX_RESPONSE_SIZE = 16 * 1024 * 1024;
 
     // UI Management
-    private FrameLayout m_overlayContainer;
-    private Map<String, View> m_viewRegistry = new HashMap<>();
-    private Map<String, android.widget.ArrayAdapter<String>> m_listAdapters = new HashMap<>();
-    private Map<String, List<String>> m_listData = new HashMap<>();
-    private Map<String, DrawerState> m_drawerStates = new HashMap<>();
-    private Map<String, BottomNavState> m_bottomNavStates = new HashMap<>();
+    private ViewGroup m_mainRootView;            // Main root view for direct rendering
+    // Using ConcurrentHashMap for thread-safety across UI, executor, and sensor threads
+    private Map<String, View> m_viewRegistry = new ConcurrentHashMap<>();
+    private Map<String, android.widget.ArrayAdapter<String>> m_listAdapters = new ConcurrentHashMap<>();
+    private Map<String, List<String>> m_listData = new ConcurrentHashMap<>();
+    private Map<String, DrawerState> m_drawerStates = new ConcurrentHashMap<>();
+    private Map<String, BottomNavState> m_bottomNavStates = new ConcurrentHashMap<>();
     private Handler m_mainHandler;
     private ExecutorService m_executor;
 
@@ -217,7 +308,8 @@ public class PhpNativePlugin {
     private String m_OnError;
 
     // Pending sensor callbacks (sensor type -> PHP method to call with result)
-    private Map<String, String> m_pendingSensorCallbacks = new HashMap<>();
+    // Using ConcurrentHashMap for thread-safety as callbacks are added/removed from multiple threads
+    private Map<String, String> m_pendingSensorCallbacks = new ConcurrentHashMap<>();
 
     // Navigation history stack: each entry is [method, dataJson]
     private ArrayList<String[]> m_screenHistory = new ArrayList<>();
@@ -237,8 +329,8 @@ public class PhpNativePlugin {
         void handle(JSONObject params, String callback);
     }
     
-    // Native handler registry
-    private Map<String, NativeHandler> m_nativeHandlers = new HashMap<>();
+    // Native handler registry (thread-safe for concurrent access)
+    private Map<String, NativeHandler> m_nativeHandlers = new ConcurrentHashMap<>();
     
     // Native functionality state
     private SensorManager m_sensorManager;
@@ -251,9 +343,20 @@ public class PhpNativePlugin {
     private boolean m_ttsReady = false;
     
     // Permission request tracking
-    private static final int PERMISSION_REQUEST_CODE = 1001;
-    private Map<Integer, Runnable> m_permissionCallbacks = new HashMap<>();
+    private Map<Integer, Runnable> m_permissionCallbacks = new ConcurrentHashMap<>();
     private int m_permissionRequestId = 0;
+    
+    // Debug log file
+    private String m_debugLogFile;
+    private java.io.BufferedWriter m_debugLogWriter; // Cached writer for performance
+    private final Object m_debugLogLock = new Object(); // Synchronization for debug logging
+    
+    // Pending photo target ImageView ID (for takephoto handler)
+    private String m_pendingPhotoImageViewId;
+    // Content URI for camera capture (MediaStore entry, copied to app folder then deleted)
+    private Uri m_pendingPhotoUri;
+    // Local file path where photo will be saved in app folder
+    private String m_pendingPhotoPath;
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -261,6 +364,50 @@ public class PhpNativePlugin {
 
     public PhpNativePlugin() {
         Log.d(TAG, "Creating PhpNativePlugin");
+    }
+    
+    /**
+     * Logs a debug message to both logcat and a local file in app directory.
+     * Uses a cached BufferedWriter for better performance under high-frequency logging.
+     */
+    private void debugLog(String message) {
+        Log.d(TAG, message);
+        if (m_debugLogFile != null) {
+            synchronized (m_debugLogLock) {
+                try {
+                    // Lazily create the writer
+                    if (m_debugLogWriter == null) {
+                        m_debugLogWriter = new java.io.BufferedWriter(
+                            new java.io.FileWriter(m_debugLogFile, true), 8192);
+                    }
+                    m_debugLogWriter.write(
+                        new java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US)
+                            .format(new java.util.Date()) + " " + message);
+                    m_debugLogWriter.newLine();
+                    m_debugLogWriter.flush();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to write debug log", e);
+                    // Reset writer on error so it can be recreated
+                    closeDebugLogWriter();
+                }
+            }
+        }
+    }
+    
+    /**
+     * Close the debug log writer. Called during Release().
+     */
+    private void closeDebugLogWriter() {
+        synchronized (m_debugLogLock) {
+            if (m_debugLogWriter != null) {
+                try {
+                    m_debugLogWriter.close();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error closing debug log writer", e);
+                }
+                m_debugLogWriter = null;
+            }
+        }
     }
 
     public void Init(Context ctx, Object parent) throws Exception {
@@ -295,8 +442,11 @@ public class PhpNativePlugin {
         if (m_executor != null) {
             m_executor.shutdown();
         }
-        if (m_overlayContainer != null) {
-            removeOverlay();
+        // Clean up the root view
+        if (m_mainRootView != null) {
+            m_viewRegistry.clear();
+            m_listAdapters.clear();
+            m_listData.clear();
         }
         // Release native resources
         if (m_tts != null) {
@@ -316,6 +466,10 @@ public class PhpNativePlugin {
             try { m_mediaRecorder.release(); } catch (Exception e) {}
             m_mediaRecorder = null;
         }
+        // Stop PHP worker server
+        stopPhpWorker();
+        // Close debug log writer
+        closeDebugLogWriter();
     }
 
     // -------------------------------------------------------------------------
@@ -326,7 +480,259 @@ public class PhpNativePlugin {
     public void OnPause() { }
     public void OnConfig() { }
     public void OnNewIntent(Intent intent) { }
-    public void OnActivityResult(int requestCode, int resultCode, Intent data) { }
+    
+    /**
+     * Handle permission request results.
+     * Called when user grants/denies permissions from requestPermission().
+     */
+    public void OnPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        // Check if this is one of our permission requests
+        if (requestCode >= PERMISSION_REQUEST_CODE) {
+            int requestId = requestCode - PERMISSION_REQUEST_CODE;
+            Runnable callback = m_permissionCallbacks.remove(requestId);
+            
+            if (callback != null) {
+                // Check if all permissions were granted
+                boolean allGranted = true;
+                if (grantResults != null) {
+                    for (int result : grantResults) {
+                        if (result != PackageManager.PERMISSION_GRANTED) {
+                            allGranted = false;
+                            break;
+                        }
+                    }
+                } else {
+                    allGranted = false;
+                }
+                
+                if (allGranted) {
+                    callback.run();
+                } else {
+                    Log.w(TAG, "Permission denied for request " + requestId);
+                }
+            }
+        }
+    }
+    
+    public void OnActivityResult(int requestCode, int resultCode, Intent data) {
+        // Handle file picker results
+        String resultType = null;
+        switch (requestCode) {
+            case REQUEST_TAKE_PHOTO: resultType = "takephoto_result"; break;
+            case REQUEST_RECORD_VIDEO: resultType = "recordvideo_result"; break;
+            case REQUEST_PICK_IMAGE: resultType = "pickimage_result"; break;
+            case REQUEST_PICK_VIDEO: resultType = "pickvideo_result"; break;
+            case REQUEST_PICK_AUDIO: resultType = "pickaudio_result"; break;
+            case REQUEST_PICK_FILE: resultType = "pickfile_result"; break;
+        }
+        
+        if (resultType != null) {
+            JSONObject result = new JSONObject();
+            try {
+                if (resultCode == Activity.RESULT_OK) {
+                    // Special handling for takephoto (REQUEST_TAKE_PHOTO):
+                    // Copy raw bytes from MediaStore URI -> app folder file, delete MediaStore entry,
+                    // then decode bitmap from local file.
+                    if (requestCode == REQUEST_TAKE_PHOTO){
+                        if (m_pendingPhotoUri != null && m_pendingPhotoPath != null) {
+                        Uri photoUri = m_pendingPhotoUri;
+                        String photoPath = m_pendingPhotoPath;
+                        m_pendingPhotoUri = null;
+                        m_pendingPhotoPath = null;
+                        try {
+                            Log.d(TAG, "takephoto result: copying from URI=" + photoUri + " to " + photoPath);
+                            // Copy raw bytes from MediaStore to local file in app folder
+                            InputStream is = m_ctx.getContentResolver().openInputStream(photoUri);
+                            File localFile = new File(photoPath);
+                            FileOutputStream fos = new FileOutputStream(localFile);
+                            byte[] buf = new byte[8192];
+                            int len;
+                            long total = 0;
+                            while ((len = is.read(buf)) > 0) {
+                                fos.write(buf, 0, len);
+                                total += len;
+                            }
+                            fos.close();
+                            is.close();
+                            Log.d(TAG, "takephoto result: copied " + total + " bytes to " + photoPath);
+                            // Delete MediaStore entry - photo now lives in app folder
+                            m_ctx.getContentResolver().delete(photoUri, null, null);
+                            // Decode full-res bitmap from local file
+                            Bitmap photo = BitmapFactory.decodeFile(photoPath);
+                            Log.d(TAG, "takephoto result: decoded bitmap = " +
+                                (photo != null ? photo.getWidth() + "x" + photo.getHeight() : "null"));
+                            if (photo != null) {
+                                // Display in ImageView if target was specified
+                                if (m_pendingPhotoImageViewId != null) {
+                                    final String viewId = m_pendingPhotoImageViewId;
+                                    final Bitmap bmp = photo;
+                                    m_pendingPhotoImageViewId = null;
+                                    m_mainHandler.post(() -> {
+                                        View v = m_viewRegistry.get(viewId);
+                                        if (v instanceof ImageView) {
+                                            ((ImageView) v).setImageBitmap(bmp);
+                                            Log.d(TAG, "Photo displayed in ImageView: " + viewId
+                                                + " (" + bmp.getWidth() + "x" + bmp.getHeight() + ")");
+                                        } else {
+                                            Log.w(TAG, "ImageView not found for id: " + viewId);
+                                        }
+                                    });
+                                }
+                                result.put("success", true);
+                                result.put("path", photoPath);
+                                result.put("width", photo.getWidth());
+                                result.put("height", photo.getHeight());
+                                result.put("size", localFile.length());
+                            } else {
+                                result.put("success", false);
+                                result.put("error", "Failed to decode photo from " + photoPath + " (" + total + " bytes copied)");
+                            }
+                        } catch (Exception ex) {
+                            Log.e(TAG, "takephoto result error", ex);
+                            try { m_ctx.getContentResolver().delete(photoUri, null, null); } catch (Exception ignored) {}
+                            result.put("success", false);
+                            result.put("error", "Failed to read photo: " + ex.getMessage());
+                        }
+                      } else {
+                        result.put("success", false);
+                        result.put("error", "No pending photo URI/path");
+                      }
+                    }
+                    // All other cases: get URI from data
+                    else if (data != null) {
+                        Uri uri = data.getData();
+                        if (uri != null) {
+                            result.put("uri", uri.toString());
+                            String path = getPathFromUri(uri);
+                            if (path != null) {
+                                result.put("path", path);
+                            }
+                            String[] projection = {MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.SIZE};
+                            try (android.database.Cursor cursor = m_ctx.getContentResolver().query(uri, projection, null, null, null)) {
+                                if (cursor != null && cursor.moveToFirst()) {
+                                    int nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME);
+                                    int sizeIndex = cursor.getColumnIndex(MediaStore.MediaColumns.SIZE);
+                                    if (nameIndex >= 0) result.put("name", cursor.getString(nameIndex));
+                                    if (sizeIndex >= 0) result.put("size", cursor.getLong(sizeIndex));
+                                }
+                            }
+                            result.put("success", true);
+                        } else {
+                            result.put("success", false);
+                            result.put("error", "No URI returned");
+                        }
+                    } else {
+                        result.put("success", false);
+                        result.put("error", "No data returned");
+                    }
+                } else {
+                    // Clean up pending MediaStore entry on cancel
+                    if (requestCode == 1001 && m_pendingPhotoUri != null) {
+                        try { m_ctx.getContentResolver().delete(m_pendingPhotoUri, null, null); } catch (Exception ignored) {}
+                        m_pendingPhotoUri = null;
+                        m_pendingPhotoPath = null;
+                    }
+                    result.put("success", false);
+                    result.put("cancelled", true);
+                }
+            } catch (Exception e) {
+                try {
+                    result.put("success", false);
+                    result.put("error", e.getMessage());
+                } catch (Exception ignored) {}
+            }
+            
+            // Get the stored callback and report result
+            String nativeType = resultType.replace("_result", "");
+            reportNativeResult(nativeType, result);
+        }
+    }
+    
+    /**
+     * Try to get a file path from a content URI.
+     * For Android 10+ scoped storage, MediaStore.MediaColumns.DATA may not work.
+     * Falls back to copying content to app cache directory.
+     */
+    private String getPathFromUri(Uri uri) {
+        if (uri == null) return null;
+        
+        // If it's already a file URI, just return the path
+        if ("file".equalsIgnoreCase(uri.getScheme())) {
+            return uri.getPath();
+        }
+        
+        // Try to query for DATA column (works on Android 9 and below, deprecated on 10+)
+        // On Android 10+ with scoped storage, this often returns null or inaccessible paths
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            String[] projection = {MediaStore.MediaColumns.DATA};
+            try (android.database.Cursor cursor = m_ctx.getContentResolver().query(uri, projection, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int columnIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA);
+                    if (columnIndex >= 0) {
+                        String path = cursor.getString(columnIndex);
+                        if (path != null && new File(path).exists()) {
+                            return path;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        
+        // For Android 10+ or when DATA column fails: copy content to cache directory
+        // This is the recommended approach for scoped storage
+        return copyUriToCache(uri);
+    }
+    
+    /**
+     * Copy content from a URI to the app's cache directory.
+     * Returns the path to the cached file, or null on failure.
+     */
+    private String copyUriToCache(Uri uri) {
+        if (uri == null) return null;
+        
+        try {
+            // Get display name to preserve extension
+            String fileName = "picked_file";
+            try (android.database.Cursor cursor = m_ctx.getContentResolver().query(
+                    uri, new String[]{MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME);
+                    if (nameIndex >= 0) {
+                        String name = cursor.getString(nameIndex);
+                        if (name != null && !name.isEmpty()) {
+                            fileName = name;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            
+            // Create unique filename in cache dir
+            File cacheDir = new File(m_ctx.getCacheDir(), "picked_files");
+            if (!cacheDir.exists()) cacheDir.mkdirs();
+            
+            // Add timestamp to avoid collisions
+            String uniqueName = System.currentTimeMillis() + "_" + fileName;
+            File destFile = new File(cacheDir, uniqueName);
+            
+            // Copy content
+            try (InputStream in = m_ctx.getContentResolver().openInputStream(uri);
+                 FileOutputStream out = new FileOutputStream(destFile)) {
+                if (in == null) return null;
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+            }
+            
+            Log.d(TAG, "Copied URI content to cache: " + destFile.getAbsolutePath());
+            return destFile.getAbsolutePath();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to copy URI to cache: " + e.getMessage());
+            return null;
+        }
+    }
 
     // -------------------------------------------------------------------------
     // PHP Environment Setup
@@ -338,11 +744,11 @@ public class PhpNativePlugin {
                 // Extract PHP binary from plugin assets
                 extractPhpBinary();
                 
-                // Extract PHP script files
-           
+                // Start the PHP worker server for better performance
+                startPhpWorker();
            
                 m_phpReady = true;
-                Log.d(TAG, "PHP environment ready");
+                Log.d(TAG, "PHP environment ready (worker=" + m_phpWorkerReady + ")");
 
                 // Notify DroidScript that PHP is ready
                 if (m_OnUiReady != null) {
@@ -361,6 +767,223 @@ public class PhpNativePlugin {
                 notifyError("PHP initialization failed: " + e.getMessage());
             }
         });
+    }
+    
+    /**
+     * Start the long-running PHP worker server.
+     * This provides much better performance than spawning a new process per call.
+     */
+    private void startPhpWorker() {
+        if (m_phpPath == null) {
+            Log.w(TAG, "PHP binary not available, worker cannot start");
+            return;
+        }
+        
+        String scriptDir = getPhpScriptDir();
+        File serverScript = new File(scriptDir, "server.php");
+        if (!serverScript.exists()) {
+            Log.w(TAG, "server.php not found, falling back to per-call subprocess");
+            return;
+        }
+        
+        try {
+            // Generate and write the HMAC secret to app-private storage
+            // (not world-readable like external storage on older Android)
+            m_phpWorkerSecret = generateSecret();
+            File privateDir = m_ctx.getFilesDir();
+            m_phpWorkerSecretFile = new File(privateDir, "phpnative.key");
+            try (FileOutputStream fos = new FileOutputStream(m_phpWorkerSecretFile)) {
+                fos.write(m_phpWorkerSecret.getBytes(StandardCharsets.UTF_8));
+            }
+            Log.d(TAG, "Wrote HMAC secret to: " + m_phpWorkerSecretFile.getAbsolutePath());
+            
+            // Start the PHP worker process
+            ProcessBuilder pb = new ProcessBuilder(
+                m_phpPath,
+                serverScript.getAbsolutePath()
+            );
+            // Port 0 tells PHP to let OS assign an available port
+            pb.environment().put("PHPNATIVE_PORT", "0");
+            // Pass secret path via env var so PHP reads from app-private location
+            pb.environment().put("PHPNATIVE_SECRET_PATH", m_phpWorkerSecretFile.getAbsolutePath());
+            pb.directory(new File(scriptDir));
+            pb.redirectErrorStream(false); // Keep stderr separate for error logging
+            
+            Log.d(TAG, "Starting PHP worker: " + m_phpPath + " " + serverScript.getAbsolutePath());
+            
+            synchronized (m_phpWorkerLock) {
+                m_phpWorkerProcess = pb.start();
+            }
+            
+            // Start a thread to log stderr
+            startWorkerErrorLogger();
+            
+            // Wait for the "READY" signal on stdout (includes assigned port)
+            int assignedPort = waitForWorkerReady();
+            if (assignedPort > 0) {
+                m_phpWorkerPort = assignedPort;
+                m_phpWorkerReady = true;
+                Log.d(TAG, "PHP worker started successfully on port " + m_phpWorkerPort);
+            } else {
+                Log.e(TAG, "PHP worker failed to start within timeout");
+                stopPhpWorker();
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start PHP worker", e);
+            m_phpWorkerReady = false;
+        }
+    }
+    
+    /**
+     * Generate a random secret for HMAC authentication.
+     */
+    private String generateSecret() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        StringBuilder sb = new StringBuilder(64);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+    
+    /**
+     * Start a thread to log PHP worker stderr output.
+     */
+    private void startWorkerErrorLogger() {
+        Process process;
+        synchronized (m_phpWorkerLock) {
+            process = m_phpWorkerProcess;
+        }
+        if (process == null) return;
+        
+        new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    Log.w(TAG, "[PHP worker stderr] " + line);
+                }
+            } catch (Exception e) {
+                Log.d(TAG, "PHP worker stderr reader ended: " + e.getMessage());
+            }
+        }, "PhpWorkerErrorLogger").start();
+    }
+    
+    /**
+     * Wait for the PHP worker to output "READY port=XXXX pid=XXX" on stdout.
+     * @return the assigned port number, or -1 if timeout/error
+     */
+    private int waitForWorkerReady() {
+        Process process;
+        synchronized (m_phpWorkerLock) {
+            process = m_phpWorkerProcess;
+        }
+        if (process == null) return -1;
+        
+        long startTime = System.currentTimeMillis();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()))) {
+            // Set a read timeout by checking process liveness
+            while (System.currentTimeMillis() - startTime < PHP_WORKER_STARTUP_TIMEOUT_MS) {
+                if (!process.isAlive()) {
+                    Log.e(TAG, "PHP worker process died during startup, exit=" + process.exitValue());
+                    return -1;
+                }
+                // Try to read a line (we need the ready signal)
+                // Use available() to avoid blocking forever
+                if (reader.ready()) {
+                    String line = reader.readLine();
+                    Log.d(TAG, "[PHP worker stdout] " + line);
+                    if (line != null && line.startsWith("READY")) {
+                        // Parse port from "READY port=XXXX pid=YYYY"
+                        java.util.regex.Matcher m = java.util.regex.Pattern
+                            .compile("port=(\\d+)")
+                            .matcher(line);
+                        if (m.find()) {
+                            return Integer.parseInt(m.group(1));
+                        }
+                        Log.w(TAG, "READY line missing port: " + line);
+                        return -1;
+                    }
+                } else {
+                    Thread.sleep(50);
+                }
+            }
+            Log.e(TAG, "Timeout waiting for PHP worker READY signal");
+        } catch (Exception e) {
+            Log.e(TAG, "Error waiting for PHP worker ready", e);
+        }
+        return -1;
+    }
+    
+    /**
+     * Stop the PHP worker server gracefully.
+     */
+    private void stopPhpWorker() {
+        synchronized (m_phpWorkerLock) {
+            m_phpWorkerReady = false;
+            if (m_phpWorkerProcess != null) {
+                // Try graceful shutdown via __shutdown__ command (before resetting port)
+                if (m_phpWorkerPort > 0) {
+                    try {
+                        sendWorkerCommand("__shutdown__", null);
+                    } catch (Exception e) {
+                        Log.d(TAG, "Graceful shutdown failed, forcing: " + e.getMessage());
+                    }
+                }
+                m_phpWorkerPort = 0;
+                
+                // Give it a moment to exit gracefully
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException ignored) {}
+                
+                // Force kill if still alive
+                if (m_phpWorkerProcess.isAlive()) {
+                    m_phpWorkerProcess.destroyForcibly();
+                    Log.d(TAG, "PHP worker force-killed");
+                }
+                m_phpWorkerProcess = null;
+            } else {
+                m_phpWorkerPort = 0;
+            }
+        }
+        
+        // Clean up the secret file using the exact path that was written
+        if (m_phpWorkerSecretFile != null && m_phpWorkerSecretFile.exists()) {
+            if (m_phpWorkerSecretFile.delete()) {
+                Log.d(TAG, "Deleted secret file: " + m_phpWorkerSecretFile.getAbsolutePath());
+            }
+            m_phpWorkerSecretFile = null;
+        }
+    }
+    
+    /**
+     * Restart the PHP worker (e.g., after hot-reload during development).
+     */
+    private void restartPhpWorker() {
+        stopPhpWorker();
+        startPhpWorker();
+    }
+
+    /**
+     * Get status information about the PHP worker.
+     */
+    private String getWorkerStatus() {
+        JSONObject status = new JSONObject();
+        try {
+            status.put("ready", m_phpWorkerReady);
+            status.put("port", m_phpWorkerPort);
+            status.put("secretPresent", m_phpWorkerSecret != null && !m_phpWorkerSecret.isEmpty());
+            status.put("secretPath", m_phpWorkerSecretFile != null ? m_phpWorkerSecretFile.getAbsolutePath() : null);
+            status.put("processAlive", m_phpWorkerProcess != null && m_phpWorkerProcess.isAlive());
+            status.put("requestCount", m_phpRequestId.get());
+        } catch (JSONException e) {
+            return "{\"error\": \"Failed to build status\"}";
+        }
+        return status.toString();
     }
 
     private void extractPhpBinary() throws IOException {
@@ -480,6 +1103,16 @@ public class PhpNativePlugin {
             }
 
             Log.d(TAG, "App set to: " + m_appName + " at " + m_appDir);
+            
+            // Initialize debug log file
+            m_debugLogFile = m_appDir + "/debug.log";
+            try {
+                // Clear previous log
+                new java.io.FileWriter(m_debugLogFile, false).close();
+                debugLog("=== Debug log started for " + m_appName + " ===");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to init debug log", e);
+            }
             
             return "{\"success\": true, \"app\": \"" + m_appName + "\", \"path\": \"" + m_appDir + "\", \"package\": \"" + packageName + "\"}";
             
@@ -931,17 +1564,7 @@ public class PhpNativePlugin {
                 updateView(b.getString("p1"), b.getString("p2"));
                 break;
             
-            case "ShowOverlay":
-                showOverlay();
-                break;
-            
-            case "HideOverlay":
-                hideOverlay();
-                break;
-            
-            case "RemoveOverlay":
-                removeOverlay();
-                break;
+            // Overlay commands removed - only direct rendering is supported
             
             case "GoBack":
                 m_mainHandler.post(() -> handleBackPress());
@@ -957,6 +1580,16 @@ public class PhpNativePlugin {
             
             case "OnInternalSensorResult":
                 handleSensorResult(b.getString("p1"), b.getString("p2"));
+                break;
+            
+            case "OnSensorResult":
+                // Result from JS native handler - route to PHP callback
+                handleSensorResult(b.getString("p1"), b.getString("p2"));
+                break;
+            
+            case "OnDsCallResult":
+                // Result from dsCall() - route to PHP callback
+                handleDsCallResult(b.getString("p1"), b.getString("p2"));
                 break;
             
             case "StartApp":
@@ -1001,6 +1634,21 @@ public class PhpNativePlugin {
             case "RunPhpTest":
                 return runPhpTest(b.getString("p1"));
             
+            case "WorkerStatus":
+                return getWorkerStatus();
+            
+            case "RestartWorker":
+                m_executor.execute(this::restartPhpWorker);
+                return "{\"status\": \"restarting\"}";
+            
+            case "StopWorker":
+                stopPhpWorker();
+                return "{\"status\": \"stopped\"}";
+            
+            case "StartWorker":
+                m_executor.execute(this::startPhpWorker);
+                return "{\"status\": \"starting\"}";
+            
             case "ExtractDocs":
                 return extractDocsToApp(b.getString("p1"));
             
@@ -1014,8 +1662,20 @@ public class PhpNativePlugin {
             case "DebugPaths":
                 return debugPluginPaths();
             
+            case "GetRootView":
+                // This is handled via CreateObject for returning actual View object
+                // Trigger view creation on UI thread if needed
+                ensureMainRootViewCreated();
+                return "view_created";
+            
+            case "SetRenderMode":
+                // Only direct rendering is supported now
+                Log.d(TAG, "SetRenderMode called - only direct mode is supported");
+                break;
+            
             default:
                 Log.w(TAG, "Unknown command: " + cmd);
+                return "{\"error\": \"Unknown command: " + escapeJsonString(cmd) + "\"}";
         }
         return null;
     }
@@ -1026,7 +1686,133 @@ public class PhpNativePlugin {
 
     public Object CreateObject(Bundle b) {
         String type = b.getString("type");
-        // No custom controls for now
+        
+        // Return the root view for direct rendering
+        if ("RootView".equals(type) || "GetRootView".equals(type)) {
+            Log.d(TAG, "CreateObject: RootView requested, creating synchronously");
+            
+            // Create view synchronously on UI thread if needed
+            if (m_mainRootView == null) {
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    createMainRootViewInternal();
+                } else {
+                    // Must wait for UI thread to create view
+                    final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                    m_mainHandler.post(() -> {
+                        try {
+                            createMainRootViewInternal();
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                    try {
+                        latch.await(2000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+            
+            Log.d(TAG, "CreateObject: Returning m_mainRootView=" + m_mainRootView);
+            return m_mainRootView;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Ensure the main root view is created (for direct rendering mode).
+     * Must be called before CreateObject("RootView").
+     * Thread-safe: works from both main thread and background threads.
+     */
+    private void ensureMainRootViewCreated() {
+        if (m_mainRootView == null) {
+            // Check if we're already on the main thread
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                // Already on main thread - create directly
+                createMainRootViewInternal();
+            } else {
+                // On background thread - use CountDownLatch to wait for UI thread
+                final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                m_mainHandler.post(() -> {
+                    try {
+                        createMainRootViewInternal();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+                
+                try {
+                    latch.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+    
+    /**
+     * Internal method to create the main root view. Must be called on UI thread.
+     */
+    private void createMainRootViewInternal() {
+        if (m_mainRootView != null) return; // Double-check
+        
+        m_mainRootView = new FrameLayout(m_ctx);
+        
+        // Set layout params with explicit size
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        m_mainRootView.setLayoutParams(params);
+        
+        // Ensure view is visible and has minimum size
+        m_mainRootView.setMinimumWidth(100);
+        m_mainRootView.setMinimumHeight(100);
+        m_mainRootView.setBackgroundColor(Color.parseColor("#FFFFFF"));
+        m_mainRootView.setVisibility(View.VISIBLE);
+        
+        // Handle back button on this view
+        m_mainRootView.setFocusableInTouchMode(true);
+        m_mainRootView.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+                handleBackPress();
+                return true;
+            }
+            return false;
+        });
+        
+        Log.d(TAG, "createMainRootViewInternal: created m_mainRootView");
+    }
+
+    /**
+     * Get the root view wrapper for direct rendering mode.
+     * This returns a FrameLayout that DroidScript can add to its own layout.
+     * The PHP UI will be rendered into this container.
+     */
+    private Object getRootViewWrapper() {
+        ensureMainRootViewCreated();
+        Log.d(TAG, "getRootViewWrapper: returning m_mainRootView=" + m_mainRootView + 
+              " visibility=" + (m_mainRootView != null ? m_mainRootView.getVisibility() : "null"));
+        return m_mainRootView;
+    }
+    
+    /**
+     * Get the render container (m_mainRootView).
+     */
+    private ViewGroup getRenderContainer() {
+        Log.d(TAG, "getRenderContainer: m_mainRootView=" + m_mainRootView);
+        
+        if (m_mainRootView != null) {
+            return m_mainRootView;
+        }
+        // If no view yet, create it now
+        Log.w(TAG, "getRenderContainer: m_mainRootView is null, creating now");
+        ensureMainRootViewCreated();
+        if (m_mainRootView != null) {
+            return m_mainRootView;
+        }
+        Log.e(TAG, "getRenderContainer: Failed to create m_mainRootView!");
         return null;
     }
 
@@ -1046,16 +1832,242 @@ public class PhpNativePlugin {
         // Sync view state to file before calling PHP (so PHP can read it)
         syncViewStateToFile();
 
+        if (paramsJson == null || paramsJson.isEmpty()) {
+            paramsJson = "{}";
+        }
+        
+        // Try the persistent PHP worker first (much faster, ~5ms vs ~200ms)
+        if (m_phpWorkerReady) {
+            try {
+                String result = sendWorkerCommand(method, paramsJson);
+                if (result != null) {
+                    return result;
+                }
+                // Worker call returned null, fall through to subprocess
+                Log.w(TAG, "Worker returned null, falling back to subprocess");
+            } catch (Exception e) {
+                Log.w(TAG, "Worker call failed, falling back to subprocess: " + e.getMessage());
+                // Worker might have died, mark it as not ready
+                if (e instanceof SocketTimeoutException || e.getMessage().contains("Connection refused")) {
+                    m_phpWorkerReady = false;
+                    // Try to restart worker in background
+                    m_executor.execute(this::restartPhpWorker);
+                }
+            }
+        } else {
+            // WARN: Using subprocess fallback - any PHP state (opcache, static vars) will be lost
+            Log.w(TAG, "PHP worker not ready, using subprocess fallback (state will not persist between calls)");
+        }
+        
+        // Fallback: spawn subprocess (slower but always works)
+        return callPhpSubprocess(method, paramsJson);
+    }
+    
+    /**
+     * Call PHP via long-running worker server (fast path).
+     * Uses TCP socket with Content-Length framing and HMAC authentication.
+     * 
+     * @param method PHP method to call
+     * @param paramsJson JSON parameters string
+     * @return JSON response string, or null on connection error
+     * @throws Exception on communication errors
+     */
+    private String sendWorkerCommand(String method, String paramsJson) throws Exception {
+        int requestId = m_phpRequestId.incrementAndGet();
+        
+        // Build request JSON
+        JSONObject request = new JSONObject();
+        request.put("id", requestId);
+        request.put("method", method);
+        
+        // Parse params if it's a valid JSON string, otherwise wrap it
+        Object params;
+        if (paramsJson != null && !paramsJson.isEmpty()) {
+            try {
+                params = new JSONObject(paramsJson);
+            } catch (Exception e) {
+                try {
+                    params = new JSONArray(paramsJson);
+                } catch (Exception e2) {
+                    params = paramsJson;
+                }
+            }
+        } else {
+            params = JSONObject.NULL;
+        }
+        request.put("params", params);
+        
+        // Generate HMAC token for authentication
+        String token = generateHmacToken(requestId, method, params);
+        request.put("token", token);
+        
+        String requestBody = request.toString();
+        
+        // Connect to worker
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", m_phpWorkerPort), PHP_WORKER_CONNECT_TIMEOUT_MS);
+            socket.setSoTimeout(PHP_WORKER_READ_TIMEOUT_MS);
+            
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+            
+            // Send request with Content-Length framing
+            String header = "Content-Length: " + requestBody.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n";
+            out.write(header.getBytes(StandardCharsets.UTF_8));
+            out.write(requestBody.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+            
+            // Read response
+            String response = readFramedResponse(in);
+            if (response == null) {
+                throw new IOException("Empty response from PHP worker");
+            }
+            
+            // Parse response
+            JSONObject respJson = new JSONObject(response);
+            
+            // Check for errors
+            if (!respJson.isNull("error")) {
+                JSONObject error = respJson.optJSONObject("error");
+                if (error != null) {
+                    String errorMsg = error.optString("message", "Unknown error");
+                    Log.e(TAG, "PHP worker error: " + errorMsg);
+                    return "{\"error\": \"" + escapeJsonString(errorMsg) + "\"}";
+                }
+            }
+            
+            // Return the result
+            Object result = respJson.opt("result");
+            if (result == null || result == JSONObject.NULL) {
+                return "{}";
+            }
+            if (result instanceof JSONObject || result instanceof JSONArray) {
+                return result.toString();
+            }
+            return String.valueOf(result);
+        }
+    }
+    
+    /**
+     * Generate HMAC-SHA256 token for request authentication.
+     * Uses null-byte delimiters for unambiguous field separation.
+     * Always JSON-encodes params to match PHP's json_encode().
+     */
+    private String generateHmacToken(int id, String method, Object params) {
+        if (m_phpWorkerSecret == null) return "";
+        try {
+            // Always JSON-encode params for consistent serialization with PHP.
+            // PHP does: json_encode($params, JSON_UNESCAPED_UNICODE)
+            String paramsJson;
+            if (params == null || params == JSONObject.NULL) {
+                paramsJson = "null";
+            } else if (params instanceof JSONObject || params instanceof JSONArray) {
+                paramsJson = params.toString();
+            } else if (params instanceof String) {
+                // Wrap string in quotes for JSON compatibility
+                paramsJson = new JSONObject().put("_", params).toString();
+                // Extract just the JSON string value: {"_":"value"} -> "value"
+                paramsJson = paramsJson.substring(5, paramsJson.length() - 1);
+            } else if (params instanceof Number || params instanceof Boolean) {
+                paramsJson = params.toString();
+            } else {
+                paramsJson = new JSONObject().put("v", params).optString("v", "null");
+            }
+            
+            // Use null byte (0x00) delimiters for unambiguous field separation
+            // even if method name contains special characters like |
+            String payload = id + "\0" + method + "\0" + paramsJson;
+            
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec keySpec = new SecretKeySpec(
+                m_phpWorkerSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(keySpec);
+            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "HMAC generation failed", e);
+            return "";
+        }
+    }
+    
+    /**
+     * Read a Content-Length framed response from input stream.
+     * Uses byte-based reading (not char-based) since Content-Length is in bytes.
+     */
+    private String readFramedResponse(InputStream in) throws IOException {
+        // Read headers byte-by-byte until we see \r\n\r\n
+        ByteArrayOutputStream headerBuf = new ByteArrayOutputStream(256);
+        int prev = 0, prevPrev = 0, prevPrevPrev = 0;
+        int b;
+        while ((b = in.read()) != -1) {
+            headerBuf.write(b);
+            // Check for \r\n\r\n sequence
+            if (prevPrevPrev == '\r' && prevPrev == '\n' && prev == '\r' && b == '\n') {
+                break;
+            }
+            // Header flood guard
+            if (headerBuf.size() > 8192) {
+                throw new IOException("Header too large");
+            }
+            prevPrevPrev = prevPrev;
+            prevPrev = prev;
+            prev = b;
+        }
+        
+        String headerStr = headerBuf.toString(StandardCharsets.UTF_8.name());
+        
+        // Extract Content-Length
+        int contentLength = -1;
+        for (String line : headerStr.split("\r\n")) {
+            if (line.toLowerCase().startsWith("content-length:")) {
+                try {
+                    contentLength = Integer.parseInt(line.substring(15).trim());
+                } catch (NumberFormatException ignored) {}
+                break;
+            }
+        }
+        
+        if (contentLength <= 0) {
+            return null;
+        }
+        
+        // Enforce size cap to prevent huge allocations
+        if (contentLength > MAX_RESPONSE_SIZE) {
+            throw new IOException("Response too large: " + contentLength + " bytes (max " + MAX_RESPONSE_SIZE + ")");
+        }
+        
+        // Read body as bytes (Content-Length is byte count, not char count)
+        byte[] bodyBytes = new byte[contentLength];
+        int totalRead = 0;
+        while (totalRead < contentLength) {
+            int read = in.read(bodyBytes, totalRead, contentLength - totalRead);
+            if (read == -1) break;
+            totalRead += read;
+        }
+        
+        if (totalRead != contentLength) {
+            throw new IOException("Incomplete response: got " + totalRead + " of " + contentLength + " bytes");
+        }
+        
+        return new String(bodyBytes, StandardCharsets.UTF_8);
+    }
+    
+    /**
+     * Call PHP via subprocess (slow fallback path).
+     * Spawns a new PHP process for each call.
+     */
+    private String callPhpSubprocess(String method, String paramsJson) {
+        Process process = null;
         try {
             // Use app directory if set, otherwise default
             String scriptDir = getPhpScriptDir();
             File scriptFile = new File(scriptDir, m_entryFile != null ? m_entryFile : "logic.php");
             if (!scriptFile.exists()) {
                 return "{\"error\": \"logic.php not found in " + scriptDir + "\"}";
-            }
-
-            if (paramsJson == null || paramsJson.isEmpty()) {
-                paramsJson = "{}";
             }
 
             ProcessBuilder pb = new ProcessBuilder(
@@ -1067,20 +2079,35 @@ public class PhpNativePlugin {
             pb.redirectErrorStream(true);
             pb.directory(new File(scriptDir));  // Set working directory
             
-            Log.d(TAG, "Executing PHP: " + m_phpPath + " " + scriptFile.getAbsolutePath() + " --method=" + method);
+            Log.d(TAG, "Executing PHP subprocess: " + m_phpPath + " --method=" + method);
             
-            Process process = pb.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            process = pb.start();
             StringBuilder output = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line);
+            
+            // Use try-with-resources to ensure reader is closed
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                boolean firstLine = true;
+                while ((line = reader.readLine()) != null) {
+                    if (!firstLine) {
+                        output.append("\n");
+                    }
+                    output.append(line);
+                    firstLine = false;
+                }
             }
-            int exitCode = process.waitFor();
-
+            
+            // Wait with timeout to prevent hanging on infinite loops
+            boolean finished = process.waitFor(PHP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                Log.e(TAG, "PHP process timed out after " + PHP_TIMEOUT_SECONDS + " seconds");
+                return "{\"error\": \"PHP process timed out after " + PHP_TIMEOUT_SECONDS + " seconds\"}";
+            }
+            
+            int exitCode = process.exitValue();
             String result = output.toString().trim();
             Log.d(TAG, "PHP exit code: " + exitCode + ", output length: " + result.length());
-            Log.d(TAG, "PHP raw output: " + result.substring(0, Math.min(500, result.length())));
             
             // Extract JSON from output (in case of warnings/notices before JSON)
             int jsonStart = result.indexOf("{");
@@ -1089,18 +2116,52 @@ public class PhpNativePlugin {
                 result = result.substring(jsonStart);
             } else if (jsonStart < 0) {
                 Log.e(TAG, "No JSON found in PHP output");
-                return "{\"error\": \"PHP returned non-JSON: " + result.substring(0, Math.min(100, result.length())).replace("\"", "'") + "\"}";
+                return "{\"error\": \"PHP returned non-JSON: " + escapeJsonString(result.substring(0, Math.min(100, result.length()))) + "\"}";
             }
-
-            // Process the PHP response for special actions
-            processPhpResponse(result);
 
             return result;
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e(TAG, "PHP call interrupted: " + method, e);
+            return "{\"error\": \"PHP call interrupted\"}";
         } catch (Exception e) {
             Log.e(TAG, "PHP call failed: " + method, e);
-            return "{\"error\": \"" + e.getMessage().replace("\"", "'") + "\"}";
+            return "{\"error\": \"" + escapeJsonString(e.getMessage()) + "\"}";
+        } finally {
+            // Ensure process is cleaned up
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
         }
+    }
+    
+    /**
+     * Safely escape a string for JSON embedding.
+     * Handles backslashes, quotes, newlines, and control characters.
+     */
+    private String escapeJsonString(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\': sb.append("\\\\"); break;
+                case '"': sb.append("\\\""); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                default:
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -1173,22 +2234,34 @@ public class PhpNativePlugin {
         if (m_phpPath == null) {
             debug.append("{\"success\": false, \"error\": \"phpPath is null - binary not found\"}");
         } else {
+            Process process = null;
             try {
                 ProcessBuilder pb = new ProcessBuilder(m_phpPath, "-v");
                 pb.redirectErrorStream(true);
-                Process process = pb.start();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                process = pb.start();
                 StringBuilder output = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append(" ");
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line).append(" ");
+                    }
                 }
-                int exitCode = process.waitFor();
-                String phpVersion = output.toString().trim().replace("\"", "'").replace("\n", " ");
-                debug.append("{\"success\": true, \"exitCode\": ").append(exitCode);
-                debug.append(", \"output\": \"").append(phpVersion.substring(0, Math.min(100, phpVersion.length()))).append("\"}");
+                boolean finished = process.waitFor(PHP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    debug.append("{\"success\": false, \"error\": \"PHP version check timed out\"}");
+                } else {
+                    int exitCode = process.exitValue();
+                    String phpVersion = escapeJsonString(output.toString().trim());
+                    debug.append("{\"success\": true, \"exitCode\": ").append(exitCode);
+                    debug.append(", \"output\": \"").append(phpVersion.substring(0, Math.min(100, phpVersion.length()))).append("\"}");
+                }
             } catch (Exception e) {
-                debug.append("{\"success\": false, \"error\": \"").append(e.getMessage().replace("\"", "'")).append("\"}");
+                debug.append("{\"success\": false, \"error\": \"").append(escapeJsonString(e.getMessage())).append("\"}");
+            } finally {
+                if (process != null && process.isAlive()) {
+                    process.destroyForcibly();
+                }
             }
         }
         debug.append(", ");
@@ -1199,26 +2272,39 @@ public class PhpNativePlugin {
         if (m_phpPath == null) {
             debug.append("{\"success\": false, \"error\": \"phpPath is null\"}");
         } else if (logicFile.exists()) {
+            Process logicProcess = null;
             try {
                 ProcessBuilder pb = new ProcessBuilder(m_phpPath, logicFile.getAbsolutePath(), "--method=index");
                 pb.redirectErrorStream(true);
                 pb.directory(new File(scriptDir));
-                Process process = pb.start();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                logicProcess = pb.start();
                 StringBuilder output = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line);
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(logicProcess.getInputStream()))) {
+                    String line;
+                    boolean firstLine = true;
+                    while ((line = reader.readLine()) != null) {
+                        if (!firstLine) output.append("\n");
+                        output.append(line);
+                        firstLine = false;
+                    }
                 }
-                int exitCode = process.waitFor();
-                String result = output.toString().trim();
-                // Escape for JSON
-                result = result.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
-                debug.append("{\"success\": true, \"exitCode\": ").append(exitCode);
-                debug.append(", \"outputLength\": ").append(result.length());
-                debug.append(", \"output\": \"").append(result.substring(0, Math.min(500, result.length()))).append("\"}");
+                boolean finished = logicProcess.waitFor(PHP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                if (!finished) {
+                    logicProcess.destroyForcibly();
+                    debug.append("{\"success\": false, \"error\": \"logic.php test timed out\"}");
+                } else {
+                    int exitCode = logicProcess.exitValue();
+                    String result = escapeJsonString(output.toString().trim());
+                    debug.append("{\"success\": true, \"exitCode\": ").append(exitCode);
+                    debug.append(", \"outputLength\": ").append(result.length());
+                    debug.append(", \"output\": \"").append(result.substring(0, Math.min(500, result.length()))).append("\"}");
+                }
             } catch (Exception e) {
-                debug.append("{\"success\": false, \"error\": \"").append(e.getMessage().replace("\"", "'")).append("\"}");
+                debug.append("{\"success\": false, \"error\": \"").append(escapeJsonString(e.getMessage())).append("\"}");
+            } finally {
+                if (logicProcess != null && logicProcess.isAlive()) {
+                    logicProcess.destroyForcibly();
+                }
             }
         } else {
             debug.append("{\"success\": false, \"error\": \"logic.php not found\"}");
@@ -1277,6 +2363,7 @@ public class PhpNativePlugin {
         }
         
         // Execute PHP
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(
                 m_phpPath,
@@ -1286,40 +2373,87 @@ public class PhpNativePlugin {
             pb.redirectErrorStream(true);
             pb.directory(new File(scriptDir));
             
-            result.append("\"command\": \"").append(m_phpPath).append(" ").append(logicFile.getAbsolutePath()).append(" --method=").append(method).append("\", ");
+            result.append("\"command\": \"").append(escapeJsonString(m_phpPath + " " + logicFile.getAbsolutePath() + " --method=" + method)).append("\", ");
             
-            Process process = pb.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            process = pb.start();
             StringBuilder output = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\\n");
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                boolean firstLine = true;
+                while ((line = reader.readLine()) != null) {
+                    if (!firstLine) output.append("\n");
+                    output.append(line);
+                    firstLine = false;
+                }
             }
-            int exitCode = process.waitFor();
             
+            boolean finished = process.waitFor(PHP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                result.append("\"error\": \"PHP process timed out after ").append(PHP_TIMEOUT_SECONDS).append(" seconds\"}");
+                return result.toString();
+            }
+            
+            int exitCode = process.exitValue();
             String rawOutput = output.toString();
             result.append("\"exitCode\": ").append(exitCode).append(", ");
             result.append("\"outputLength\": ").append(rawOutput.length()).append(", ");
+            result.append("\"rawOutput\": \"").append(escapeJsonString(rawOutput)).append("\"");
             
-            // Escape for JSON
-            String escaped = rawOutput.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
-            result.append("\"rawOutput\": \"").append(escaped).append("\"");
-            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            result.append("\"error\": \"PHP execution interrupted\", ");
+            result.append("\"exception\": \"InterruptedException\"");
         } catch (Exception e) {
-            result.append("\"error\": \"").append(e.getMessage().replace("\"", "'")).append("\", ");
+            result.append("\"error\": \"").append(escapeJsonString(e.getMessage())).append("\", ");
             result.append("\"exception\": \"").append(e.getClass().getName()).append("\"");
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
         }
         
         result.append("}");
         return result.toString();
     }
 
+    /**
+     * Execute a list of actions after the view hierarchy has been laid out.
+     * Uses ViewTreeObserver.OnGlobalLayoutListener instead of magic postDelayed timings.
+     * 
+     * @param view The view to attach the layout listener to
+     * @param actions List of JSON actions to execute after layout
+     */
+    private void executeAfterLayout(View view, List<JSONObject> actions) {
+        if (view == null || actions == null || actions.isEmpty()) return;
+        
+        view.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                // Remove listener to prevent multiple calls
+                view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                
+                // Execute all queued post-render actions
+                Log.d(TAG, "Layout complete, executing " + actions.size() + " post-render actions");
+                for (int i = 0; i < actions.size(); i++) {
+                    try {
+                        JSONObject action = actions.get(i);
+                        Log.d(TAG, "POST-LAYOUT[" + i + "] executing");
+                        processPhpResponse(action.toString());
+                    } catch (Exception e) {
+                        Log.e(TAG, "POST-LAYOUT: error executing action " + i, e);
+                    }
+                }
+            }
+        });
+    }
+
     private void processPhpResponse(String jsonResponse) {
-        Log.d(TAG, "processPhpResponse INPUT (first 300): " + (jsonResponse != null ? jsonResponse.substring(0, Math.min(300, jsonResponse.length())) : "null"));
+        debugLog("processPhpResponse INPUT (first 300): " + (jsonResponse != null ? jsonResponse.substring(0, Math.min(300, jsonResponse.length())) : "null"));
         try {
             JSONObject response = new JSONObject(jsonResponse);
             String action = response.optString("action", "");
-            Log.d(TAG, "processPhpResponse: action='" + action + "' hasType=" + response.has("type") + " hasChildren=" + response.has("children"));
+            debugLog("processPhpResponse: action='" + action + "' hasType=" + response.has("type") + " hasChildren=" + response.has("children"));
 
             // Check for special DroidScript sensor call action (legacy - uses JS)
             if ("DS_SENSOR_CALL".equals(action)) {
@@ -1347,7 +2481,7 @@ public class PhpNativePlugin {
                 JSONObject params = response.optJSONObject("params");
                 if (params == null) params = new JSONObject();
                 
-                Log.d(TAG, "NATIVE_CALL: type=" + type + ", callback=" + callback);
+                debugLog("NATIVE_CALL: type=" + type + ", callback=" + callback + ", params=" + params.toString());
                 
                 // Store callback and dispatch to handler
                 m_pendingSensorCallbacks.put(type, callback);
@@ -1369,10 +2503,7 @@ public class PhpNativePlugin {
                 }
             }
             // Check for UI render action
-            else if ("render".equals(action) || response.has("type") || response.has("children")) {
-                Log.d(TAG, ">>> ROUTING TO renderUI! action=" + action + " type=" + response.optString("type", "none"));
-                m_mainHandler.post(() -> renderUI(jsonResponse));
-            }
+           
             // Check for view update action
             else if ("update".equals(action)) {
                 String target = response.optString("target");
@@ -1600,10 +2731,10 @@ public class PhpNativePlugin {
                 Log.d(TAG, "BATCH: processing " + (batchActions != null ? batchActions.length() : 0) + " actions");
                 
                 if (batchActions != null && batchActions.length() > 0) {
-                    // Process actions in order, but with proper timing
+                    // Process actions in order using ViewTreeObserver for proper timing
                     // Actions BEFORE first render: immediate
-                    // First render: with small delay  
-                    // Actions AFTER render: with larger delay (so render completes first)
+                    // First render: immediate with layout listener  
+                    // Actions AFTER render: after layout completes
                     
                     int firstRenderIndex = -1;
                     
@@ -1611,7 +2742,11 @@ public class PhpNativePlugin {
                     for (int i = 0; i < batchActions.length(); i++) {
                         try {
                             JSONObject item = batchActions.getJSONObject(i);
-                            if (item.has("type") || item.has("children") || "render".equals(item.optString("action"))) {
+                            String itemAction = item.optString("action", "");
+                            // NATIVE_CALL has "type" but is NOT a render - exclude it
+                            boolean isRender = !"NATIVE_CALL".equals(itemAction) && 
+                                (item.has("type") || item.has("children") || "render".equals(itemAction));
+                            if (isRender) {
                                 firstRenderIndex = i;
                                 break;
                             }
@@ -1620,42 +2755,56 @@ public class PhpNativePlugin {
                     
                     Log.d(TAG, "BATCH: firstRenderIndex=" + firstRenderIndex);
                     
+                    // Collect post-render actions to execute after layout
+                    final List<JSONObject> postRenderActions = new ArrayList<>();
+                    final int renderIdx = firstRenderIndex;
+                    
                     // Process each action with appropriate timing
                     for (int i = 0; i < batchActions.length(); i++) {
                         try {
                             final JSONObject item = batchActions.getJSONObject(i);
                             final int index = i;
-                            boolean isRender = item.has("type") || item.has("children") || "render".equals(item.optString("action"));
-                            
-                            if (firstRenderIndex < 0) {
+                            String itemAction = item.optString("action", "");
+                            // NATIVE_CALL has "type" but is NOT a render - exclude it
+                            boolean isRender = !"NATIVE_CALL".equals(itemAction) && 
+                                (item.has("type") || item.has("children") || "render".equals(itemAction));
+                            if ("REPLACE_CHILDREN".equals(itemAction)) {
+                                Log.d(TAG, "BATCH[" + i + "] processing REPLACE_CHILDREN immediately");
+                                m_mainHandler.post(() -> handleReplaceChildren(item));
+                                continue;
+                            }
+                            if (renderIdx < 0) {
                                 // No render in batch - process everything immediately
                                 Log.d(TAG, "BATCH[" + i + "] immediate (no render in batch)");
                                 processPhpResponse(item.toString());
-                            } else if (i < firstRenderIndex) {
+                            } else if (i < renderIdx) {
                                 // Before render - process immediately
                                 Log.d(TAG, "BATCH[" + i + "] immediate (before render)");
                                 processPhpResponse(item.toString());
                             } else if (isRender) {
-                                // This is a render - delay slightly so any immediate actions complete
-                                Log.d(TAG, "BATCH[" + i + "] render with 50ms delay");
-                                m_mainHandler.postDelayed(() -> {
-                                    Log.d(TAG, "BATCH[" + index + "] executing render now");
-                                    renderUI(item.toString());
-                                }, 50);
+                                // This is a render - process immediately and setup layout listener
+                                Log.d(TAG, "BATCH[" + i + "] render with layout listener");
+                                final String renderJson = item.toString();
+                                m_mainHandler.post(() -> {
+                                    renderUI(renderJson);
+                                    // After render, use ViewTreeObserver to wait for layout
+                                    if (m_mainRootView != null && !postRenderActions.isEmpty()) {
+                                        executeAfterLayout(m_mainRootView, postRenderActions);
+                                    }
+                                });
                             } else {
-                                // After render - delay more so render completes
-                                int delayAfterRender = 150 + ((i - firstRenderIndex) * 50);
-                                Log.d(TAG, "BATCH[" + i + "] post-render action with " + delayAfterRender + "ms delay");
-                                m_mainHandler.postDelayed(() -> {
-                                    Log.d(TAG, "BATCH[" + index + "] executing post-render action now");
-                                    processPhpResponse(item.toString());
-                                }, delayAfterRender);
+                                // After render - queue for execution after layout
+                                Log.d(TAG, "BATCH[" + i + "] queued for post-layout");
+                                postRenderActions.add(item);
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "BATCH: error processing item " + i, e);
                         }
                     }
                 }
+            }  else if ("render".equals(action) || response.has("type") || response.has("children")) {
+                Log.d(TAG, ">>> ROUTING TO renderUI! action=" + action + " type=" + response.optString("type", "none"));
+                m_mainHandler.post(() -> renderUI(jsonResponse));
             }
 
         } catch (Exception e) {
@@ -1672,13 +2821,57 @@ public class PhpNativePlugin {
     /**
      * Sync ALL registered view properties to a shared JSON file.
      * PHP can read this file to get view values synchronously.
-     * Uses reflection to discover and sync all readable properties.
+     * 
+     * THREADING: This method is safe to call from any thread.
+     * - If called from UI thread: collects state and writes to file directly
+     * - If called from background: marshals state collection to UI thread, waits, then writes
      */
     private void syncViewStateToFile() {
         try {
-            String scriptDir = getPhpScriptDir();
-            File stateFile = new File(scriptDir, VIEW_STATE_FILE);
+            final String stateJson;
             
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                // Already on UI thread - collect directly
+                stateJson = collectViewStateJson();
+            } else {
+                // On background thread - collect state on UI thread synchronously
+                final String[] stateHolder = new String[1];
+                final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                
+                m_mainHandler.post(() -> {
+                    try {
+                        stateHolder[0] = collectViewStateJson();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+                
+                // Wait for UI thread to complete collection (with timeout)
+                if (!latch.await(1, TimeUnit.SECONDS)) {
+                    Log.w(TAG, "Timeout waiting for UI thread to collect view state");
+                    return;
+                }
+                stateJson = stateHolder[0];
+            }
+            
+            if (stateJson == null) return;
+            
+            // Write to file (safe from any thread)
+            writeViewStateToFile(stateJson);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to sync view state", e);
+        }
+    }
+    
+    /**
+     * Collect view state as JSON string. MUST be called from UI thread.
+     * Uses reflection to discover and sync all readable properties.
+     * 
+     * @return JSON string with all view states, or null on error
+     */
+    private String collectViewStateJson() {
+        try {
             JSONObject state = new JSONObject();
             
             for (Map.Entry<String, View> entry : m_viewRegistry.entrySet()) {
@@ -1714,15 +2907,30 @@ public class PhpNativePlugin {
                 state.put(viewId, viewState);
             }
             
-            // Write to file
+            return state.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to collect view state", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Write view state JSON to file. Safe to call from any thread.
+     * 
+     * @param stateJson JSON string to write
+     */
+    private void writeViewStateToFile(String stateJson) {
+        try {
+            String scriptDir = getPhpScriptDir();
+            File stateFile = new File(scriptDir, VIEW_STATE_FILE);
+            
             try (FileOutputStream fos = new FileOutputStream(stateFile)) {
-                fos.write(state.toString().getBytes("UTF-8"));
+                fos.write(stateJson.getBytes("UTF-8"));
             }
             
             Log.d(TAG, "Synced view state to: " + stateFile.getAbsolutePath() + " (" + m_viewRegistry.size() + " views)");
-            
         } catch (Exception e) {
-            Log.e(TAG, "Failed to sync view state", e);
+            Log.e(TAG, "Failed to write view state file", e);
         }
     }
     
@@ -1870,9 +3078,44 @@ public class PhpNativePlugin {
         }
     }
 
+    /**
+     * Escape a string for safe embedding in JavaScript string literals.
+     * Handles backslashes, quotes, newlines, and Unicode line/paragraph separators
+     * that can break out of JS strings.
+     */
     private String escapeJs(String s) {
         if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"").replace("\n", "\\n");
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\': sb.append("\\\\"); break;
+                case '\'': sb.append("\\'"); break;
+                case '"': sb.append("\\\""); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\0': sb.append("\\0"); break;
+                case '\u2028': sb.append("\\u2028"); break; // Line separator
+                case '\u2029': sb.append("\\u2029"); break; // Paragraph separator
+                case '<':
+                    // Escape </script> to prevent breaking out of script tags
+                    if (i + 1 < s.length() && s.charAt(i + 1) == '/') {
+                        sb.append("<\\/");
+                        i++; // Skip the /
+                    } else {
+                        sb.append(c);
+                    }
+                    break;
+                default:
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
 
     // -------------------------------------------------------------------------
@@ -1893,6 +3136,11 @@ public class PhpNativePlugin {
         m_executor.execute(() -> {
             String response = callPhp(finalCallback, dataJson);
             
+            // Process the response for UI updates or actions
+            if (response != null && !response.isEmpty()) {
+                m_mainHandler.post(() -> processPhpResponse(response));
+            }
+            
             // Notify JS if callback is set
             if (m_OnSensorResult != null) {
                 m_mainHandler.post(() -> {
@@ -1906,6 +3154,29 @@ public class PhpNativePlugin {
                         Log.e(TAG, "Error notifying sensor result", e);
                     }
                 });
+            }
+        });
+    }
+
+    /**
+     * Handle result from dsCall() - route to PHP callback
+     * @param callback PHP method name to call
+     * @param resultJson JSON result from DroidScript code
+     */
+    private void handleDsCallResult(String callback, String resultJson) {
+        debugLog("DS call result: callback=" + callback + ", result=" + resultJson);
+        
+        if (callback == null || callback.isEmpty()) {
+            return;
+        }
+        
+        // Call PHP with the result
+        m_executor.execute(() -> {
+            String response = callPhp(callback, resultJson);
+            
+            // Process the response for UI updates or actions
+            if (response != null && !response.isEmpty()) {
+                m_mainHandler.post(() -> processPhpResponse(response));
             }
         });
     }
@@ -2495,9 +3766,10 @@ public class PhpNativePlugin {
             
             new Thread(() -> {
                 JSONObject data = new JSONObject();
+                HttpURLConnection conn = null;
                 try {
                     URL url = new URL(urlStr);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod(method);
                     conn.setConnectTimeout(timeout);
                     conn.setReadTimeout(timeout);
@@ -2511,40 +3783,59 @@ public class PhpNativePlugin {
                         }
                     }
                     
-                    // Write body for POST/PUT
+                    // Write body for POST/PUT/PATCH
                     if (!body.isEmpty() && (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"))) {
                         conn.setDoOutput(true);
-                        OutputStream os = conn.getOutputStream();
-                        os.write(body.getBytes("UTF-8"));
-                        os.close();
+                        try (OutputStream os = conn.getOutputStream()) {
+                            os.write(body.getBytes("UTF-8"));
+                        }
                     }
                     
                     int status = conn.getResponseCode();
                     data.put("status", status);
                     
-                    // Read response
+                    // Read response - use ByteArrayOutputStream to preserve binary and newlines
                     InputStream is = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
+                    if (is != null) {
+                        try (InputStream responseStream = is;
+                             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            while ((len = responseStream.read(buffer)) != -1) {
+                                baos.write(buffer, 0, len);
+                            }
+                            // Convert to string - assumes UTF-8 for text responses
+                            data.put("body", baos.toString("UTF-8"));
+                        }
+                    } else {
+                        data.put("body", "");
                     }
-                    reader.close();
-                    data.put("body", response.toString());
                     
-                    // Response headers
+                    // Response headers - store all values for multi-value headers (e.g., Set-Cookie)
                     JSONObject respHeaders = new JSONObject();
                     for (Map.Entry<String, List<String>> entry : conn.getHeaderFields().entrySet()) {
                         if (entry.getKey() != null) {
-                            respHeaders.put(entry.getKey(), entry.getValue().get(0));
+                            List<String> values = entry.getValue();
+                            if (values.size() == 1) {
+                                respHeaders.put(entry.getKey(), values.get(0));
+                            } else {
+                                respHeaders.put(entry.getKey(), new JSONArray(values));
+                            }
                         }
                     }
                     data.put("headers", respHeaders);
                     
-                    conn.disconnect();
                 } catch (Exception e) {
-                    try { data.put("error", e.getMessage()); } catch (Exception ex) {}
+                    try { 
+                        data.put("error", e.getMessage()); 
+                        data.put("errorType", e.getClass().getSimpleName());
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Failed to set error in HTTP response", ex);
+                    }
+                } finally {
+                    if (conn != null) {
+                        conn.disconnect();
+                    }
                 }
                 reportNativeResult("http", data);
             }).start();
@@ -2593,7 +3884,20 @@ public class PhpNativePlugin {
                         m_mediaPlayer.release();
                     }
                     m_mediaPlayer = new MediaPlayer();
-                    m_mediaPlayer.setDataSource(file);
+                    m_mediaPlayer.setAudioAttributes(
+                        new AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    );
+                    
+                    // Handle both file paths and content:// URIs
+                    if (file.startsWith("content://") || file.startsWith("file://")) {
+                        m_mediaPlayer.setDataSource(m_ctx, Uri.parse(file));
+                    } else {
+                        m_mediaPlayer.setDataSource(file);
+                    }
+                    
                     m_mediaPlayer.setOnPreparedListener(mp -> {
                         mp.start();
                         JSONObject data = new JSONObject();
@@ -2608,6 +3912,10 @@ public class PhpNativePlugin {
                         try { data.put("status", "complete"); } catch (Exception e) {}
                         reportNativeResult("playaudio", data);
                     });
+                    m_mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                        reportNativeResult("playaudio", createErrorJson("Playback error: " + what + "/" + extra));
+                        return true;
+                    });
                     m_mediaPlayer.prepareAsync();
                 } catch (Exception e) {
                     reportNativeResult("playaudio", createErrorJson(e.getMessage()));
@@ -2616,60 +3924,132 @@ public class PhpNativePlugin {
         });
         
         m_nativeHandlers.put("pauseaudio", (params, callback) -> {
-            JSONObject data = new JSONObject();
-            try {
-                if (m_mediaPlayer != null && m_mediaPlayer.isPlaying()) {
-                    m_mediaPlayer.pause();
-                    data.put("status", "paused");
-                } else {
-                    data.put("status", "not_playing");
+            m_mainHandler.post(() -> {
+                JSONObject data = new JSONObject();
+                try {
+                    if (m_mediaPlayer != null && m_mediaPlayer.isPlaying()) {
+                        m_mediaPlayer.pause();
+                        data.put("status", "paused");
+                        data.put("position", m_mediaPlayer.getCurrentPosition());
+                    } else {
+                        data.put("status", "not_playing");
+                    }
+                } catch (Exception e) {
+                    data = createErrorJson(e.getMessage());
                 }
-            } catch (Exception e) {
-                data = createErrorJson(e.getMessage());
-            }
-            reportNativeResult("pauseaudio", data);
+                reportNativeResult("pauseaudio", data);
+            });
+        });
+        
+        m_nativeHandlers.put("resumeaudio", (params, callback) -> {
+            m_mainHandler.post(() -> {
+                JSONObject data = new JSONObject();
+                try {
+                    if (m_mediaPlayer != null && !m_mediaPlayer.isPlaying()) {
+                        m_mediaPlayer.start();
+                        data.put("status", "playing");
+                        data.put("position", m_mediaPlayer.getCurrentPosition());
+                        data.put("duration", m_mediaPlayer.getDuration());
+                    } else if (m_mediaPlayer != null && m_mediaPlayer.isPlaying()) {
+                        data.put("status", "already_playing");
+                    } else {
+                        data.put("status", "no_player");
+                    }
+                } catch (Exception e) {
+                    data = createErrorJson(e.getMessage());
+                }
+                reportNativeResult("resumeaudio", data);
+            });
         });
         
         m_nativeHandlers.put("stopaudio", (params, callback) -> {
-            JSONObject data = new JSONObject();
-            try {
-                if (m_mediaPlayer != null) {
-                    m_mediaPlayer.stop();
-                    m_mediaPlayer.release();
-                    m_mediaPlayer = null;
-                    data.put("status", "stopped");
-                } else {
-                    data.put("status", "no_player");
+            m_mainHandler.post(() -> {
+                JSONObject data = new JSONObject();
+                try {
+                    if (m_mediaPlayer != null) {
+                        m_mediaPlayer.stop();
+                        m_mediaPlayer.release();
+                        m_mediaPlayer = null;
+                        data.put("status", "stopped");
+                    } else {
+                        data.put("status", "no_player");
+                    }
+                } catch (Exception e) {
+                    data = createErrorJson(e.getMessage());
                 }
-            } catch (Exception e) {
-                data = createErrorJson(e.getMessage());
-            }
-            reportNativeResult("stopaudio", data);
+                reportNativeResult("stopaudio", data);
+            });
+        });
+        
+        m_nativeHandlers.put("seekaudio", (params, callback) -> {
+            int position = params.optInt("position", 0);
+            m_mainHandler.post(() -> {
+                JSONObject data = new JSONObject();
+                try {
+                    if (m_mediaPlayer != null) {
+                        m_mediaPlayer.seekTo(position);
+                        data.put("status", "seeked");
+                        data.put("position", position);
+                    } else {
+                        data.put("status", "no_player");
+                    }
+                } catch (Exception e) {
+                    data = createErrorJson(e.getMessage());
+                }
+                reportNativeResult("seekaudio", data);
+            });
+        });
+        
+        m_nativeHandlers.put("getaudioposition", (params, callback) -> {
+            m_mainHandler.post(() -> {
+                JSONObject data = new JSONObject();
+                try {
+                    if (m_mediaPlayer != null) {
+                        data.put("position", m_mediaPlayer.getCurrentPosition());
+                        data.put("duration", m_mediaPlayer.getDuration());
+                        data.put("playing", m_mediaPlayer.isPlaying());
+                    } else {
+                        data.put("status", "no_player");
+                    }
+                } catch (Exception e) {
+                    data = createErrorJson(e.getMessage());
+                }
+                reportNativeResult("getaudioposition", data);
+            });
         });
         
         m_nativeHandlers.put("recordaudio", (params, callback) -> {
-            String file = params.optString("file", "");
-            if (file.isEmpty()) {
-                file = m_ctx.getExternalFilesDir(null).getPath() + "/recording_" + System.currentTimeMillis() + ".m4a";
-            }
-            final String finalFile = file;
+            final String requestedFile = params.optString("file", "");
+            debugLog("RECORDAUDIO: handler called, requestedFile=" + requestedFile);
             
             requestPermission(new String[]{Manifest.permission.RECORD_AUDIO}, () -> {
+                debugLog("RECORDAUDIO: permission granted, starting recording setup");
                 try {
+                    // Generate file path inside callback to avoid timing issues
+                    String file = requestedFile;
+                    if (file.isEmpty()) {
+                        String basePath = (m_appDir != null) ? m_appDir : m_filesDir;
+                        file = basePath + "/recording_" + System.currentTimeMillis() + ".m4a";
+                    }
+                    debugLog("RECORDAUDIO: file path = " + file);
+                    
                     if (m_mediaRecorder != null) {
+                        debugLog("RECORDAUDIO: releasing existing recorder");
                         m_mediaRecorder.release();
+                        m_mediaRecorder = null;
                     }
                     m_mediaRecorder = new MediaRecorder();
                     m_mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                     m_mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                     m_mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-                    m_mediaRecorder.setOutputFile(finalFile);
+                    m_mediaRecorder.setOutputFile(file);
                     m_mediaRecorder.prepare();
                     m_mediaRecorder.start();
+                    debugLog("RECORDAUDIO: started recording to " + file);
                     
                     JSONObject data = new JSONObject();
                     data.put("status", "recording");
-                    data.put("file", finalFile);
+                    data.put("file", file);
                     reportNativeResult("recordaudio", data);
                 } catch (Exception e) {
                     reportNativeResult("recordaudio", createErrorJson(e.getMessage()));
@@ -3509,13 +4889,34 @@ public class PhpNativePlugin {
         // =================================================================
         
         m_nativeHandlers.put("takephoto", (params, callback) -> {
+            // Optional: pass "imageview": "myImageId" to display photo directly in an ImageView
+            m_pendingPhotoImageViewId = params.optString("imageview", null);
             requestPermission(new String[]{Manifest.permission.CAMERA}, () -> {
                 m_mainHandler.post(() -> {
                     try {
                         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                        // Store callback for onActivityResult
-                        m_pendingSensorCallbacks.put("takephoto_result", callback);
-                        m_activity.startActivityForResult(takePictureIntent, 1001);
+                        // Prepare local file path in app folder
+                        String folder = (m_appDir != null && !m_appDir.isEmpty()) ? m_appDir
+                            : m_ctx.getExternalFilesDir(null).getAbsolutePath();
+                        String fileName = "photo_" + System.currentTimeMillis() + ".jpg";
+                        m_pendingPhotoPath = folder + "/" + fileName;
+                        Log.d(TAG, "takephoto: target file = " + m_pendingPhotoPath);
+                        // Create MediaStore entry so camera gets a content:// URI it can write to
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
+                        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                        m_pendingPhotoUri = m_ctx.getContentResolver().insert(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                        Log.d(TAG, "takephoto: MediaStore URI = " + m_pendingPhotoUri);
+                        if (m_pendingPhotoUri != null) {
+                            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, m_pendingPhotoUri);
+                            takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            m_pendingSensorCallbacks.put("takephoto_result", callback);
+                            m_activity.startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
+                        } else {
+                            reportNativeResult("takephoto", createErrorJson("Failed to create MediaStore entry"));
+                        }
                     } catch (Exception e) {
                         reportNativeResult("takephoto", createErrorJson(e.getMessage()));
                     }
@@ -3534,7 +4935,7 @@ public class PhpNativePlugin {
                         }
                         takeVideoIntent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
                         m_pendingSensorCallbacks.put("recordvideo_result", callback);
-                        m_activity.startActivityForResult(takeVideoIntent, 1002);
+                        m_activity.startActivityForResult(takeVideoIntent, REQUEST_RECORD_VIDEO);
                     } catch (Exception e) {
                         reportNativeResult("recordvideo", createErrorJson(e.getMessage()));
                     }
@@ -3547,7 +4948,7 @@ public class PhpNativePlugin {
                 try {
                     Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                     m_pendingSensorCallbacks.put("pickimage_result", callback);
-                    m_activity.startActivityForResult(pickIntent, 1003);
+                    m_activity.startActivityForResult(pickIntent, REQUEST_PICK_IMAGE);
                 } catch (Exception e) {
                     reportNativeResult("pickimage", createErrorJson(e.getMessage()));
                 }
@@ -3559,9 +4960,38 @@ public class PhpNativePlugin {
                 try {
                     Intent pickIntent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
                     m_pendingSensorCallbacks.put("pickvideo_result", callback);
-                    m_activity.startActivityForResult(pickIntent, 1004);
+                    m_activity.startActivityForResult(pickIntent, REQUEST_PICK_VIDEO);
                 } catch (Exception e) {
                     reportNativeResult("pickvideo", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        m_nativeHandlers.put("pickaudio", (params, callback) -> {
+            m_mainHandler.post(() -> {
+                try {
+                    Intent pickIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                    pickIntent.setType("audio/*");
+                    pickIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                    m_pendingSensorCallbacks.put("pickaudio_result", callback);
+                    m_activity.startActivityForResult(Intent.createChooser(pickIntent, "Select Audio"), REQUEST_PICK_AUDIO);
+                } catch (Exception e) {
+                    reportNativeResult("pickaudio", createErrorJson(e.getMessage()));
+                }
+            });
+        });
+        
+        m_nativeHandlers.put("pickfile", (params, callback) -> {
+            String mimeType = params.optString("type", "*/*");
+            m_mainHandler.post(() -> {
+                try {
+                    Intent pickIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                    pickIntent.setType(mimeType);
+                    pickIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                    m_pendingSensorCallbacks.put("pickfile_result", callback);
+                    m_activity.startActivityForResult(Intent.createChooser(pickIntent, "Select File"), REQUEST_PICK_FILE);
+                } catch (Exception e) {
+                    reportNativeResult("pickfile", createErrorJson(e.getMessage()));
                 }
             });
         });
@@ -3733,86 +5163,36 @@ public class PhpNativePlugin {
     }
 
     // -------------------------------------------------------------------------
-    // Native UI Rendering (The Overlay)
+    // Native UI Rendering (Direct Mode Only)
     // -------------------------------------------------------------------------
 
     /**
-     * Ensure the overlay container is created and attached.
+     * Ensure the render container (m_mainRootView) is created and ready.
      * MUST be called on the main (UI) thread.
+     * Note: View is never auto-attached to the activity. User must call GetView()
+     * in JS and add it to a DroidScript layout.
      */
-    private void ensureOverlayCreated() {
-        if (m_overlayContainer == null) {
-            m_overlayContainer = new FrameLayout(m_ctx);
-            m_overlayContainer.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            ));
-
-            // Ensure content starts below the status bar
-            m_overlayContainer.setFitsSystemWindows(true);
-
-            // Also apply top padding equal to the status bar height as a fallback
-            int statusBarHeight = 0;
-            int resourceId = m_ctx.getResources().getIdentifier("status_bar_height", "dimen", "android");
-            if (resourceId > 0) {
-                statusBarHeight = m_ctx.getResources().getDimensionPixelSize(resourceId);
-            }
-            m_overlayContainer.setPadding(0, statusBarHeight, 0, 0);
-
-            // Intercept back button on the overlay
-            m_overlayContainer.setFocusableInTouchMode(true);
-            m_overlayContainer.setOnKeyListener((v, keyCode, event) -> {
-                if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-                    handleBackPress();
-                    return true;
-                }
-                return false;
-            });
+    private void ensureRenderContainerCreated() {
+        if (m_mainRootView == null) {
+            Log.d(TAG, "ensureRenderContainerCreated: Creating m_mainRootView");
+            createMainRootViewInternal();
         }
-
-        // Add overlay to activity's content view
-        try {
-            ViewGroup rootView = m_activity.findViewById(android.R.id.content);
-            if (m_overlayContainer.getParent() == null) {
-                rootView.addView(m_overlayContainer);
-            }
-            m_overlayContainer.setVisibility(View.VISIBLE);
-            m_overlayContainer.setBackgroundColor(Color.parseColor("#FFFFFF"));
-            m_overlayContainer.requestFocus();
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to show overlay", e);
-        }
+        // Never auto-attach - DroidScript manages the view placement via GetView()
     }
-
-    private void showOverlay() {
-        m_mainHandler.post(() -> ensureOverlayCreated());
-    }
-
-    private void hideOverlay() {
+    
+    /**
+     * Hide the main root view.
+     */
+    private void hideRootView() {
         m_mainHandler.post(() -> {
-            if (m_overlayContainer != null) {
-                m_overlayContainer.setVisibility(View.GONE);
-            }
-        });
-    }
-
-    private void removeOverlay() {
-        m_mainHandler.post(() -> {
-            if (m_overlayContainer != null) {
-                ViewGroup parent = (ViewGroup) m_overlayContainer.getParent();
-                if (parent != null) {
-                    parent.removeView(m_overlayContainer);
-                }
-                m_overlayContainer.removeAllViews();
-                m_viewRegistry.clear();
-                m_listAdapters.clear();
-                m_listData.clear();
+            if (m_mainRootView != null) {
+                m_mainRootView.setVisibility(View.GONE);
             }
         });
     }
 
     /**
-     * Handle back button press on the overlay.
+     * Handle back button press.
      * If there is navigation history, go back to the previous screen.
      * If at the root screen, show exit confirmation dialog.
      */
@@ -3856,7 +5236,7 @@ public class PhpNativePlugin {
     }
 
     /**
-     * Show exit confirmation dialog. On confirm, hide overlay and clear history.
+     * Show exit confirmation dialog. On confirm, hide view and clear history.
      */
     private void showExitConfirmDialog() {
         m_mainHandler.post(() -> {
@@ -3866,7 +5246,7 @@ public class PhpNativePlugin {
                 builder.setMessage("Close this app?");
                 builder.setPositiveButton("Yes", (dialog, which) -> {
                     m_screenHistory.clear();
-                    hideOverlay();
+                    hideRootView();
                     // Notify JS if callback is set
                     if (m_OnBack != null && !m_OnBack.isEmpty()) {
                         try {
@@ -3918,11 +5298,18 @@ public class PhpNativePlugin {
                     return;
                 }
 
-                // Create overlay if needed (synchronous — we're already on the main thread)
-                ensureOverlayCreated();
+                // Create render container if needed (synchronous — we're already on the main thread)
+                ensureRenderContainerCreated();
+                
+                // Get the render container
+                ViewGroup container = getRenderContainer();
+                if (container == null) {
+                    notifyError("UI render failed: No render container available");
+                    return;
+                }
 
                 // Clear existing views
-                m_overlayContainer.removeAllViews();
+                container.removeAllViews();
                 m_viewRegistry.clear();
 
                 // Create ScrollView wrapper
@@ -3941,7 +5328,7 @@ public class PhpNativePlugin {
                     if (rootView.getBackground() == null) {
                         rootView.setBackgroundColor(Color.WHITE);
                     }
-                      m_overlayContainer.addView(rootView);
+                    container.addView(rootView);
                 
                 } else {
                     // Fallback: create default layout
@@ -3953,10 +5340,17 @@ public class PhpNativePlugin {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ));
-                     m_overlayContainer.addView(fallbackLayout);
+                    container.addView(fallbackLayout);
                 }
 
-                Log.d(TAG, "UI rendered with " + m_viewRegistry.size() + " views");
+                Log.d(TAG, "UI rendered with " + m_viewRegistry.size() + " views in direct mode");
+                
+                // Force layout refresh to ensure view is drawn
+                container.requestLayout();
+                container.invalidate();
+                
+                // Sync view state after render
+                syncViewStateToFile();
 
             } catch (Exception e) {
                 Log.e(TAG, "Failed to render UI: " + jsonStr, e);
@@ -4285,14 +5679,22 @@ public class PhpNativePlugin {
      * @param viewId    The unique identifier for the view, used to track the event source in the backend.
      */
     private void setupEventListeners(View view, JSONObject item, String viewId) {
+        debugLog("SETUP_EVENTS: viewId=" + viewId + " view=" + view.getClass().getSimpleName() + " hasAction=" + item.has("action") + " hasOnClick=" + item.has("onClick"));
+        
         Iterator<String> keys = item.keys();
+        boolean hasAction = item.has("action");
+        
         while (keys.hasNext()) {
             String key = keys.next();
             String phpMethod = item.optString(key);
 
             if (key.equals("action")) {
-                bindEvent(view, "onClick", phpMethod, viewId);
+                bindEvent(view, "onClick", phpMethod, viewId);;
             } else if (key.startsWith("on")) {
+                // Skip onClick if "action" already handled it
+                if (key.equals("onClick") && hasAction) {
+                    continue;
+                }
                 bindEvent(view, key, phpMethod, viewId);
             }
         }
@@ -4313,6 +5715,8 @@ public class PhpNativePlugin {
      * @param viewId     The unique identifier of the view, passed back to PHP for context.
      */
     private void bindEvent(View view, String eventName, String phpMethod, String viewId) {
+        debugLog("BIND_EVENT: eventName=" + eventName + " viewId=" + viewId + " phpMethod=" + phpMethod + " view=" + view.getClass().getSimpleName());
+        
         // Derive the setter method name from the event name
         // e.g., "onClick" -> "setOnClickListener", "onLongClick" -> "setOnLongClickListener"
         String suffix = eventName.startsWith("on") ? eventName.substring(2) : eventName;
@@ -4328,6 +5732,17 @@ public class PhpNativePlugin {
                     listenerInterface.getClassLoader(),
                     new Class<?>[]{listenerInterface},
                     (proxyInstance, m, args) -> {
+                        // Skip Object methods (toString, hashCode, equals)
+                        if (m.getDeclaringClass() == Object.class) {
+                            if (m.getName().equals("toString")) return listenerInterface.getName() + "@proxy";
+                            if (m.getName().equals("hashCode")) return System.identityHashCode(proxyInstance);
+                            if (m.getName().equals("equals")) return proxyInstance == args[0];
+                            return null;
+                        }
+                        
+                        // Debug: Log every event invocation
+                        debugLog("EVENT FIRED: " + eventName + " method=" + m.getName() + " viewId=" + viewId + " phpMethod=" + phpMethod + " thread=" + Thread.currentThread().getName());
+                        
                         // Build the parameters JSON to send to PHP
                         JSONObject params = new JSONObject();
                         try {
@@ -4347,9 +5762,11 @@ public class PhpNativePlugin {
 
                         // Execute PHP call on background thread
                         if (m_executor != null && !m_executor.isShutdown()) {
+                            debugLog("EVENT CALLING PHP: " + phpMethod + " params=" + params.toString());
                             m_executor.execute(() -> {
                                 try {
                                     String response = callPhp(phpMethod, params.toString());
+                                    debugLog("EVENT PHP RESPONSE: " + (response != null ? response.substring(0, Math.min(200, response.length())) : "null"));
                                     if (response != null && !response.isEmpty()) {
                                         m_mainHandler.post(() -> processPhpResponse(response));
                                     }
@@ -4770,6 +6187,15 @@ public class PhpNativePlugin {
             }
             
             view.setBackground(drawable);
+            
+            // Add padding so the content doesn't overlap the border stroke
+            int pad = borderWidth;
+            view.setPadding(
+                Math.max(view.getPaddingLeft(), pad),
+                Math.max(view.getPaddingTop(), pad),
+                Math.max(view.getPaddingRight(), pad),
+                Math.max(view.getPaddingBottom(), pad)
+            );
             
         } catch (Exception e) {
             Log.w(TAG, "Could not apply border: " + e.getMessage());
@@ -5221,6 +6647,8 @@ public class PhpNativePlugin {
                     Object convertedValue = convertValue(value, paramType, methodName);
                     if (convertedValue != null) {
                         method.invoke(view, convertedValue);
+                        // Sync view state after property change (debounced on next frame)
+                        m_mainHandler.post(() -> syncViewStateToFile());
                         return true;
                     }
                 } catch (Exception ignored) {}
@@ -5411,6 +6839,8 @@ public class PhpNativePlugin {
         View view = m_viewRegistry.get(viewId);
         if (view != null) {
             applyAttributes(view, attrs);
+            // Sync view state after property change
+            syncViewStateToFile();
         } else {
             Log.w(TAG, "View not found: " + viewId);
         }
@@ -5491,6 +6921,8 @@ public class PhpNativePlugin {
             View view = m_viewRegistry.get(viewId);
             if (view instanceof TextView) {
                 ((TextView) view).setText(text);
+                // Sync view state after text change
+                syncViewStateToFile();
             }
         });
     }
@@ -5523,8 +6955,7 @@ public class PhpNativePlugin {
                 }
                 
                 m_mainHandler.post(() -> {
-                    showOverlay();
-                    renderUI(uiJson);
+                    processPhpResponse(uiJson);
                 });
             } else {
                 notifyError("PHP returned empty response");
@@ -5600,7 +7031,6 @@ public class PhpNativePlugin {
 
                 if (uiJson != null && !uiJson.isEmpty() && !uiJson.contains("\"error\"")) {
                     m_mainHandler.post(() -> {
-                        showOverlay();
                         renderUI(uiJson);
                     });
                 } else {
@@ -5707,7 +7137,6 @@ public class PhpNativePlugin {
                     notifyError("PHP error: " + uiJson);
                 } else {
                     m_mainHandler.post(() -> {
-                        showOverlay();
                         renderUI(uiJson);
                     });
                 }
@@ -7606,29 +9035,50 @@ public class PhpNativePlugin {
         });
     }
     
-    private void handleReplaceChildren(JSONObject response) {
-        String parentId = response.optString("target");
-        JSONArray childrenJson = response.optJSONArray("children");
-        
-        m_mainHandler.post(() -> {
-            try {
-                View parent = m_viewRegistry.get(parentId);
-                if (parent instanceof ViewGroup && childrenJson != null) {
-                    ((ViewGroup) parent).removeAllViews();
-                    
-                    for (int i = 0; i < childrenJson.length(); i++) {
-                        JSONObject childJson = childrenJson.getJSONObject(i);
-                        View child = processComponentRecursive(childJson);
-                        if (child != null) {
-                            ((ViewGroup) parent).addView(child);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error replacing children", e);
+   private void handleReplaceChildren(JSONObject response) {
+    String parentId = response.optString("target", "");
+    JSONArray childrenJson = response.optJSONArray("children");
+    if (parentId.isEmpty() || childrenJson == null) return;
+
+    m_mainHandler.post(() -> {
+        View parent = m_viewRegistry.get(parentId);
+        if (!(parent instanceof ViewGroup)) return;
+
+        // Build first, THEN swap. If any child is bad, abort without emptying.
+        List<View> built = new ArrayList<>();
+        for (int i = 0; i < childrenJson.length(); i++) {
+            JSONObject cj = childrenJson.optJSONObject(i);
+            if (cj == null) {
+                Log.e(TAG, "replaceChildren: null child at " + i + " — aborting");
+                return;
             }
-        });
+            try {
+                View v = processComponentRecursive(cj);
+                if (v != null) built.add(v);
+            } catch (Exception e) {
+                Log.e(TAG, "replaceChildren: failed at child " + i, e);
+                return;
+            }
+        }
+
+        ViewGroup vg = (ViewGroup) parent;
+        vg.removeAllViews();
+        for (View v : built) vg.addView(v);
+    });
+}
+
+private void pruneRegistryFor(View v, Set<String> keepIds) {
+    // walk v + descendants, remove from m_viewRegistry any id not in keepIds
+    for (Map.Entry<String, View> e : new ArrayList<>(m_viewRegistry.entrySet())) {
+        if (e.getValue() == v && !keepIds.contains(e.getKey())) {
+            m_viewRegistry.remove(e.getKey());
+        }
     }
+    if (v instanceof ViewGroup) {
+        ViewGroup g = (ViewGroup) v;
+        for (int i = 0; i < g.getChildCount(); i++) pruneRegistryFor(g.getChildAt(i), keepIds);
+    }
+}
     
     private void handleScrollTo(JSONObject response) {
         String viewId = response.optString("target");

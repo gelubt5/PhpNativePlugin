@@ -17,19 +17,22 @@
  *   // To get a value:
  *   return $myLabel->_getText("onGotText");
  */
-abstract class Component implements \JsonSerializable {
+abstract class Component implements \JsonSerializable
+{
     protected $attributes = [];
-    
+
     // =========================================================================
     // ATTRIBUTE SETTER (via __call) - These GO to XML
     // =========================================================================
-    
+
     // JsonSerializable implementation - allows Component to be json_encoded directly
-    public function jsonSerialize(): mixed {
+    public function jsonSerialize(): mixed
+    {
         return $this->toArray();
     }
-    
-    public function __call($name, $arguments) {
+
+    public function __call($name, $arguments)
+    {
         // Only set attribute if method name does NOT start with underscore
         // Underscore methods are helper actions, not attributes
         if (strpos($name, '_') !== 0) {
@@ -37,296 +40,354 @@ abstract class Component implements \JsonSerializable {
         }
         return $this;
     }
-    
+
     // =========================================================================
     // SERIALIZATION - Only $attributes are serialized
     // =========================================================================
 
-    public function toArray() {
+    public function toArray()
+    {
         try {
             $reflection = new ReflectionClass($this);
             $type = $reflection->getShortName();
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             $type = get_class($this);
         }
 
         return array_merge(
-            ["type" => $type],
+        ["type" => $type],
             $this->attributes
         );
     }
 
-    public function toJson() {
+    public function toJson()
+    {
         return json_encode($this->toArray());
     }
-    
+
     // =========================================================================
     // HELPER: Get the view ID (returns string, not action)
     // =========================================================================
-    
-    public function getId() {
+
+    public function getId()
+    {
         return $this->attributes['id'] ?? null;
     }
-    
-    public function getAttr($name) {
+
+    public function getAttr($name)
+    {
         return $this->attributes[$name] ?? null;
     }
-    
+
     // =========================================================================
     // ACTION HELPERS - Return action arrays, NOT serialized to XML
     // Prefix: _ (underscore) to distinguish from XML attributes
     // =========================================================================
-    
+
     // ----- UNIVERSAL GET/SET -----
-    
+
     /**
      * Get any property from this view (SYNCHRONOUS - reads from shared file).
      * @param string $property Property name
      * @param mixed $default Default value if not found
      * @return mixed The property value
      */
-    public function _get(string $property, $default = null) {
+    public function _get(string $property, $default = null)
+    {
         return getViewProperty($this->getId(), $property, $default);
     }
-    
+
     /**
      * Get all properties of this view from shared state.
      * @return array All properties
      */
-    public function _getState(): array {
+    public function _getState(): array
+    {
         return getViewState($this->getId());
     }
-    
+
     /**
      * Set any property on this view
      * @param string $property Property name
      * @param mixed $value New value
      * @return array Action array (NOT serialized)
      */
-    public function _set(string $property, $value): array {
+    public function _set(string $property, $value): array
+    {
         return updateView($this->getId(), [$property => $value]);
     }
-    
+
     /**
      * Update multiple properties at once
      * @param array $properties Key-value pairs
      * @return array Action array (NOT serialized)
      */
-    public function _update(array $properties): array {
+    public function _update(array $properties): array
+    {
         return updateView($this->getId(), $properties);
     }
-    
+
     // ----- TEXT PROPERTIES -----
-    
+
     /**
      * Get text from this view (SYNCHRONOUS).
      * @param string $default Default value if not found
      * @return string|null The text value
      */
-    public function _getText(string $default = ""): ?string {
+    public function _getText(string $default = ""): ?string
+    {
         return $this->_get("text", $default);
     }
-    
-    public function _setText(string $text, ?string $color = null): array {
+
+    public function _setText(string $text, ?string $color = null): array
+    {
         $attrs = ["text" => $text];
-        if ($color) $attrs["textColor"] = $color;
+        if ($color)
+            $attrs["textColor"] = $color;
         return $this->_update($attrs);
     }
-    
+
     /**
      * Get text color (SYNCHRONOUS).
      */
-    public function _getTextColor(?string $default = null): ?string {
+    public function _getTextColor(?string $default = null): ?string
+    {
         return $this->_get("textColor", $default);
     }
-    
-    public function _setTextColor(string $color): array {
+
+    public function _setTextColor(string $color): array
+    {
         return $this->_set("textColor", $color);
     }
-    
-    public function _getTextSize($default = null) {
+
+    public function _getTextSize($default = null)
+    {
         return $this->_get("textSize", $default);
     }
-    
-    public function _setTextSize(int $size): array {
+
+    public function _setTextSize(int $size): array
+    {
         return $this->_set("textSize", $size);
     }
-    
-    public function _setTextStyle(string $style): array {
+
+    public function _setTextStyle(string $style): array
+    {
         return $this->_set("textStyle", $style);
     }
-    
-    public function _setAllCaps(bool $caps): array {
+
+    public function _setAllCaps(bool $caps): array
+    {
         return $this->_set("textAllCaps", $caps);
     }
-    
-    public function _setLetterSpacing(float $spacing): array {
+
+    public function _setLetterSpacing(float $spacing): array
+    {
         return $this->_set("letterSpacing", $spacing);
     }
-    
-    public function _setLineSpacing(float $multiplier): array {
+
+    public function _setLineSpacing(float $multiplier): array
+    {
         return $this->_set("lineSpacingMultiplier", $multiplier);
     }
-    
-    public function _setGravity(string $gravity): array {
+
+    public function _setGravity(string $gravity): array
+    {
         return $this->_set("gravity", $gravity);
     }
-    
-    public function _setHint(string $hint): array {
+
+    public function _setHint(string $hint): array
+    {
         return $this->_set("hint", $hint);
     }
-    
-    public function _getHint($default = null) {
+
+    public function _getHint($default = null)
+    {
         return $this->_get("hint", $default);
     }
-    
-    public function _clear(): array {
+
+    public function _clear(): array
+    {
         return $this->_set("text", "");
     }
-    
+
     // ----- APPEARANCE -----
-    
-    public function _getBackground($default = null) {
+
+    public function _getBackground($default = null)
+    {
         return $this->_get("backgroundColor", $default);
     }
-    
-    public function _setBackground(string $color): array {
+
+    public function _setBackground(string $color): array
+    {
         return $this->_set("backgroundColor", $color);
     }
-    
-    public function _setCornerRadius(int $radius): array {
+
+    public function _setCornerRadius(int $radius): array
+    {
         return $this->_set("cornerRadius", $radius);
     }
-    
-    public function _setElevation(int $elevation): array {
+
+    public function _setElevation(int $elevation): array
+    {
         return $this->_set("elevation", $elevation);
     }
-    
-    public function _setBorder(string $color, int $width): array {
+
+    public function _setBorder(string $color, int $width): array
+    {
         return $this->_update(["strokeColor" => $color, "strokeWidth" => $width]);
     }
-    
-    public function _setBorderColor(string $color): array {
+
+    public function _setBorderColor(string $color): array
+    {
         return $this->_set("strokeColor", $color);
     }
-    
-    public function _setBorderWidth(int $width): array {
+
+    public function _setBorderWidth(int $width): array
+    {
         return $this->_set("strokeWidth", $width);
     }
-    
+
     // ----- VISIBILITY & STATE -----
-    
-    public function _getVisibility($default = null) {
+
+    public function _getVisibility($default = null)
+    {
         return $this->_get("visibility", $default);
     }
-    
-    public function _setVisibility(string $visibility): array {
+
+    public function _setVisibility(string $visibility): array
+    {
         return $this->_set("visibility", $visibility);
     }
-    
-    public function _show(): array {
+
+    public function _show(): array
+    {
         return $this->_set("visibility", "visible");
     }
-    
-    public function _hide(): array {
+
+    public function _hide(): array
+    {
         return $this->_set("visibility", "gone");
     }
-    
-    public function _invisible(): array {
+
+    public function _invisible(): array
+    {
         return $this->_set("visibility", "invisible");
     }
-    
-    public function _getEnabled($default = null) {
+
+    public function _getEnabled($default = null)
+    {
         return $this->_get("enabled", $default);
     }
-    
-    public function _enable(): array {
+
+    public function _enable(): array
+    {
         return $this->_set("enabled", true);
     }
-    
-    public function _disable(): array {
+
+    public function _disable(): array
+    {
         return $this->_set("enabled", false);
     }
-    
-    public function _setEnabled(bool $enabled): array {
+
+    public function _setEnabled(bool $enabled): array
+    {
         return $this->_set("enabled", $enabled);
     }
-    
-    public function _setClickable(bool $clickable): array {
+
+    public function _setClickable(bool $clickable): array
+    {
         return $this->_set("clickable", $clickable);
     }
-    
-    public function _setFocusable(bool $focusable): array {
+
+    public function _setFocusable(bool $focusable): array
+    {
         return $this->_set("focusable", $focusable);
     }
-    
-    public function _setSelected(bool $selected): array {
+
+    public function _setSelected(bool $selected): array
+    {
         return $this->_set("selected", $selected);
     }
-    
-    public function _getSelected($default = null) {
+
+    public function _getSelected($default = null)
+    {
         return $this->_get("selected", $default);
     }
-    
-    public function _focus(): array {
+
+    public function _focus(): array
+    {
         return $this->_set("requestFocus", true);
     }
-    
-    public function _clearFocus(): array {
+
+    public function _clearFocus(): array
+    {
         return $this->_set("clearFocus", true);
     }
-    
+
     // ----- ALPHA/OPACITY -----
-    
-    public function _getAlpha($default = null) {
+
+    public function _getAlpha($default = null)
+    {
         return $this->_get("alpha", $default);
     }
-    
-    public function _setAlpha(float $alpha): array {
+
+    public function _setAlpha(float $alpha): array
+    {
         return $this->_set("alpha", max(0.0, min(1.0, $alpha)));
     }
-    
-    public function _fadeIn(): array {
+
+    public function _fadeIn(): array
+    {
         return $this->_set("alpha", 1.0);
     }
-    
-    public function _fadeOut(): array {
+
+    public function _fadeOut(): array
+    {
         return $this->_set("alpha", 0.0);
     }
-    
+
     // ----- DIMENSIONS -----
-    
-    public function _getWidth($default = null) {
+
+    public function _getWidth($default = null)
+    {
         return $this->_get("width", $default);
     }
-    
-    public function _setWidth($width): array {
+
+    public function _setWidth($width): array
+    {
         return $this->_set("width", $width);
     }
-    
-    public function _getHeight($default = null) {
+
+    public function _getHeight($default = null)
+    {
         return $this->_get("height", $default);
     }
-    
-    public function _setHeight($height): array {
+
+    public function _setHeight($height): array
+    {
         return $this->_set("height", $height);
     }
-    
-    public function _setDimensions($width, $height): array {
+
+    public function _setDimensions($width, $height): array
+    {
         return $this->_update(["width" => $width, "height" => $height]);
     }
-    
+
     // ----- PADDING & MARGIN -----
-    
-    public function _getPadding($default = null) {
+
+    public function _getPadding($default = null)
+    {
         return $this->_get("padding", $default);
     }
-    
-    public function _setPadding(int $padding): array {
+
+    public function _setPadding(int $padding): array
+    {
         return $this->_set("padding", $padding);
     }
-    
-    public function _setPaddingAll(int $left, int $top, int $right, int $bottom): array {
+
+    public function _setPaddingAll(int $left, int $top, int $right, int $bottom): array
+    {
         return $this->_update([
             "paddingLeft" => $left,
             "paddingTop" => $top,
@@ -334,16 +395,19 @@ abstract class Component implements \JsonSerializable {
             "paddingBottom" => $bottom
         ]);
     }
-    
-    public function _getMargin($default = null) {
+
+    public function _getMargin($default = null)
+    {
         return $this->_get("margin", $default);
     }
-    
-    public function _setMargin(int $margin): array {
+
+    public function _setMargin(int $margin): array
+    {
         return $this->_set("margin", $margin);
     }
-    
-    public function _setMarginAll(int $left, int $top, int $right, int $bottom): array {
+
+    public function _setMarginAll(int $left, int $top, int $right, int $bottom): array
+    {
         return $this->_update([
             "marginLeft" => $left,
             "marginTop" => $top,
@@ -351,81 +415,103 @@ abstract class Component implements \JsonSerializable {
             "marginBottom" => $bottom
         ]);
     }
-    
+
     // ----- TRANSFORMS -----
-    
-    public function _getRotation($default = null) {
+
+    public function _getRotation($default = null)
+    {
         return $this->_get("rotation", $default);
     }
-    
-    public function _setRotation(float $degrees): array {
+
+    public function _setRotation(float $degrees): array
+    {
         return $this->_set("rotation", $degrees);
     }
-    
-    public function _setRotationX(float $degrees): array {
+
+    public function _setRotationX(float $degrees): array
+    {
         return $this->_set("rotationX", $degrees);
     }
-    
-    public function _setRotationY(float $degrees): array {
+
+    public function _setRotationY(float $degrees): array
+    {
         return $this->_set("rotationY", $degrees);
     }
-    
-    public function _getScaleX($default = null) {
+
+    public function _getScaleX($default = null)
+    {
         return $this->_get("scaleX", $default);
     }
-    
-    public function _getScaleY($default = null) {
+
+    public function _getScaleY($default = null)
+    {
         return $this->_get("scaleY", $default);
     }
-    
-    public function _setScale(float $scale): array {
+
+    public function _setScale(float $scale): array
+    {
         return $this->_update(["scaleX" => $scale, "scaleY" => $scale]);
     }
-    
-    public function _setScaleX(float $scale): array {
+
+    public function _setScaleX(float $scale): array
+    {
         return $this->_set("scaleX", $scale);
     }
-    
-    public function _setScaleY(float $scale): array {
+
+    public function _setScaleY(float $scale): array
+    {
         return $this->_set("scaleY", $scale);
     }
-    
-    public function _getTranslationX($default = null) {
+
+    public function _getTranslationX($default = null)
+    {
         return $this->_get("translationX", $default);
     }
-    
-    public function _getTranslationY($default = null) {
+
+    public function _getTranslationY($default = null)
+    {
         return $this->_get("translationY", $default);
     }
-    
-    public function _setTranslationX(float $translation): array {
+
+    public function _setTranslationX(float $translation): array
+    {
         return $this->_set("translationX", $translation);
     }
-    
-    public function _setTranslationY(float $translation): array {
+
+    public function _setTranslationY(float $translation): array
+    {
         return $this->_set("translationY", $translation);
     }
-    
-    public function _setPosition(float $x, float $y): array {
+
+    public function _setPosition(float $x, float $y): array
+    {
         return $this->_update(["translationX" => $x, "translationY" => $y]);
     }
-    
-    public function _transform(array $transform): array {
+
+    public function _transform(array $transform): array
+    {
         $props = [];
-        if (isset($transform['x'])) $props['translationX'] = $transform['x'];
-        if (isset($transform['y'])) $props['translationY'] = $transform['y'];
-        if (isset($transform['rotation'])) $props['rotation'] = $transform['rotation'];
+        if (isset($transform['x']))
+            $props['translationX'] = $transform['x'];
+        if (isset($transform['y']))
+            $props['translationY'] = $transform['y'];
+        if (isset($transform['rotation']))
+            $props['rotation'] = $transform['rotation'];
         if (isset($transform['scale'])) {
             $props['scaleX'] = $transform['scale'];
             $props['scaleY'] = $transform['scale'];
         }
-        if (isset($transform['scaleX'])) $props['scaleX'] = $transform['scaleX'];
-        if (isset($transform['scaleY'])) $props['scaleY'] = $transform['scaleY'];
-        if (isset($transform['alpha'])) $props['alpha'] = $transform['alpha'];
+        if (isset($transform['scaleX']))
+            $props['scaleX'] = $transform['scaleX'];
+        if (isset($transform['scaleY']))
+            $props['scaleY'] = $transform['scaleY'];
+        if (isset($transform['alpha']))
+            $props['alpha'] = $transform['alpha'];
         return $this->_update($props);
     }
-    
-    public function _resetTransform(): array {
+
+    public function _resetTransform(): array
+    {
         return $this->_update([
             "translationX" => 0,
             "translationY" => 0,
@@ -435,127 +521,161 @@ abstract class Component implements \JsonSerializable {
             "alpha" => 1.0
         ]);
     }
-    
+
     // ----- CHECKBOX/SWITCH -----
-    
-    public function _getChecked($default = false) {
+
+    public function _getChecked($default = false)
+    {
         return $this->_get("checked", $default);
     }
-    
-    public function _setChecked(bool $checked): array {
+
+    public function _setChecked(bool $checked): array
+    {
         return $this->_set("checked", $checked);
     }
-    
-    public function _check(): array {
+
+    public function _check(): array
+    {
         return $this->_set("checked", true);
     }
-    
-    public function _uncheck(): array {
+
+    public function _uncheck(): array
+    {
         return $this->_set("checked", false);
     }
-    
-    public function _toggle(): array {
+
+    public function _toggle(): array
+    {
         // Note: This requires knowing current state
         // Better to use setChecked with opposite of current
         return $this->_set("toggle", true);
     }
-    
+
     // ----- PROGRESS BAR / SEEKBAR -----
-    
-    public function _getProgress($default = 0) {
+
+    public function _getProgress($default = 0)
+    {
         return $this->_get("progress", $default);
     }
-    
-    public function _setProgress(int $progress): array {
+
+    public function _setProgress(int $progress): array
+    {
         return $this->_set("progress", $progress);
     }
-    
-    public function _getMax($default = 100) {
+
+    public function _getMax($default = 100)
+    {
         return $this->_get("max", $default);
     }
-    
-    public function _setMax(int $max): array {
+
+    public function _setMax(int $max): array
+    {
         return $this->_set("max", $max);
     }
-    
-    public function _setProgressWithMax(int $progress, int $max): array {
+
+    public function _setProgressWithMax(int $progress, int $max): array
+    {
         return $this->_update(["progress" => $progress, "max" => $max]);
     }
-    
+
     // ----- IMAGE VIEW -----
-    
-    public function _getImage($default = null) {
+
+    public function _getImage($default = null)
+    {
         return $this->_get("src", $default);
     }
-    
-    public function _setImage(string $src): array {
+
+    public function _setImage(string $src): array
+    {
         return $this->_set("src", $src);
     }
-    
-    public function _setScaleType(string $type): array {
+
+    public function _setScaleType(string $type): array
+    {
         return $this->_set("scaleType", $type);
     }
-    
+
     // ----- TEXT INPUT -----
-    
-    public function _setInputType(string $type): array {
+
+    public function _setInputType(string $type): array
+    {
         return $this->_set("inputType", $type);
     }
-    
-    public function _setMinLines(int $lines): array {
+
+    public function _setMinLines(int $lines): array
+    {
         return $this->_set("minLines", $lines);
     }
-    
-    public function _setMaxLines(int $lines): array {
+
+    public function _setMaxLines(int $lines): array
+    {
         return $this->_set("maxLines", $lines);
     }
-    
-    public function _setSingleLine(bool $singleLine = true): array {
+
+    public function _setSingleLine(bool $singleLine = true): array
+    {
         return $this->_set("singleLine", $singleLine);
     }
-    
+
     // ----- TAG -----
-    
-    public function _getTag($default = null) {
+
+    public function _getTag($default = null)
+    {
         return $this->_get("tag", $default);
     }
-    
-    public function _setTag($tag): array {
+
+    public function _setTag($tag): array
+    {
         return $this->_set("tag", $tag);
     }
-    
+
     // ----- COMPOUND STYLE HELPERS -----
-    
+
     /**
      * Apply multiple text styles at once
      * @param array $style ['text', 'color', 'size', 'bold', 'center', 'caps']
      * @return array Action
      */
-    public function _styleText(array $style): array {
+    public function _styleText(array $style): array
+    {
         $props = [];
-        if (isset($style['text'])) $props['text'] = $style['text'];
-        if (isset($style['color'])) $props['textColor'] = $style['color'];
-        if (isset($style['size'])) $props['textSize'] = $style['size'];
-        if (isset($style['bold'])) $props['textStyle'] = $style['bold'] ? 'bold' : 'normal';
-        if (isset($style['italic'])) $props['textStyle'] = $style['italic'] ? 'italic' : 'normal';
-        if (isset($style['center'])) $props['gravity'] = 'center';
-        if (isset($style['caps'])) $props['textAllCaps'] = $style['caps'];
+        if (isset($style['text']))
+            $props['text'] = $style['text'];
+        if (isset($style['color']))
+            $props['textColor'] = $style['color'];
+        if (isset($style['size']))
+            $props['textSize'] = $style['size'];
+        if (isset($style['bold']))
+            $props['textStyle'] = $style['bold'] ? 'bold' : 'normal';
+        if (isset($style['italic']))
+            $props['textStyle'] = $style['italic'] ? 'italic' : 'normal';
+        if (isset($style['center']))
+            $props['gravity'] = 'center';
+        if (isset($style['caps']))
+            $props['textAllCaps'] = $style['caps'];
         return $this->_update($props);
     }
-    
+
     /**
      * Apply multiple view styles at once
      * @param array $style ['background', 'corners', 'elevation', 'alpha', 'padding', 'margin']
      * @return array Action
      */
-    public function _styleView(array $style): array {
+    public function _styleView(array $style): array
+    {
         $props = [];
-        if (isset($style['background'])) $props['backgroundColor'] = $style['background'];
-        if (isset($style['corners'])) $props['cornerRadius'] = $style['corners'];
-        if (isset($style['elevation'])) $props['elevation'] = $style['elevation'];
-        if (isset($style['alpha'])) $props['alpha'] = $style['alpha'];
-        if (isset($style['padding'])) $props['padding'] = $style['padding'];
-        if (isset($style['margin'])) $props['margin'] = $style['margin'];
+        if (isset($style['background']))
+            $props['backgroundColor'] = $style['background'];
+        if (isset($style['corners']))
+            $props['cornerRadius'] = $style['corners'];
+        if (isset($style['elevation']))
+            $props['elevation'] = $style['elevation'];
+        if (isset($style['alpha']))
+            $props['alpha'] = $style['alpha'];
+        if (isset($style['padding']))
+            $props['padding'] = $style['padding'];
+        if (isset($style['margin']))
+            $props['margin'] = $style['margin'];
         return $this->_update($props);
     }
 }
@@ -564,30 +684,78 @@ abstract class Component implements \JsonSerializable {
 // STANDARD COMPONENTS - Basic Views
 // =============================================================================
 
-class TextView extends Component {}
-class Button extends Component {}
-class CheckBox extends Component {}
-class EditText extends Component {}
-class ImageView extends Component {}
-class ProgressBar extends Component {}
-class SeekBar extends Component {}
-class RadioButton extends Component {}
-class Spinner extends Component {}
-class WebView extends Component {}
-class ToggleButton extends Component {}
-class RatingBar extends Component {}
-class NumberPicker extends Component {}
-class AutoCompleteTextView extends Component {}
-class MultiAutoCompleteTextView extends Component {}
-class SearchView extends Component {}
-class CalendarView extends Component {}
-class DatePicker extends Component {}
-class TimePicker extends Component {}
-class VideoView extends Component {}
-class Space extends Component {}
-class Chronometer extends Component {}
-class TextClock extends Component {}
-class AnalogClock extends Component {}
+class TextView extends Component
+{
+}
+class Button extends Component
+{
+}
+class CheckBox extends Component
+{
+}
+class EditText extends Component
+{
+}
+class ImageView extends Component
+{
+}
+class ProgressBar extends Component
+{
+}
+class SeekBar extends Component
+{
+}
+class RadioButton extends Component
+{
+}
+class Spinner extends Component
+{
+}
+class WebView extends Component
+{
+}
+class ToggleButton extends Component
+{
+}
+class RatingBar extends Component
+{
+}
+class NumberPicker extends Component
+{
+}
+class AutoCompleteTextView extends Component
+{
+}
+class MultiAutoCompleteTextView extends Component
+{
+}
+class SearchView extends Component
+{
+}
+class CalendarView extends Component
+{
+}
+class DatePicker extends Component
+{
+}
+class TimePicker extends Component
+{
+}
+class VideoView extends Component
+{
+}
+class Space extends Component
+{
+}
+class Chronometer extends Component
+{
+}
+class TextClock extends Component
+{
+}
+class AnalogClock extends Component
+{
+}
 
 // =============================================================================
 // MATERIAL / EXTENDED COMPONENTS
@@ -603,8 +771,10 @@ class AnalogClock extends Component {}
  *       ->action("onFabClick")
  *       ->backgroundColor("#FF4081");
  */
-class FloatingActionButton extends Component {
-    public function toArray() {
+class FloatingActionButton extends Component
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'FloatingActionButton';
         return $data;
@@ -623,8 +793,10 @@ class FloatingActionButton extends Component {
  *       ->action("onChipClick")
  *       ->onClose("onChipClose");
  */
-class Chip extends Component {
-    public function toArray() {
+class Chip extends Component
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'Chip';
         return $data;
@@ -640,22 +812,26 @@ class Chip extends Component {
  *       (new Chip())->text("Java")->id("c2"),
  *   ]))->singleSelection(true);
  */
-class ChipGroup extends Component {
+class ChipGroup extends Component
+{
     private $children;
-    
-    public function __construct($children = []) {
+
+    public function __construct($children = [])
+    {
         $this->children = $children;
     }
-    
-    public function addChild($child) {
+
+    public function addChild($child)
+    {
         $this->children[] = $child;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'ChipGroup';
-        $data['children'] = array_map(function($child) {
+        $data['children'] = array_map(function ($child) {
             return ($child instanceof Component) ? $child->toArray() : $child;
         }, $this->children);
         return $data;
@@ -675,8 +851,10 @@ class ChipGroup extends Component {
  *       ->counterMaxLength(50)
  *       ->inputType("textEmailAddress");
  */
-class TextInputLayout extends Component {
-    public function toArray() {
+class TextInputLayout extends Component
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'TextInputLayout';
         return $data;
@@ -694,38 +872,45 @@ class TextInputLayout extends Component {
  *   ]))->id("my_radio_group")
  *     ->onCheckedChange("onRadioChange");
  */
-class RadioGroup extends Component {
+class RadioGroup extends Component
+{
     private $children;
-    
-    public function __construct($children = []) {
+
+    public function __construct($children = [])
+    {
         $this->children = $children;
     }
-    
-    public function addChild($child) {
+
+    public function addChild($child)
+    {
         $this->children[] = $child;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'RadioGroup';
-        $data['children'] = array_map(function($child) {
+        $data['children'] = array_map(function ($child) {
             return ($child instanceof Component) ? $child->toArray() : $child;
         }, $this->children);
         return $data;
     }
-    
+
     // ACTION METHODS
-    
-    public function _getCheckedId($default = null) {
+
+    public function _getCheckedId($default = null)
+    {
         return $this->_get("checkedRadioButtonId", $default);
     }
-    
-    public function _checkButton(string $radioButtonId): array {
+
+    public function _checkButton(string $radioButtonId): array
+    {
         return $this->_set("check", $radioButtonId);
     }
-    
-    public function _clearCheck(): array {
+
+    public function _clearCheck(): array
+    {
         return $this->_set("clearCheck", true);
     }
 }
@@ -744,36 +929,43 @@ class RadioGroup extends Component {
  *       ->selectedTab(0)
  *       ->onTabSelected("onTabChanged");
  */
-class TabLayout extends Component {
+class TabLayout extends Component
+{
     private $tabItems = [];
-    
-    public function tabs(array $tabs) {
+
+    public function tabs(array $tabs)
+    {
         $this->tabItems = $tabs;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'TabLayout';
         $data['tabs'] = $this->tabItems;
         return $data;
     }
-    
+
     // ACTION METHODS
-    
-    public function _selectTab(int $index): array {
+
+    public function _selectTab(int $index): array
+    {
         return ["action" => "tab_select", "target" => $this->getId(), "index" => $index];
     }
-    
-    public function _getSelectedTab($default = 0): int {
-        return (int) $this->_get("selectedTab", $default);
+
+    public function _getSelectedTab($default = 0): int
+    {
+        return (int)$this->_get("selectedTab", $default);
     }
-    
-    public function _setTabs(array $tabs): array {
+
+    public function _setTabs(array $tabs): array
+    {
         return ["action" => "tab_set_items", "target" => $this->getId(), "tabs" => $tabs];
     }
-    
-    public function _setBadge(int $tabIndex, $text): array {
+
+    public function _setBadge(int $tabIndex, $text): array
+    {
         return ["action" => "tab_badge", "target" => $this->getId(), "index" => $tabIndex, "text" => $text];
     }
 }
@@ -789,8 +981,10 @@ class TabLayout extends Component {
  *       ->backgroundColor("#333333")
  *       ->titleColor("#ffffff");
  */
-class Toolbar extends Component {
-    public function toArray() {
+class Toolbar extends Component
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'Toolbar';
         return $data;
@@ -805,27 +999,32 @@ class Toolbar extends Component {
  *       ->id("swipe_refresh")
  *       ->onRefresh("onPullRefresh");
  */
-class SwipeRefreshLayout extends Component {
+class SwipeRefreshLayout extends Component
+{
     private $children;
-    
-    public function __construct($children = []) {
+
+    public function __construct($children = [])
+    {
         $this->children = $children;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'SwipeRefreshLayout';
-        $data['children'] = array_map(function($child) {
+        $data['children'] = array_map(function ($child) {
             return ($child instanceof Component) ? $child->toArray() : $child;
         }, $this->children);
         return $data;
     }
-    
-    public function _setRefreshing(bool $refreshing): array {
+
+    public function _setRefreshing(bool $refreshing): array
+    {
         return $this->_set("refreshing", $refreshing);
     }
-    
-    public function _stopRefreshing(): array {
+
+    public function _stopRefreshing(): array
+    {
         return $this->_set("refreshing", false);
     }
 }
@@ -849,35 +1048,40 @@ class SwipeRefreshLayout extends Component {
  *       })
  *       ->onItemClick("onUserClick");
  */
-class RecyclerList extends Component {
+class RecyclerList extends Component
+{
     private $itemsData = [];
     private $templateFn = null;
-    
-    public function items(array $items) {
+
+    public function items(array $items)
+    {
         $this->itemsData = $items;
         return $this;
     }
-    
-    public function itemTemplate(callable $fn) {
+
+    public function itemTemplate(callable $fn)
+    {
         $this->templateFn = $fn;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         // Expand items using template if provided
         $children = [];
         $onClick = $this->attributes['onItemClick'] ?? null;
-        
+
         foreach ($this->itemsData as $index => $item) {
             $child = null;
             if ($this->templateFn) {
                 $child = call_user_func($this->templateFn, $item, $index);
-            } else {
+            }
+            else {
                 // Default: simple text
-                $text = is_array($item) ? ($item['title'] ?? json_encode($item)) : (string) $item;
+                $text = is_array($item) ? ($item['title'] ?? json_encode($item)) : (string)$item;
                 $child = (new TextView())->text($text)->padding(12);
             }
-            
+
             if ($child instanceof Component) {
                 if ($onClick) {
                     $child->action($onClick)->tag(json_encode($item));
@@ -885,31 +1089,34 @@ class RecyclerList extends Component {
                 $children[] = $child->toArray();
             }
         }
-        
+
         return [
             "type" => "ScrollView",
             "id" => $this->attributes['id'] ?? null,
             "children" => [
                 array_merge(
-                    ["type" => "VerticalLayout"],
-                    array_filter($this->attributes, fn($k) => $k !== 'onItemClick', ARRAY_FILTER_USE_KEY),
-                    ["children" => $children]
-                )
+                ["type" => "VerticalLayout"],
+                array_filter($this->attributes, fn($k) => $k !== 'onItemClick', ARRAY_FILTER_USE_KEY),
+                ["children" => $children]
+            )
             ]
         ];
     }
-    
+
     // ACTION METHODS - delegate to list_* actions
-    
-    public function _setItems(array $items): array {
+
+    public function _setItems(array $items): array
+    {
         return ["action" => "list_set_items", "target" => $this->getId(), "items" => $items];
     }
-    
-    public function _addItem($item): array {
+
+    public function _addItem($item): array
+    {
         return ["action" => "list_add_item", "target" => $this->getId(), "item" => $item];
     }
-    
-    public function _removeItem(int $position): array {
+
+    public function _removeItem(int $position): array
+    {
         return ["action" => "list_remove_item", "target" => $this->getId(), "position" => $position];
     }
 }
@@ -937,98 +1144,109 @@ class RecyclerList extends Component {
  *       ->itemLayout("two_line")  // simple, two_line, icon
  *       ->onItemClick("onListItemClick");
  */
-class ListView extends Component {
-    
+class ListView extends Component
+{
+
     /**
      * Set list items (simple strings or arrays for complex layouts)
      * @param array $items Array of strings or associative arrays
      */
-    public function items(array $items) {
+    public function items(array $items)
+    {
         $this->attributes['items'] = $items;
         return $this;
     }
-    
+
     /**
      * Set the item layout style
      * @param string $layout "simple", "two_line", "icon", "checkbox"
      */
-    public function itemLayout(string $layout) {
+    public function itemLayout(string $layout)
+    {
         $this->attributes['itemLayout'] = $layout;
         return $this;
     }
-    
+
     /**
      * Set divider visibility
      */
-    public function showDividers(bool $show = true) {
+    public function showDividers(bool $show = true)
+    {
         $this->attributes['showDividers'] = $show;
         return $this;
     }
-    
+
     /**
      * Set item click handler (PHP method name)
      */
-    public function onItemClick(string $handler) {
+    public function onItemClick(string $handler)
+    {
         $this->attributes['onItemClick'] = $handler;
         return $this;
     }
-    
+
     /**
      * Set item long click handler (PHP method name)
      */
-    public function onItemLongClick(string $handler) {
+    public function onItemLongClick(string $handler)
+    {
         $this->attributes['onItemLongClick'] = $handler;
         return $this;
     }
-    
+
     // =========================================================================
     // ACTION METHODS (runtime updates)
     // =========================================================================
-    
+
     /**
      * Get all items (SYNCHRONOUS)
      */
-    public function _getItems($default = []): array {
+    public function _getItems($default = []): array
+    {
         return $this->_get("items", $default);
     }
-    
+
     /**
      * Set/replace all items
      */
-    public function _setItems(array $items): array {
+    public function _setItems(array $items): array
+    {
         return [
             "action" => "list_set_items",
             "target" => $this->getId(),
             "items" => $items
         ];
     }
-    
+
     /**
      * Add a single item to the end
      */
-    public function _addItem($item): array {
+    public function _addItem($item): array
+    {
         return [
             "action" => "list_add_item",
             "target" => $this->getId(),
             "item" => $item
         ];
     }
-    
+
     /**
      * Add multiple items to the end
      */
-    public function _addItems(array $items): array {
+    public function _addItems(array $items): array
+    {
         return [
             "action" => "list_add_items",
             "target" => $this->getId(),
             "items" => $items
         ];
     }
-    
+
     /**
      * Insert item at specific position
      */
-    public function _insertItem(int $position, $item): array {
+    public function _insertItem(int $position, $item): array
+    {
         return [
             "action" => "list_insert_item",
             "target" => $this->getId(),
@@ -1036,22 +1254,24 @@ class ListView extends Component {
             "item" => $item
         ];
     }
-    
+
     /**
      * Remove item at position
      */
-    public function _removeItem(int $position): array {
+    public function _removeItem(int $position): array
+    {
         return [
             "action" => "list_remove_item",
             "target" => $this->getId(),
             "position" => $position
         ];
     }
-    
+
     /**
      * Update item at position
      */
-    public function _updateItem(int $position, $item): array {
+    public function _updateItem(int $position, $item): array
+    {
         return [
             "action" => "list_update_item",
             "target" => $this->getId(),
@@ -1059,61 +1279,69 @@ class ListView extends Component {
             "item" => $item
         ];
     }
-    
+
     /**
      * Clear all items
      */
-    public function _clear(): array {
+    public function _clear(): array
+    {
         return $this->_setItems([]);
     }
-    
+
     /**
      * Get selected item position (SYNCHRONOUS)
      */
-    public function _getSelectedPosition($default = -1): int {
-        return (int) $this->_get("selectedPosition", $default);
+    public function _getSelectedPosition($default = -1): int
+    {
+        return (int)$this->_get("selectedPosition", $default);
     }
-    
+
     /**
      * Set selection
      */
-    public function _setSelection(int $position): array {
+    public function _setSelection(int $position): array
+    {
         return $this->_set("selection", $position);
     }
-    
+
     /**
      * Scroll to position
      */
-    public function _scrollToPosition(int $position): array {
+    public function _scrollToPosition(int $position): array
+    {
         return [
             "action" => "list_scroll",
             "target" => $this->getId(),
             "position" => $position
         ];
     }
-    
+
     /**
      * Smooth scroll to position
      */
-    public function _smoothScrollToPosition(int $position): array {
+    public function _smoothScrollToPosition(int $position): array
+    {
         return [
             "action" => "list_smooth_scroll",
             "target" => $this->getId(),
             "position" => $position
         ];
     }
-    
+
     /**
      * Get item count (SYNCHRONOUS)
      */
-    public function _getCount($default = 0): int {
-        return (int) $this->_get("count", $default);
+    public function _getCount($default = 0): int
+    {
+        return (int)$this->_get("count", $default);
     }
 }
 
 // Material component with full path
-class SwitchMaterial extends Component {
-    public function toArray() {
+class SwitchMaterial extends Component
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = "com.google.android.material.switchmaterial.SwitchMaterial";
         return $data;
@@ -1121,8 +1349,10 @@ class SwitchMaterial extends Component {
 }
 
 // Simple Switch alias (uses standard Android Switch widget)
-class SwitchView extends Component {
-    public function toArray() {
+class SwitchView extends Component
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = "Switch";
         return $data;
@@ -1133,43 +1363,58 @@ class SwitchView extends Component {
 // LAYOUT COMPONENTS
 // =============================================================================
 
-class VerticalLayout extends Component {
+class VerticalLayout extends Component
+{
     private $children;
 
-    public function __construct($children = []) {
+    public function __construct($children = [])
+    {
         $this->children = $children;
     }
-    
-    public function addChild($child) {
+
+    public function addChild($child)
+    {
         $this->children[] = $child;
         return $this;
     }
-    
-    public function addChildren(array $children) {
+
+    public function addChildren(array $children)
+    {
         $this->children = array_merge($this->children, $children);
         return $this;
     }
 
-    public function toArray() {
+    public function toArray()
+    {
         $data = parent::toArray();
-        $data["children"] = array_map(function($child) {
+        $data["children"] = array_map(function ($child) {
             return ($child instanceof Component) ? $child->toArray() : $child;
         }, $this->children);
         return $data;
     }
 }
 
-class HorizontalLayout extends VerticalLayout {
-    public function __construct($children = []) {
+class HorizontalLayout extends VerticalLayout
+{
+    public function __construct($children = [])
+    {
         parent::__construct($children);
         $this->orientation("horizontal");
     }
 }
 
-class ScrollView extends VerticalLayout {}
-class HorizontalScrollView extends VerticalLayout {}
-class FrameLayout extends VerticalLayout {}
-class RelativeLayout extends VerticalLayout {}
+class ScrollView extends VerticalLayout
+{
+}
+class HorizontalScrollView extends VerticalLayout
+{
+}
+class FrameLayout extends VerticalLayout
+{
+}
+class RelativeLayout extends VerticalLayout
+{
+}
 
 /**
  * CardView - Material Design card container with elevation and corners.
@@ -1180,7 +1425,9 @@ class RelativeLayout extends VerticalLayout {}
  *       (new TextView())->text("Card body content"),
  *   ]))->cornerRadius(12)->elevation(4)->padding(16)->margin(8);
  */
-class CardView extends VerticalLayout {}
+class CardView extends VerticalLayout
+{
+}
 
 /**
  * GridLayout - Arranges children in a grid.
@@ -1193,8 +1440,10 @@ class CardView extends VerticalLayout {}
  *       (new Button())->text("4")->layoutRow(1)->layoutColumn(1),
  *   ]))->columnCount(2)->rowCount(2);
  */
-class GridLayout extends VerticalLayout {
-    public function toArray() {
+class GridLayout extends VerticalLayout
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'GridLayout';
         return $data;
@@ -1210,8 +1459,10 @@ class GridLayout extends VerticalLayout {
  *       new TableRow([(new TextView())->text("Alice"), (new TextView())->text("30")]),
  *   ]))->stretchColumns("*");
  */
-class TableLayout extends VerticalLayout {
-    public function toArray() {
+class TableLayout extends VerticalLayout
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'TableLayout';
         return $data;
@@ -1221,12 +1472,15 @@ class TableLayout extends VerticalLayout {
 /**
  * TableRow - Single row inside a TableLayout.
  */
-class TableRow extends VerticalLayout {
-    public function __construct($children = []) {
+class TableRow extends VerticalLayout
+{
+    public function __construct($children = [])
+    {
         parent::__construct($children);
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'TableRow';
         return $data;
@@ -1243,8 +1497,10 @@ class TableRow extends VerticalLayout {
  *       (new FloatingActionButton())->icon("add")->layoutGravity("bottom|end"),
  *   ]));
  */
-class StackLayout extends VerticalLayout {
-    public function toArray() {
+class StackLayout extends VerticalLayout
+{
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'FrameLayout';
         return $data;
@@ -1265,79 +1521,89 @@ class StackLayout extends VerticalLayout {
  *       ->content($mainContent)       // The main screen content
  *       ->drawerWidth(280);           // Optional: drawer width in dp
  */
-class DrawerLayout extends Component {
+class DrawerLayout extends Component
+{
     private $drawerContent = null;
     private $mainContent = null;
-    
+
     /**
      * Set the drawer (side menu) content
      */
-    public function drawer($content) {
+    public function drawer($content)
+    {
         $this->drawerContent = $content;
         return $this;
     }
-    
+
     /**
      * Set the main content
      */
-    public function content($content) {
+    public function content($content)
+    {
         $this->mainContent = $content;
         return $this;
     }
-    
+
     /**
      * Set drawer width in dp
      */
-    public function drawerWidth(int $width) {
+    public function drawerWidth(int $width)
+    {
         $this->attributes['drawerWidth'] = $width;
         return $this;
     }
-    
+
     /**
      * Set drawer gravity (start or end)
      */
-    public function drawerGravity(string $gravity) {
+    public function drawerGravity(string $gravity)
+    {
         $this->attributes['drawerGravity'] = $gravity;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'DrawerLayout';
-        
+
         if ($this->drawerContent) {
-            $data['drawer'] = ($this->drawerContent instanceof Component) 
-                ? $this->drawerContent->toArray() 
+            $data['drawer'] = ($this->drawerContent instanceof Component)
+                ? $this->drawerContent->toArray()
                 : $this->drawerContent;
         }
-        
+
         if ($this->mainContent) {
-            $data['content'] = ($this->mainContent instanceof Component) 
-                ? $this->mainContent->toArray() 
+            $data['content'] = ($this->mainContent instanceof Component)
+                ? $this->mainContent->toArray()
                 : $this->mainContent;
         }
-        
+
         return $data;
     }
-    
+
     // =========================================================================
     // ACTION METHODS
     // =========================================================================
-    
-    public function _open(): array {
+
+    public function _open(): array
+    {
         return ["action" => "drawer_open", "target" => $this->getId()];
     }
-    
-    public function _close(): array {
+
+    public function _close(): array
+    {
         return ["action" => "drawer_close", "target" => $this->getId()];
     }
-    
-    public function _toggle(): array {
+
+    public function _toggle(): array
+    {
         return ["action" => "drawer_toggle", "target" => $this->getId()];
     }
-    
-    public function _isOpen(): bool {
-        return (bool) $this->_get("drawerOpen", false);
+
+    public function _isOpen(): bool
+    {
+        return (bool)$this->_get("drawerOpen", false);
     }
 }
 
@@ -1357,70 +1623,79 @@ class DrawerLayout extends Component {
  *       ])
  *       ->onItemSelected("onNavItemSelected");
  */
-class NavigationDrawer extends Component {
+class NavigationDrawer extends Component
+{
     private $headerContent = null;
     private $menuItems = [];
-    
+
     /**
      * Set header content (optional)
      */
-    public function header($content) {
+    public function header($content)
+    {
         $this->headerContent = $content;
         return $this;
     }
-    
+
     /**
      * Set menu items
      * @param array $items Array of items: ["id" => "", "title" => "", "icon" => ""] or "divider"
      */
-    public function items(array $items) {
+    public function items(array $items)
+    {
         $this->menuItems = $items;
         return $this;
     }
-    
+
     /**
      * Set item selection handler
      */
-    public function onItemSelected(string $handler) {
+    public function onItemSelected(string $handler)
+    {
         $this->attributes['onItemSelected'] = $handler;
         return $this;
     }
-    
+
     /**
      * Set selected item ID
      */
-    public function selectedItem(string $itemId) {
+    public function selectedItem(string $itemId)
+    {
         $this->attributes['selectedItem'] = $itemId;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'NavigationDrawer';
         $data['items'] = $this->menuItems;
-        
+
         if ($this->headerContent) {
-            $data['header'] = ($this->headerContent instanceof Component) 
-                ? $this->headerContent->toArray() 
+            $data['header'] = ($this->headerContent instanceof Component)
+                ? $this->headerContent->toArray()
                 : $this->headerContent;
         }
-        
+
         return $data;
     }
-    
+
     // =========================================================================
     // ACTION METHODS
     // =========================================================================
-    
-    public function _setSelectedItem(string $itemId): array {
+
+    public function _setSelectedItem(string $itemId): array
+    {
         return $this->_set("selectedItem", $itemId);
     }
-    
-    public function _getSelectedItem($default = null): ?string {
+
+    public function _getSelectedItem($default = null): ?string
+    {
         return $this->_get("selectedItem", $default);
     }
-    
-    public function _setItems(array $items): array {
+
+    public function _setItems(array $items): array
+    {
         return ["action" => "nav_set_items", "target" => $this->getId(), "items" => $items];
     }
 }
@@ -1441,83 +1716,94 @@ class NavigationDrawer extends Component {
  *       ])
  *       ->onActionClick("onActionClick");
  */
-class TopAppBar extends Component {
+class TopAppBar extends Component
+{
     private $actionItems = [];
-    
+
     /**
      * Set the title
      */
-    public function title(string $title) {
+    public function title(string $title)
+    {
         $this->attributes['title'] = $title;
         return $this;
     }
-    
+
     /**
      * Set the subtitle
      */
-    public function subtitle(string $subtitle) {
+    public function subtitle(string $subtitle)
+    {
         $this->attributes['subtitle'] = $subtitle;
         return $this;
     }
-    
+
     /**
      * Set navigation icon (e.g., "menu", "arrow_back")
      */
-    public function navigationIcon(string $icon) {
+    public function navigationIcon(string $icon)
+    {
         $this->attributes['navigationIcon'] = $icon;
         return $this;
     }
-    
+
     /**
      * Set navigation click handler
      */
-    public function onNavigationClick(string $handler) {
+    public function onNavigationClick(string $handler)
+    {
         $this->attributes['onNavigationClick'] = $handler;
         return $this;
     }
-    
+
     /**
      * Set action items (toolbar buttons)
      * @param array $actions Array of ["id" => "", "icon" => "", "title" => ""]
      */
-    public function actions(array $actions) {
+    public function actions(array $actions)
+    {
         $this->actionItems = $actions;
         return $this;
     }
-    
+
     /**
      * Set action click handler
      */
-    public function onActionClick(string $handler) {
+    public function onActionClick(string $handler)
+    {
         $this->attributes['onActionClick'] = $handler;
         return $this;
     }
-    
+
     /**
      * Set background color
      */
-    public function backgroundColor(string $color) {
+    public function backgroundColor(string $color)
+    {
         $this->attributes['backgroundColor'] = $color;
         return $this;
     }
-    
+
     /**
      * Set title text color
      */
-    public function titleColor(string $color) {
+    public function titleColor(string $color)
+    {
         $this->attributes['titleColor'] = $color;
         return $this;
     }
-    
+
     /**
      * Set elevation
      */
-    public function elevation(int $dp) {
+    public function elevation(int $dp)
+    {
         $this->attributes['elevation'] = $dp;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'TopAppBar';
         if (!empty($this->actionItems)) {
@@ -1525,20 +1811,23 @@ class TopAppBar extends Component {
         }
         return $data;
     }
-    
+
     // =========================================================================
     // ACTION METHODS
     // =========================================================================
-    
-    public function _setTitle(string $title): array {
+
+    public function _setTitle(string $title): array
+    {
         return $this->_set("title", $title);
     }
-    
-    public function _setSubtitle(string $subtitle): array {
+
+    public function _setSubtitle(string $subtitle): array
+    {
         return $this->_set("subtitle", $subtitle);
     }
-    
-    public function _setNavigationIcon(string $icon): array {
+
+    public function _setNavigationIcon(string $icon): array
+    {
         return $this->_set("navigationIcon", $icon);
     }
 }
@@ -1557,90 +1846,103 @@ class TopAppBar extends Component {
  *       ->selectedItem("home")
  *       ->onItemSelected("onBottomNavSelected");
  */
-class BottomNavBar extends Component {
+class BottomNavBar extends Component
+{
     private $navItems = [];
-    
+
     /**
      * Set navigation items (3-5 items recommended)
      * @param array $items Array of ["id" => "", "title" => "", "icon" => ""]
      */
-    public function items(array $items) {
+    public function items(array $items)
+    {
         $this->navItems = $items;
         return $this;
     }
-    
+
     /**
      * Set initially selected item
      */
-    public function selectedItem(string $itemId) {
+    public function selectedItem(string $itemId)
+    {
         $this->attributes['selectedItem'] = $itemId;
         return $this;
     }
-    
+
     /**
      * Set item selection handler
      */
-    public function onItemSelected(string $handler) {
+    public function onItemSelected(string $handler)
+    {
         $this->attributes['onItemSelected'] = $handler;
         return $this;
     }
-    
+
     /**
      * Set background color
      */
-    public function backgroundColor(string $color) {
+    public function backgroundColor(string $color)
+    {
         $this->attributes['backgroundColor'] = $color;
         return $this;
     }
-    
+
     /**
      * Set selected item color
      */
-    public function selectedColor(string $color) {
+    public function selectedColor(string $color)
+    {
         $this->attributes['selectedColor'] = $color;
         return $this;
     }
-    
+
     /**
      * Set unselected item color
      */
-    public function unselectedColor(string $color) {
+    public function unselectedColor(string $color)
+    {
         $this->attributes['unselectedColor'] = $color;
         return $this;
     }
-    
+
     /**
      * Show/hide item labels
      */
-    public function showLabels(bool $show) {
+    public function showLabels(bool $show)
+    {
         $this->attributes['showLabels'] = $show;
         return $this;
     }
-    
-    public function toArray() {
+
+    public function toArray()
+    {
         $data = parent::toArray();
         $data['type'] = 'BottomNavBar';
         $data['items'] = $this->navItems;
         return $data;
     }
-    
+
     // =========================================================================
     // ACTION METHODS
     // =========================================================================
-    
-    public function _setSelectedItem(string $itemId): array {
+
+    public function _setSelectedItem(string $itemId): array
+    {
         return ["action" => "bottom_nav_select", "target" => $this->getId(), "itemId" => $itemId];
     }
-    
-    public function _getSelectedItem($default = null): ?string {
+
+    public function _getSelectedItem($default = null): ?string
+    {
         return $this->_get("selectedItem", $default);
     }
-    
-    public function _setBadge(string $itemId, $count): array {
+
+    public function _setBadge(string $itemId, $count): array
+    {
         return ["action" => "bottom_nav_badge", "target" => $this->getId(), "itemId" => $itemId, "count" => $count];
     }
-    
-    public function _clearBadge(string $itemId): array {
+
+    public function _clearBadge(string $itemId): array
+    {
         return ["action" => "bottom_nav_badge", "target" => $this->getId(), "itemId" => $itemId, "count" => 0];
     }
 }
@@ -1656,38 +1958,39 @@ class BottomNavBar extends Component {
  *   - 'onDrawerItemSelected': Handler for drawer selection
  *   - 'onBottomNavSelected': Handler for bottom nav selection
  */
-function appWithDrawer(array $config) {
+function appWithDrawer(array $config)
+{
     $title = $config['title'] ?? 'App';
     $drawerItems = $config['drawerItems'] ?? [];
     $content = $config['content'] ?? new VerticalLayout([]);
     $onDrawerItem = $config['onDrawerItemSelected'] ?? 'onDrawerItemSelected';
-    
+
     // Create app bar
     $appBar = (new TopAppBar())
         ->id("app_bar")
         ->title($title)
         ->navigationIcon("menu")
         ->onNavigationClick("onToggleDrawer");
-    
+
     // Create drawer content
     $drawer = (new NavigationDrawer())
         ->id("nav_drawer")
         ->items($drawerItems)
         ->onItemSelected($onDrawerItem);
-    
+
     // Main content with app bar
     $mainLayout = new VerticalLayout([
         $appBar,
         $content
     ]);
-    
+
     // Add bottom nav if specified
     if (!empty($config['bottomNavItems'])) {
         $bottomNav = (new BottomNavBar())
             ->id("bottom_nav")
             ->items($config['bottomNavItems'])
             ->onItemSelected($config['onBottomNavSelected'] ?? 'onBottomNavSelected');
-        
+
         // Wrap content to have bottom nav at bottom
         $mainLayout = new VerticalLayout([
             $appBar,
@@ -1695,7 +1998,7 @@ function appWithDrawer(array $config) {
             $bottomNav
         ]);
     }
-    
+
     return (new DrawerLayout())
         ->id("main_drawer")
         ->drawer($drawer)
@@ -1711,7 +2014,8 @@ function appWithDrawer(array $config) {
  * Path to the shared view state file.
  * Java writes this file before calling PHP.
  */
-function getViewStateFile(): string {
+function getViewStateFile(): string
+{
     return dirname(__FILE__) . '/view_state.json';
 }
 
@@ -1719,7 +2023,8 @@ function getViewStateFile(): string {
  * Read the current view state from the shared file.
  * @return array Associative array of view states: [viewId => [property => value, ...], ...]
  */
-function readViewState(): array {
+function readViewState(): array
+{
     $file = getViewStateFile();
     if (!file_exists($file)) {
         return [];
@@ -1741,7 +2046,8 @@ function readViewState(): array {
  *   $text = getViewProperty("my_input", "text");
  *   $isChecked = getViewProperty("my_checkbox", "checked", false);
  */
-function getViewProperty(string $viewId, string $property, $default = null) {
+function getViewProperty(string $viewId, string $property, $default = null)
+{
     $state = readViewState();
     return $state[$viewId][$property] ?? $default;
 }
@@ -1751,7 +2057,8 @@ function getViewProperty(string $viewId, string $property, $default = null) {
  * @param string $viewId The view ID
  * @return array All properties of the view, or empty array
  */
-function getViewState(string $viewId): array {
+function getViewState(string $viewId): array
+{
     $state = readViewState();
     return $state[$viewId] ?? [];
 }
@@ -1759,7 +2066,8 @@ function getViewState(string $viewId): array {
 /**
  * Update a view's attributes (returns action for Java to process).
  */
-function updateView(string $viewId, array $attributes): array {
+function updateView(string $viewId, array $attributes): array
+{
     return [
         "action" => "update",
         "target" => $viewId,
@@ -1778,7 +2086,8 @@ function updateView(string $viewId, array $attributes): array {
  *       "btn" => ["tag" => "5", "enabled" => true]
  *   ]);
  */
-function updateMany(array $updates): array {
+function updateMany(array $updates): array
+{
     return [
         "action" => "update_many",
         "updates" => $updates
@@ -1799,10 +2108,11 @@ function updateMany(array $updates): array {
  *       $statusLabel->_setTextColor("#00ff00")
  *   );
  */
-function batch(...$actions): array {
+function batch(...$actions): array
+{
     $updates = [];
     $nonUpdateActions = [];
-    
+
     foreach ($actions as $action) {
         if (isset($action['target']) && isset($action['attributes'])) {
             $viewId = $action['target'];
@@ -1810,29 +2120,30 @@ function batch(...$actions): array {
                 $updates[$viewId] = [];
             }
             $updates[$viewId] = array_merge($updates[$viewId], $action['attributes']);
-        } else {
+        }
+        else {
             $nonUpdateActions[] = $action;
         }
     }
-    
+
     // If we have mixed actions, return a batch
     if (!empty($nonUpdateActions) && !empty($updates)) {
         return [
             "action" => "batch",
             "actions" => array_merge(
-                [updateMany($updates)],
-                $nonUpdateActions
-            )
+            [updateMany($updates)],
+            $nonUpdateActions
+        )
         ];
     }
-    
+
     if (!empty($nonUpdateActions)) {
         return [
             "action" => "batch",
             "actions" => $nonUpdateActions
         ];
     }
-    
+
     return updateMany($updates);
 }
 
@@ -1852,14 +2163,17 @@ function batch(...$actions): array {
  * Usage:
  *   return snackbar("Item deleted", "UNDO", "onUndoDelete");
  */
-function snackbar(string $message, ?string $actionText = null, ?string $actionCallback = null, int $duration = 0): array {
+function snackbar(string $message, ?string $actionText = null, ?string $actionCallback = null, int $duration = 0): array
+{
     $action = [
         "action" => "SNACKBAR",
         "message" => $message,
         "duration" => $duration
     ];
-    if ($actionText) $action["actionText"] = $actionText;
-    if ($actionCallback) $action["actionCallback"] = $actionCallback;
+    if ($actionText)
+        $action["actionText"] = $actionText;
+    if ($actionCallback)
+        $action["actionCallback"] = $actionCallback;
     return $action;
 }
 
@@ -1877,7 +2191,8 @@ function snackbar(string $message, ?string $actionText = null, ?string $actionCa
  * Usage:
  *   return confirmDialog("Delete?", "Are you sure?", "onConfirmDelete", "onCancel");
  */
-function dialog(string $title, string $message, string $onYes, ?string $onNo = null, string $yesText = "OK", string $noText = "Cancel"): array {
+function dialog(string $title, string $message, string $onYes, ?string $onNo = null, string $yesText = "OK", string $noText = "Cancel"): array
+{
     $action = [
         "action" => "DIALOG",
         "title" => $title,
@@ -1903,7 +2218,8 @@ function dialog(string $title, string $message, string $onYes, ?string $onNo = n
  * Usage:
  *   return listDialog("Choose Color", ["Red", "Green", "Blue"], "onColorSelect");
  */
-function listDialog(string $title, array $items, string $onSelect): array {
+function listDialog(string $title, array $items, string $onSelect): array
+{
     return [
         "action" => "LIST_DIALOG",
         "title" => $title,
@@ -1923,12 +2239,14 @@ function listDialog(string $title, array $items, string $onSelect): array {
  *   return datePickerDialog("onDateSelected");
  *   // Callback receives: ['year' => 2026, 'month' => 4, 'day' => 9]
  */
-function datePickerDialog(string $callback, ?string $initialDate = null): array {
+function datePickerDialog(string $callback, ?string $initialDate = null): array
+{
     $action = [
         "action" => "DATE_PICKER_DIALOG",
         "callback" => $callback
     ];
-    if ($initialDate) $action["initialDate"] = $initialDate;
+    if ($initialDate)
+        $action["initialDate"] = $initialDate;
     return $action;
 }
 
@@ -1943,7 +2261,8 @@ function datePickerDialog(string $callback, ?string $initialDate = null): array 
  *   return timePickerDialog("onTimeSelected");
  *   // Callback receives: ['hour' => 14, 'minute' => 30]
  */
-function timePickerDialog(string $callback, bool $is24Hour = true): array {
+function timePickerDialog(string $callback, bool $is24Hour = true): array
+{
     return [
         "action" => "TIME_PICKER_DIALOG",
         "callback" => $callback,
@@ -1963,7 +2282,8 @@ function timePickerDialog(string $callback, bool $is24Hour = true): array {
  * Usage:
  *   return inputDialog("Rename", "Enter new name", "onRename", "current name");
  */
-function inputDialog(string $title, string $hint, string $callback, string $initialValue = ""): array {
+function inputDialog(string $title, string $hint, string $callback, string $initialValue = ""): array
+{
     return [
         "action" => "INPUT_DIALOG",
         "title" => $title,
@@ -1988,7 +2308,8 @@ function inputDialog(string $title, string $hint, string $callback, string $init
  *       ]))->padding(16)
  *   );
  */
-function bottomSheet(Component $content): array {
+function bottomSheet(Component $content): array
+{
     return [
         "action" => "BOTTOM_SHEET",
         "content" => $content->toArray()
@@ -2000,7 +2321,8 @@ function bottomSheet(Component $content): array {
  * 
  * @return array Action
  */
-function dismissDialog(): array {
+function dismissDialog(): array
+{
     return ["action" => "DISMISS_DIALOG"];
 }
 
@@ -2020,7 +2342,8 @@ function dismissDialog(): array {
  * Usage:
  *   return animate("my_view", ["alpha" => 0, "translationY" => -100], 300);
  */
-function animate(string $viewId, array $properties, int $duration = 300, string $interpolator = "decelerate"): array {
+function animate(string $viewId, array $properties, int $duration = 300, string $interpolator = "decelerate"): array
+{
     return [
         "action" => "ANIMATE",
         "target" => $viewId,
@@ -2037,7 +2360,8 @@ function animate(string $viewId, array $properties, int $duration = 300, string 
  * @param bool $sequential True = play one after another, false = all at once
  * @return array Action
  */
-function animateSet(array $animations, bool $sequential = false): array {
+function animateSet(array $animations, bool $sequential = false): array
+{
     return [
         "action" => "ANIMATE_SET",
         "animations" => $animations,
@@ -2056,7 +2380,8 @@ function animateSet(array $animations, bool $sequential = false): array {
  * @param string $label Clipboard label
  * @return array Action
  */
-function copyToClipboard(string $text, string $label = "Copied"): array {
+function copyToClipboard(string $text, string $label = "Copied"): array
+{
     return [
         "action" => "CLIPBOARD_COPY",
         "text" => $text,
@@ -2071,7 +2396,8 @@ function copyToClipboard(string $text, string $label = "Copied"): array {
  * @param string $title Share dialog title
  * @return array Action
  */
-function share(string $text, string $title = "Share"): array {
+function share(string $text, string $title = "Share"): array
+{
     return [
         "action" => "SHARE",
         "text" => $text,
@@ -2085,7 +2411,8 @@ function share(string $text, string $title = "Share"): array {
  * @param string $url URL to open
  * @return array Action
  */
-function openUrl(string $url): array {
+function openUrl(string $url): array
+{
     return [
         "action" => "OPEN_URL",
         "url" => $url
@@ -2100,7 +2427,8 @@ function openUrl(string $url): array {
  * @param bool $smooth Use smooth scrolling
  * @return array Action
  */
-function scrollTo(string $scrollViewId, $target, bool $smooth = true): array {
+function scrollTo(string $scrollViewId, $target, bool $smooth = true): array
+{
     return [
         "action" => "SCROLL_TO",
         "target" => $scrollViewId,
@@ -2115,7 +2443,8 @@ function scrollTo(string $scrollViewId, $target, bool $smooth = true): array {
  * @param string $viewId View ID to remove
  * @return array Action
  */
-function removeView(string $viewId): array {
+function removeView(string $viewId): array
+{
     return [
         "action" => "REMOVE_VIEW",
         "target" => $viewId
@@ -2130,7 +2459,8 @@ function removeView(string $viewId): array {
  * @param int $index Insert position (-1 = end)
  * @return array Action
  */
-function addView(string $parentId, Component $child, int $index = -1): array {
+function addView(string $parentId, Component $child, int $index = -1): array
+{
     return [
         "action" => "ADD_VIEW",
         "target" => $parentId,
@@ -2146,13 +2476,14 @@ function addView(string $parentId, Component $child, int $index = -1): array {
  * @param array $children Array of Component objects
  * @return array Action
  */
-function replaceChildren(string $parentId, array $children): array {
+function replaceChildren(string $parentId, array $children): array
+{
     return [
         "action" => "REPLACE_CHILDREN",
         "target" => $parentId,
-        "children" => array_map(function($c) {
-            return ($c instanceof Component) ? $c->toArray() : $c;
-        }, $children)
+        "children" => array_map(function ($c) {
+        return ($c instanceof Component) ? $c->toArray() : $c;
+    }, $children)
     ];
 }
 
@@ -2210,7 +2541,8 @@ function replaceChildren(string $parentId, array $children): array {
  * @param array $params Parameters for the call
  * @return array Action array for NATIVE_CALL
  */
-function native(string $type, string $callback, array $params = []): array {
+function native(string $type, string $callback, array $params = []): array
+{
     return [
         "action" => "NATIVE_CALL",
         "type" => $type,
@@ -2219,9 +2551,53 @@ function native(string $type, string $callback, array $params = []): array {
     ];
 }
 
-// Alias for clarity
-function nativeCallDirect(string $type, string $callback, array $params = []): array {
+// Aliases for clarity
+function nativeCall(string $type, string $callback, array $params = []): array
+{
     return native($type, $callback, $params);
+}
+
+function nativeCallDirect(string $type, string $callback, array $params = []): array
+{
+    return native($type, $callback, $params);
+}
+
+/**
+ * Call a DroidScript-registered native handler.
+ * Use this to call handlers registered via php.RegisterNativeHandler() in JavaScript.
+ * 
+ * Flow:
+ *   1. DroidScript JS: php.RegisterNativeHandler("myGps", function(params) { ... })
+ *   2. PHP: return dsNativeCall("myGps", "onGpsResult", ["accuracy" => "high"]);
+ *   3. Java dispatches to JS handler
+ *   4. JS handler calls _phpPlugin.OnSensorResult("myGps", JSON.stringify(data))
+ *   5. Java calls PHP callback: onGpsResult($data)
+ * 
+ * @param string $type Handler name (registered in DroidScript)
+ * @param string $callback PHP method to receive the result
+ * @param array $params Parameters to pass to the handler
+ * @return array DS_SENSOR_CALL action
+ * 
+ * @example
+ * // In DroidScript:
+ * // php.RegisterNativeHandler("camera", function(params) {
+ * //     var cam = app.CreateCameraView(...);
+ * //     cam.TakePicture(function(img) {
+ * //         _phpPlugin.OnSensorResult("camera", JSON.stringify({image: img}));
+ * //     });
+ * // });
+ * 
+ * // In PHP:
+ * return dsNativeCall("camera", "onCameraResult", ["flash" => true]);
+ */
+function dsNativeCall(string $type, string $callback, array $params = []): array
+{
+    return [
+        "action" => "DS_SENSOR_CALL",
+        "sensor" => $type,
+        "callback" => $callback,
+        "params" => $params
+    ];
 }
 
 
@@ -2241,7 +2617,8 @@ function nativeCallDirect(string $type, string $callback, array $params = []): a
  * @param array $options Additional options: body, headers, timeout
  * @return array NATIVE_CALL action
  */
-function httpRequest(string $url, string $callback, string $method = 'GET', array $options = []): array {
+function httpRequest(string $url, string $callback, string $method = 'GET', array $options = []): array
+{
     return native("http", $callback, array_merge(["url" => $url, "method" => $method], $options));
 }
 
@@ -2253,7 +2630,8 @@ function httpRequest(string $url, string $callback, string $method = 'GET', arra
  * @param string $title Notification title
  * @return array NATIVE_CALL action
  */
-function downloadFile(string $url, string $callback, string $dest = '', string $title = 'Download'): array {
+function downloadFile(string $url, string $callback, string $dest = '', string $title = 'Download'): array
+{
     return native("download", $callback, ["url" => $url, "dest" => $dest, "title" => $title]);
 }
 
@@ -2263,7 +2641,8 @@ function downloadFile(string $url, string $callback, string $dest = '', string $
  * Zip a single file.
  * Callback receives: {success, zipPath, size}
  */
-function zipFile(string $source, string $callback, string $dest = ''): array {
+function zipFile(string $source, string $callback, string $dest = ''): array
+{
     return native("zipfile", $callback, ["source" => $source, "dest" => $dest]);
 }
 
@@ -2271,7 +2650,8 @@ function zipFile(string $source, string $callback, string $dest = ''): array {
  * Zip a folder recursively.
  * Callback receives: {success, zipPath, fileCount, size}
  */
-function zipFolder(string $source, string $callback, string $dest = ''): array {
+function zipFolder(string $source, string $callback, string $dest = ''): array
+{
     return native("zipfolder", $callback, ["source" => $source, "dest" => $dest]);
 }
 
@@ -2279,7 +2659,8 @@ function zipFolder(string $source, string $callback, string $dest = ''): array {
  * Unzip a file.
  * Callback receives: {success, destPath, files[]}
  */
-function unzipFile(string $source, string $callback, string $dest = ''): array {
+function unzipFile(string $source, string $callback, string $dest = ''): array
+{
     return native("unzip", $callback, ["source" => $source, "dest" => $dest]);
 }
 
@@ -2289,7 +2670,8 @@ function unzipFile(string $source, string $callback, string $dest = ''): array {
  * Convert address to coordinates.
  * Callback receives: {lat, lng, address} or {error}
  */
-function geocode(string $address, string $callback): array {
+function geocode(string $address, string $callback): array
+{
     return native("geocode", $callback, ["address" => $address]);
 }
 
@@ -2297,7 +2679,8 @@ function geocode(string $address, string $callback): array {
  * Convert coordinates to address.
  * Callback receives: {address, city, country, postalCode} or {error}
  */
-function reverseGeocode(float $lat, float $lng, string $callback): array {
+function reverseGeocode(float $lat, float $lng, string $callback): array
+{
     return native("reversegeocode", $callback, ["lat" => $lat, "lng" => $lng]);
 }
 
@@ -2307,7 +2690,8 @@ function reverseGeocode(float $lat, float $lng, string $callback): array {
  * Take a photo using device camera.
  * Callback receives: {file, uri} or {error}
  */
-function takePhoto(string $callback): array {
+function takePhoto(string $callback): array
+{
     return native("takephoto", $callback);
 }
 
@@ -2317,7 +2701,8 @@ function takePhoto(string $callback): array {
  * @param int $duration Max duration in seconds (0 = unlimited)
  * Callback receives: {file, uri, duration} or {error}
  */
-function recordVideo(string $callback, int $duration = 0): array {
+function recordVideo(string $callback, int $duration = 0): array
+{
     return native("recordvideo", $callback, ["duration" => $duration]);
 }
 
@@ -2325,7 +2710,8 @@ function recordVideo(string $callback, int $duration = 0): array {
  * Pick an image from gallery.
  * Callback receives: {uri} or {error}
  */
-function pickImage(string $callback): array {
+function pickImage(string $callback): array
+{
     return native("pickimage", $callback);
 }
 
@@ -2333,7 +2719,8 @@ function pickImage(string $callback): array {
  * Pick a video from gallery.
  * Callback receives: {uri} or {error}
  */
-function pickVideo(string $callback): array {
+function pickVideo(string $callback): array
+{
     return native("pickvideo", $callback);
 }
 
@@ -2343,7 +2730,8 @@ function pickVideo(string $callback): array {
  * Generate cryptographically secure random bytes.
  * Callback receives: {result (base64), length}
  */
-function randomBytes(int $length, string $callback): array {
+function randomBytes(int $length, string $callback): array
+{
     return native("randombytes", $callback, ["length" => $length]);
 }
 
@@ -2351,7 +2739,8 @@ function randomBytes(int $length, string $callback): array {
  * Encode string to Base64.
  * Callback receives: {result}
  */
-function base64Encode(string $text, string $callback): array {
+function base64Encode(string $text, string $callback): array
+{
     return native("base64encode", $callback, ["text" => $text]);
 }
 
@@ -2359,7 +2748,8 @@ function base64Encode(string $text, string $callback): array {
  * Decode Base64 string.
  * Callback receives: {result}
  */
-function base64Decode(string $text, string $callback): array {
+function base64Decode(string $text, string $callback): array
+{
     return native("base64decode", $callback, ["text" => $text]);
 }
 
@@ -2370,7 +2760,8 @@ function base64Decode(string $text, string $callback): array {
  * @param string $setting One of: wifi, bluetooth, location, app, or empty for main settings
  * @param string $callback PHP callback method
  */
-function openSettings(string $setting = '', string $callback = 'handle_settings'): array {
+function openSettings(string $setting = '', string $callback = 'handle_settings'): array
+{
     return native("opensettings", $callback, ["setting" => $setting]);
 }
 
@@ -2378,7 +2769,8 @@ function openSettings(string $setting = '', string $callback = 'handle_settings'
  * Keep screen on or allow it to sleep.
  * Callback receives: {done, keep}
  */
-function keepScreenOn(bool $keep, string $callback = 'handle_screenon'): array {
+function keepScreenOn(bool $keep, string $callback = 'handle_screenon'): array
+{
     return native("keepscreenon", $callback, ["keep" => $keep]);
 }
 
@@ -2386,7 +2778,8 @@ function keepScreenOn(bool $keep, string $callback = 'handle_screenon'): array {
  * Set screen brightness (0.0 to 1.0).
  * Callback receives: {done, level}
  */
-function setScreenBrightness(float $level, string $callback = 'handle_brightness'): array {
+function setScreenBrightness(float $level, string $callback = 'handle_brightness'): array
+{
     return native("setbrightness", $callback, ["level" => $level]);
 }
 
@@ -2396,7 +2789,8 @@ function setScreenBrightness(float $level, string $callback = 'handle_brightness
  * Show a system notification.
  * Callback receives: {shown, id}
  */
-function showNotification(string $title, string $message, string $callback = 'handle_notification', int $id = 0): array {
+function showNotification(string $title, string $message, string $callback = 'handle_notification', int $id = 0): array
+{
     return native("notification", $callback, [
         "title" => $title,
         "message" => $message,
@@ -2408,7 +2802,8 @@ function showNotification(string $title, string $message, string $callback = 'ha
  * Cancel a notification by ID.
  * Callback receives: {done}
  */
-function cancelNotification(int $id, string $callback = 'handle_cancel_notification'): array {
+function cancelNotification(int $id, string $callback = 'handle_cancel_notification'): array
+{
     return native("cancelnotification", $callback, ["id" => $id]);
 }
 
@@ -2418,7 +2813,8 @@ function cancelNotification(int $id, string $callback = 'handle_cancel_notificat
  * Share text content via native share sheet.
  * Callback receives: {shared}
  */
-function shareTextNative(string $text, string $callback = 'handle_share', string $subject = ''): array {
+function shareTextNative(string $text, string $callback = 'handle_share', string $subject = ''): array
+{
     return native("sharetext", $callback, ["text" => $text, "subject" => $subject]);
 }
 
@@ -2428,7 +2824,8 @@ function shareTextNative(string $text, string $callback = 'handle_share', string
  * Check if device is in power save mode.
  * Callback receives: {enabled}
  */
-function isPowerSaveMode(string $callback): array {
+function isPowerSaveMode(string $callback): array
+{
     return native("powersavemode", $callback);
 }
 
@@ -2438,7 +2835,8 @@ function isPowerSaveMode(string $callback): array {
  * Get last known location (faster than requesting new location).
  * Callback receives same as readLocation() or {error}
  */
-function getLastLocation(string $callback): array {
+function getLastLocation(string $callback): array
+{
     return native("lastlocation", $callback);
 }
 ?>

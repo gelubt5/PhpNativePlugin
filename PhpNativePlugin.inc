@@ -99,6 +99,17 @@ function PhpNativePlugin(options) {
         self._nativeHandlers[type.toLowerCase()] = handler;
     };
     
+    /**
+     * Called by native handlers when they have a result to send to PHP.
+     * Routes the result back to Java which calls the PHP callback.
+     * @param {string} type The native call type (matches what was registered)
+     * @param {string} dataJson JSON string of result data
+     */
+    this.OnSensorResult = function(type, dataJson) {
+        // Send result to Java which routes to PHP callback
+        self.plg.Send("OnSensorResult", type, dataJson);
+    };
+    
     
     // =========================================================================
     // Core API
@@ -307,337 +318,61 @@ function PhpNativePlugin(options) {
     this.UpdateView = function(viewId, attrs) {
         this.plg.Send("UpdateView", viewId, JSON.stringify(attrs));
     }
-    
-    // =========================================================================
-    // Overlay Management
-    // =========================================================================
-    
-    /**
-     * Show the native UI overlay
-     */
-    this.ShowOverlay = function() {
-        this.plg.Send("ShowOverlay");
-    }
-    
-    /**
-     * Hide the native UI overlay (doesn't destroy it)
-     */
-    this.HideOverlay = function() {
-        this.plg.Send("HideOverlay");
-    }
-    
-    /**
-     * Remove and destroy the native UI overlay
-     */
-    this.RemoveOverlay = function() {
-        this.plg.Send("RemoveOverlay");
-    }
 
     /**
-     * Navigate back to the previous screen.
-     * If at root screen, shows exit confirmation dialog.
+     * Get the native View for embedding in DroidScript layouts.
+     * Returns the raw Android FrameLayout that can be added to a DroidScript layout.
+     * 
+     * @example
+     * var lay = app.CreateLayout("Linear", "FillXY");
+     * php.AddTo(lay);  // Easier method
+     * app.AddLayout(lay);
+     * php.Start();
+     * 
+     * @returns {android.view.View} The native FrameLayout view
      */
-    this.GoBack = function() {
-        this.plg.Send("GoBack");
+    this.GetView = function() {
+        // CreateObj creates the view synchronously and returns it
+        var nativeView = this.plg.CreateObj("RootView");
+        this._directView = nativeView;
+        return nativeView;
+    }
+    
+    /**
+     * Add the PHP view to a DroidScript layout.
+     * This is the easiest way to embed the PHP UI.
+     * 
+     * @param {object} layout A DroidScript layout (from app.CreateLayout)
+     * 
+     * @example
+     * var lay = app.CreateLayout("Linear", "FillXY");
+     * php.AddTo(lay);
+     * app.AddLayout(lay);
+     * php.Start();
+     */
+    this.AddTo = function(layout) {
+        var phpView = this.GetView();
+        // Add directly to the Android ViewGroup (bypasses DroidScript's AddChild)
+        if (layout && layout.GetView) {
+            layout.GetView().addView(phpView);
+        }
     }
 
-    /**
-     * Set callback for when the user confirms exit via back button.
-     * Called after the overlay is hidden.
-     * @param {function} callback Function to call on exit
-     */
-    this.SetOnBack = function(callback) {
-        this._onBack = callback;
-        this.plg.Send("SetOnBack", "_phpPlugin._onBack");
-    }
-    
-    // =========================================================================
-    // View Accessors
-    // =========================================================================
-    
-    /**
-     * Get text from a view
-     * @param {string} viewId View ID
-     * @returns {string} Text content
-     */
-    this.GetViewText = function(viewId) {
-        return this.plg.Send("GetViewText", viewId);
-    }
-    
-    /**
-     * Set text on a view
-     * @param {string} viewId View ID
-     * @param {string} text Text to set
-     */
-    this.SetViewText = function(viewId, text) {
-        this.plg.Send("SetViewText", viewId, text);
-    }
-    
-    // =========================================================================
-    // Sensor / Native Call Bridge
-    // Convenience methods that request sensor data through the native handler
-    // registry. Results are automatically forwarded to PHP for processing.
-    // For custom handlers, use RegisterNativeHandler() and nativeCall() from PHP.
-    // =========================================================================
-    
-    /**
-     * Request GPS location (result goes to PHP)
-     * @param {string} [phpCallback="handle_gps"] PHP method to call with result
-     */
-    this.RequestLocation = function(phpCallback) {
-        phpCallback = phpCallback || "handle_gps";
-        this.plg.Send("InjectSensorCall", "location", phpCallback);
-    }
-    
-    /**
-     * Request battery status
-     * @param {string} [phpCallback="handle_battery"] PHP method
-     */
-    this.RequestBattery = function(phpCallback) {
-        phpCallback = phpCallback || "handle_battery";
-        this.plg.Send("InjectSensorCall", "battery", phpCallback);
-    }
-    
-    /**
-     * Request accelerometer reading
-     * @param {string} [phpCallback="handle_accelerometer"] PHP method
-     */
-    this.RequestAccelerometer = function(phpCallback) {
-        phpCallback = phpCallback || "handle_accelerometer";
-        this.plg.Send("InjectSensorCall", "accelerometer", phpCallback);
-    }
-    
-    /**
-     * Request compass/orientation reading
-     * @param {string} [phpCallback="handle_compass"] PHP method
-     */
-    this.RequestCompass = function(phpCallback) {
-        phpCallback = phpCallback || "handle_compass";
-        this.plg.Send("InjectSensorCall", "compass", phpCallback);
-    }
-    
-    /**
-     * Scan barcode/QR code
-     * @param {string} [phpCallback="handle_barcode"] PHP method
-     */
-    this.ScanBarcode = function(phpCallback) {
-        phpCallback = phpCallback || "handle_barcode";
-        this.plg.Send("InjectSensorCall", "barcode", phpCallback);
-    }
-    
-    /**
-     * Take a photo with camera
-     * @param {string} [phpCallback="handle_camera"] PHP method
-     */
-    this.TakePhoto = function(phpCallback) {
-        phpCallback = phpCallback || "handle_camera";
-        this.plg.Send("InjectSensorCall", "camera", phpCallback);
-    }
-    
-    /**
-     * Get WiFi status
-     * @param {string} [phpCallback="handle_wifi"] PHP method
-     */
-    this.RequestWifi = function(phpCallback) {
-        phpCallback = phpCallback || "handle_wifi";
-        this.plg.Send("InjectSensorCall", "wifi", phpCallback);
-    }
-    
-    /**
-     * Get Bluetooth status
-     * @param {string} [phpCallback="handle_bluetooth"] PHP method
-     */
-    this.RequestBluetooth = function(phpCallback) {
-        phpCallback = phpCallback || "handle_bluetooth";
-        this.plg.Send("InjectSensorCall", "bluetooth", phpCallback);
-    }
-    
-    /**
-     * Start speech recognition
-     * @param {string} [phpCallback="handle_speech"] PHP method
-     */
-    this.SpeechRecognition = function(phpCallback) {
-        phpCallback = phpCallback || "handle_speech";
-        this.plg.Send("InjectSensorCall", "speechrecognition", phpCallback);
-    }
-    
-    /**
-     * Vibrate the device
-     * @param {string} [pattern="500"] Vibration pattern in ms
-     */
-    this.Vibrate = function(pattern) {
-        pattern = pattern || "500";
-        this.plg.Send("InjectSensorCall", "vibrate", "handle_vibrate");
-    }
-    
-    /**
-     * Text to speech
-     * @param {string} text Text to speak
-     */
-    this.Speak = function(text) {
-        this.plg.Send("InjectSensorCall", "speech", "handle_speech");
-    }
-    
-    // =========================================================================
-    // Internal Sensor Result Handler (Called from Java)
-    // =========================================================================
-    
-    /**
-     * Internal method called by Java when a sensor returns data
-     * @param {string} sensorType Type of sensor
-     * @param {string} dataJson JSON data from sensor
-     */
-    this.OnSensorResult = function(sensorType, dataJson) {
-        // Forward to Java which will call PHP
-        this.plg.Send("OnInternalSensorResult", sensorType, dataJson);
-        
-        // Also call JS callback if set
-        if (self._onSensorResult) {
-            try {
-                var data = JSON.parse(dataJson);
-                self._onSensorResult(sensorType, data);
-            } catch (e) {
-                self._onSensorResult(sensorType, dataJson);
-            }
+    // Helper methods for the view (call on php object, not the view)
+    this.SetViewSize = function(w, h) {
+        if (this._directView && this._directView.setLayoutParams) {
+            var params = this._directView.getLayoutParams();
+            if (w != null && w != -1) params.width = Math.round(w * app.GetDisplayWidth());
+            if (h != null && h != -1) params.height = Math.round(h * app.GetDisplayHeight());
+            this._directView.setLayoutParams(params);
         }
     }
     
-    // =========================================================================
-    // Callbacks
-    // =========================================================================
-    
-    /**
-     * Set callback for PHP responses
-     * @param {function} callback function(response)
-     */
-    this.SetOnPhpResponse = function(callback) {
-        this._onPhpResponse = callback;
-        if (callback) {
-            this.plg.Send("SetOnPhpResponse", callback.name);
-        }
+    this.ShowView = function() {
+        if (this._directView) this._directView.setVisibility(0);
     }
     
-    /**
-     * Set callback for sensor results
-     * @param {function} callback function(sensorType, data)
-     */
-    this.SetOnSensorResult = function(callback) {
-        this._onSensorResult = callback;
-        if (callback) {
-            this.plg.Send("SetOnSensorResult", callback.name);
-        }
+    this.HideView = function() {
+        if (this._directView) this._directView.setVisibility(8);
     }
-    
-    /**
-     * Set callback when PHP/UI is ready
-     * @param {function} callback function()
-     */
-    this.SetOnReady = function(callback) {
-        this._onUiReady = callback;
-        if (callback) {
-            this.plg.Send("SetOnUiReady", callback.name);
-        }
-    }
-    
-    /**
-     * Set callback for errors
-     * @param {function} callback function(errorMessage)
-     */
-    this.SetOnError = function(callback) {
-        this._onError = callback;
-        if (callback) {
-            this.plg.Send("SetOnError", callback.name);
-        }
-    }
-}
-
-// =========================================================================
-// PHP Action Helper Classes (Maps to ui_core.php)
-// These allow building UI in JavaScript that matches PHP's fluent API
-// =========================================================================
-
-/**
- * Base UI Component class (mirrors PHP's Component)
- */
-function PhpComponent(type) {
-    this._type = type;
-    this._attrs = {};
-}
-
-PhpComponent.prototype.toJSON = function() {
-    var result = { type: this._type };
-    for (var key in this._attrs) {
-        result[key] = this._attrs[key];
-    }
-    return result;
-};
-
-// Dynamic attribute setter (fluent API)
-PhpComponent.prototype.attr = function(name, value) {
-    this._attrs[name] = value;
-    return this;
-};
-
-// Common attributes as methods
-["id", "text", "textSize", "textColor", "backgroundColor", "alpha", 
- "padding", "gravity", "textAllCaps", "enabled", "visibility",
- "action", "onLongClick", "onCheckedChange"].forEach(function(attr) {
-    PhpComponent.prototype[attr] = function(value) {
-        this._attrs[attr] = value;
-        return this;
-    };
-});
-
-/**
- * Create a TextView
- * @returns {PhpComponent}
- */
-function TextView() {
-    return new PhpComponent("TextView");
-}
-
-/**
- * Create a Button
- * @returns {PhpComponent}
- */
-function Button() {
-    return new PhpComponent("Button");
-}
-
-/**
- * Create a CheckBox
- * @returns {PhpComponent}
- */
-function CheckBox() {
-    return new PhpComponent("CheckBox");
-}
-
-/**
- * Create an EditText
- * @returns {PhpComponent}
- */
-function EditText() {
-    return new PhpComponent("EditText");
-}
-
-/**
- * Create an ImageView
- * @returns {PhpComponent}
- */
-function ImageView() {
-    return new PhpComponent("ImageView");
-}
-
-/**
- * Create a VerticalLayout with children
- * @param {Array} children Array of PhpComponent instances
- * @returns {object}
- */
-function VerticalLayout(children) {
-    return {
-        type: "VerticalLayout",
-        children: children.map(function(c) {
-            return c.toJSON ? c.toJSON() : c;
-        })
-    };
 }
